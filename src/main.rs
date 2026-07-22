@@ -5,41 +5,11 @@ use std::{
     path::PathBuf,
 };
 
+use apple_connector::load_all;
 use sqlx::{
     Connection,
     sqlite::{SqliteConnectOptions, SqliteConnection},
 };
-
-#[derive(Debug)]
-struct MessageRow {
-    row_id: i64,
-    guid: String,
-    text: Option<String>,
-    date_utc: Option<String>,
-    is_from_me: bool,
-    sender: Option<String>,
-}
-
-impl MessageRow {
-    fn direction(&self) -> &'static str {
-        if self.is_from_me { "sent" } else { "received" }
-    }
-
-    fn sender_label(&self) -> &str {
-        if self.is_from_me {
-            "me"
-        } else {
-            self.sender.as_deref().unwrap_or("unknown sender")
-        }
-    }
-
-    fn display_text(&self) -> &str {
-        self.text
-            .as_deref()
-            .filter(|text| !text.is_empty())
-            .unwrap_or("(empty text, may be in attributedBody)")
-    }
-}
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
@@ -68,40 +38,13 @@ async fn main() -> Result<(), Box<dyn Error>> {
         )
     })?;
 
-    let messages = sqlx::query_as!(
-        MessageRow,
-        r#"
-        SELECT
-            message.ROWID AS "row_id!",
-            message.guid AS "guid!",
-            message.text,
-            datetime(
-                message.date / 1000000000 + 978307200,
-                'unixepoch'
-            ) AS date_utc,
-            message.is_from_me AS "is_from_me!: bool",
-            handle.id AS sender
-        FROM message
-        LEFT JOIN handle ON message.handle_id = handle.ROWID
-        WHERE message.item_type = 0
-        ORDER BY message.date DESC
-        LIMIT 5
-        "#,
-    )
-    .fetch_all(&mut connection)
-    .await?;
+    let messages = load_all(&mut connection).await?;
 
-    for message in messages {
-        println!(
-            "{} | {} | {} | {} | {} | {}",
-            message.row_id,
-            message.date_utc.as_deref().unwrap_or("unknown date"),
-            message.direction(),
-            message.sender_label(),
-            message.guid,
-            message.display_text()
-        );
+    for message in &messages {
+        println!("{message:#?}\n");
     }
+
+    eprintln!("loaded {} messages", messages.len());
 
     Ok(())
 }
