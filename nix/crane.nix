@@ -21,7 +21,7 @@
     commonArgs = {
       inherit src;
       strictDeps = true;
-      buildInputs = [pkgs.libiconv];
+      buildInputs = [pkgs.libiconv pkgs.sqlite];
     };
     cargoArtifacts = craneLibNightly.buildDepsOnly commonArgs;
     individualCrateArgs =
