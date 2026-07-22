@@ -25,6 +25,15 @@ The program opens the Messages database read-only and prints the newest five
 message rows. If it reports that the database cannot be opened, Full Disk Access
 has not been applied to the process.
 
+## Fixtures
+
+An empty Messages schema and database live in [`fixtures/messages/`](fixtures/messages/).
+Use them for local development without reading your real `~/Library/Messages/chat.db`.
+
+```bash
+./fixtures/messages/create-empty-db.sh
+```
+
 ## License
 
 MIT
