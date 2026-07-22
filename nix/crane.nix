@@ -21,10 +21,15 @@
       );
     rustToolchain = rustToolchainFor pkgs;
     craneLibNightly = craneLib.overrideToolchain rustToolchainFor;
+    packageSources =
+      lib.fileset.fileFilter
+      (file: lib.hasInfix "/packages/apple-connector/" file.name)
+      projectRoot;
     src = lib.fileset.toSource {
       root = projectRoot;
       fileset = lib.fileset.unions [
         (craneLibNightly.fileset.commonCargoSources projectRoot)
+        packageSources
         (lib.fileset.maybeMissing (packageRoot + "/sqlx"))
         (lib.fileset.maybeMissing (packageRoot + "/fixtures/messages/attributed-body-hello.bin"))
         (lib.fileset.maybeMissing (packageRoot + "/fixtures/messages/attributed-body-long.bin"))
@@ -32,6 +37,7 @@
         (lib.fileset.maybeMissing (packageRoot + "/fixtures/messages/chat.schema.sql"))
         (lib.fileset.maybeMissing (projectRoot + "/packages/apple-typedstream/fixtures"))
         (lib.fileset.maybeMissing (projectRoot + "/packages/apple-typedstream/tests/snapshots"))
+        (lib.fileset.maybeMissing (projectRoot + "/docs/openapi.json"))
       ];
     };
     workspaceArgs = {

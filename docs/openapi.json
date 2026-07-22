@@ -1,0 +1,2311 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Apple Connector API",
+    "description": "Read-only HTTP API for Messages.app data backed by a live `chat.db` connection.\n\nPagination uses keyset cursors only (default limit 50, maximum 200, newest first). Offsets are not supported.\n\nAuthentication, TLS, and network exposure controls are expected to be enforced by an external reverse proxy or firewall. This service does not implement authentication or TLS.",
+    "license": {
+      "name": "MIT",
+      "identifier": "MIT"
+    },
+    "version": "1.0.0"
+  },
+  "servers": [
+    {
+      "url": "http://127.0.0.1:3000",
+      "description": "Default local development binding"
+    }
+  ],
+  "paths": {
+    "/healthz": {
+      "get": {
+        "tags": [
+          "health"
+        ],
+        "summary": "Health check",
+        "description": "Reports whether the read-only Messages database pool is healthy.",
+        "operationId": "getHealth",
+        "responses": {
+          "200": {
+            "description": "Database pool is healthy",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthStatusDto"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Database pool is unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthStatusDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/openapi.json": {
+      "get": {
+        "tags": [
+          "meta"
+        ],
+        "summary": "Get OpenAPI specification",
+        "description": "Returns the OpenAPI 3.1 contract served by this API.",
+        "operationId": "getOpenApiSpec",
+        "responses": {
+          "200": {
+            "description": "OpenAPI 3.1 specification",
+            "content": {
+              "application/json": {}
+            }
+          },
+          "500": {
+            "description": "Unexpected server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/attachments/{guid}": {
+      "get": {
+        "tags": [
+          "attachments"
+        ],
+        "summary": "Get attachment metadata",
+        "description": "Returns safe attachment metadata without local filesystem paths.",
+        "operationId": "getAttachment",
+        "parameters": [
+          {
+            "name": "guid",
+            "in": "path",
+            "description": "Attachment GUID.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "example": "at_0_1234567890ABCDEF"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Attachment metadata",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AttachmentDetailDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Attachment not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Messages database is unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/attachments/{guid}/content": {
+      "get": {
+        "tags": [
+          "attachments"
+        ],
+        "summary": "Download attachment content",
+        "description": "Streams attachment bytes with range and conditional request support.",
+        "operationId": "getAttachmentContent",
+        "parameters": [
+          {
+            "name": "guid",
+            "in": "path",
+            "description": "Attachment GUID.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "example": "at_0_1234567890ABCDEF"
+          },
+          {
+            "name": "Range",
+            "in": "header",
+            "description": "Byte range for partial content requests.",
+            "required": false,
+            "schema": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "example": "bytes=0-1023"
+          },
+          {
+            "name": "If-None-Match",
+            "in": "header",
+            "description": "Validator for conditional GET/HEAD requests.",
+            "required": false,
+            "schema": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "example": "\"abc123\""
+          },
+          {
+            "name": "If-Modified-Since",
+            "in": "header",
+            "description": "Timestamp validator for conditional GET/HEAD requests.",
+            "required": false,
+            "schema": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "example": "Mon, 01 Jan 2024 12:00:00 GMT"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Full attachment bytes",
+            "headers": {
+              "Accept-Ranges": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Always bytes"
+              },
+              "Content-Disposition": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Inline or attachment disposition with a safe filename"
+              },
+              "Content-Length": {
+                "schema": {
+                  "type": "integer",
+                  "format": "int64"
+                },
+                "description": "Full object length in bytes"
+              },
+              "Content-Type": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Resolved attachment MIME type"
+              },
+              "ETag": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Strong validator for conditional requests"
+              },
+              "Last-Modified": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Last modification time of the attachment bytes"
+              },
+              "X-Content-Type-Options": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Always nosniff"
+              }
+            },
+            "content": {
+              "application/octet-stream": {}
+            }
+          },
+          "206": {
+            "description": "Partial attachment bytes",
+            "headers": {
+              "Accept-Ranges": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Always bytes"
+              },
+              "Content-Disposition": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Inline or attachment disposition with a safe filename"
+              },
+              "Content-Length": {
+                "schema": {
+                  "type": "integer",
+                  "format": "int64"
+                },
+                "description": "Length of the returned byte range"
+              },
+              "Content-Range": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Byte range delivered and total size"
+              },
+              "Content-Type": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Resolved attachment MIME type"
+              },
+              "ETag": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Strong validator for conditional requests"
+              },
+              "Last-Modified": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Last modification time of the attachment bytes"
+              },
+              "X-Content-Type-Options": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Always nosniff"
+              }
+            },
+            "content": {
+              "application/octet-stream": {}
+            }
+          },
+          "304": {
+            "description": "Attachment bytes not modified",
+            "headers": {
+              "ETag": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Strong validator for conditional requests"
+              },
+              "Last-Modified": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Last modification time of the attachment bytes"
+              }
+            }
+          },
+          "404": {
+            "description": "Attachment not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "416": {
+            "description": "Requested byte range is not satisfiable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Messages database is unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "head": {
+        "tags": [
+          "attachments"
+        ],
+        "summary": "Check attachment content metadata",
+        "description": "Returns the same validators and length headers as GET without a response body.",
+        "operationId": "headAttachmentContent",
+        "parameters": [
+          {
+            "name": "guid",
+            "in": "path",
+            "description": "Attachment GUID.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "example": "at_0_1234567890ABCDEF"
+          },
+          {
+            "name": "If-None-Match",
+            "in": "header",
+            "description": "Validator for conditional GET/HEAD requests.",
+            "required": false,
+            "schema": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "example": "\"abc123\""
+          },
+          {
+            "name": "If-Modified-Since",
+            "in": "header",
+            "description": "Timestamp validator for conditional GET/HEAD requests.",
+            "required": false,
+            "schema": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "example": "Mon, 01 Jan 2024 12:00:00 GMT"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Attachment exists",
+            "headers": {
+              "Accept-Ranges": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Always bytes"
+              },
+              "Content-Length": {
+                "schema": {
+                  "type": "integer",
+                  "format": "int64"
+                },
+                "description": "Full object length in bytes"
+              },
+              "Content-Type": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Resolved attachment MIME type"
+              },
+              "ETag": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Strong validator for conditional requests"
+              },
+              "Last-Modified": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Last modification time of the attachment bytes"
+              },
+              "X-Content-Type-Options": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Always nosniff"
+              }
+            }
+          },
+          "304": {
+            "description": "Attachment bytes not modified",
+            "headers": {
+              "ETag": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Strong validator for conditional requests"
+              },
+              "Last-Modified": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Last modification time of the attachment bytes"
+              }
+            }
+          },
+          "404": {
+            "description": "Attachment not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Messages database is unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/chats": {
+      "get": {
+        "tags": [
+          "chats"
+        ],
+        "summary": "List chats",
+        "description": "Returns chats ordered by recent activity. Uses keyset pagination (newest first).",
+        "operationId": "listChats",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "Maximum number of items to return. Defaults to 50. Keyset pagination only; no offsets.",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 50,
+              "maximum": 200,
+              "minimum": 1
+            },
+            "style": "form",
+            "example": 50
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "description": "URL-safe versioned cursor for the next page. Results are ordered newest first.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "style": "form",
+            "example": "v1.eyJkYXRlIjoxNzA0MDk2MDAwfQ"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Paginated chat summaries",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChatPageDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid pagination parameters",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Messages database is unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/chats/{chat_id}": {
+      "get": {
+        "tags": [
+          "chats"
+        ],
+        "summary": "Get chat",
+        "description": "Returns metadata and participants for a single chat.",
+        "operationId": "getChat",
+        "parameters": [
+          {
+            "name": "chat_id",
+            "in": "path",
+            "description": "Internal chat row identifier.",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "example": 42
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Chat details",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChatDetailDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Chat not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Messages database is unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/chats/{chat_id}/messages": {
+      "get": {
+        "tags": [
+          "chats"
+        ],
+        "summary": "List chat messages",
+        "description": "Returns messages for a chat ordered newest first with keyset pagination.",
+        "operationId": "listChatMessages",
+        "parameters": [
+          {
+            "name": "chat_id",
+            "in": "path",
+            "description": "Internal chat row identifier.",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "example": 42
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "Maximum number of items to return. Defaults to 50. Keyset pagination only; no offsets.",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 50,
+              "maximum": 200,
+              "minimum": 1
+            },
+            "style": "form",
+            "example": 50
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "description": "URL-safe versioned cursor for the next page. Results are ordered newest first.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "style": "form",
+            "example": "v1.eyJkYXRlIjoxNzA0MDk2MDAwfQ"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Paginated messages for the chat",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessagePageDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid pagination parameters",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Chat not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Messages database is unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/messages": {
+      "get": {
+        "tags": [
+          "messages"
+        ],
+        "summary": "List messages",
+        "description": "Returns messages across all chats ordered newest first with keyset pagination.",
+        "operationId": "listMessages",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "Maximum number of items to return. Defaults to 50. Keyset pagination only; no offsets.",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 50,
+              "maximum": 200,
+              "minimum": 1
+            },
+            "style": "form",
+            "example": 50
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "description": "URL-safe versioned cursor for the next page. Results are ordered newest first.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "style": "form",
+            "example": "v1.eyJkYXRlIjoxNzA0MDk2MDAwfQ"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Paginated message summaries",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessagePageDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid pagination parameters",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Messages database is unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/messages/{guid}": {
+      "get": {
+        "tags": [
+          "messages"
+        ],
+        "summary": "Get message",
+        "description": "Returns a single message with full envelope metadata and tagged content.",
+        "operationId": "getMessage",
+        "parameters": [
+          {
+            "name": "guid",
+            "in": "path",
+            "description": "Message GUID.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "example": "A1B2C3D4-E5F6-7890-ABCD-EF1234567890"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Message details",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageDetailDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Message not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Messages database is unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "AppBalloonContentDto": {
+        "type": "object",
+        "required": [
+          "bundle_id",
+          "kind"
+        ],
+        "properties": {
+          "bundle_id": {
+            "type": "string"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/AppBalloonKindDto"
+          },
+          "text": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "AppBalloonKindDto": {
+        "oneOf": [
+          {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/UrlBalloonDto"
+              },
+              {
+                "type": "object",
+                "required": [
+                  "type"
+                ],
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "enum": [
+                      "url"
+                    ]
+                  }
+                }
+              }
+            ]
+          },
+          {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/PhotosBalloonDto"
+              },
+              {
+                "type": "object",
+                "required": [
+                  "type"
+                ],
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "enum": [
+                      "photos"
+                    ]
+                  }
+                }
+              }
+            ]
+          },
+          {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/PollBalloonDto"
+              },
+              {
+                "type": "object",
+                "required": [
+                  "type"
+                ],
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "enum": [
+                      "poll"
+                    ]
+                  }
+                }
+              }
+            ]
+          },
+          {
+            "type": "object",
+            "required": [
+              "type"
+            ],
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": [
+                  "digital_touch"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "payload",
+              "type"
+            ],
+            "properties": {
+              "payload": {
+                "$ref": "#/components/schemas/OpaquePayloadDto"
+              },
+              "type": {
+                "type": "string",
+                "enum": [
+                  "unknown"
+                ]
+              }
+            }
+          }
+        ]
+      },
+      "AttachmentContentDto": {
+        "type": "object",
+        "required": [
+          "body",
+          "attachments"
+        ],
+        "properties": {
+          "attachments": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AttachmentSummaryDto"
+            }
+          },
+          "body": {
+            "$ref": "#/components/schemas/MessageBodyDto"
+          }
+        }
+      },
+      "AttachmentDetailDto": {
+        "type": "object",
+        "required": [
+          "guid",
+          "original_guid",
+          "total_bytes",
+          "kind",
+          "transfer_complete",
+          "present_on_disk",
+          "hide_attachment",
+          "metadata_url",
+          "content_url"
+        ],
+        "properties": {
+          "content_url": {
+            "type": "string",
+            "example": "/v1/attachments/at_0_1234567890ABCDEF/content"
+          },
+          "emoji_description": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "guid": {
+            "type": "string"
+          },
+          "hide_attachment": {
+            "type": "boolean"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/AttachmentKindDto"
+          },
+          "metadata_url": {
+            "type": "string",
+            "example": "/v1/attachments/at_0_1234567890ABCDEF"
+          },
+          "mime_type": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "original_guid": {
+            "type": "string"
+          },
+          "present_on_disk": {
+            "type": "boolean"
+          },
+          "total_bytes": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "transfer_complete": {
+            "type": "boolean"
+          },
+          "transfer_name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "uti": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "AttachmentGuidPath": {
+        "type": "object",
+        "required": [
+          "guid"
+        ],
+        "properties": {
+          "guid": {
+            "type": "string",
+            "description": "Attachment GUID."
+          }
+        }
+      },
+      "AttachmentKindDto": {
+        "oneOf": [
+          {
+            "type": "object",
+            "required": [
+              "sticker"
+            ],
+            "properties": {
+              "sticker": {
+                "type": "object",
+                "required": [
+                  "animated"
+                ],
+                "properties": {
+                  "animated": {
+                    "type": "boolean"
+                  }
+                }
+              }
+            }
+          },
+          {
+            "type": "string",
+            "enum": [
+              "image"
+            ]
+          },
+          {
+            "type": "string",
+            "enum": [
+              "video"
+            ]
+          },
+          {
+            "type": "string",
+            "enum": [
+              "audio"
+            ]
+          },
+          {
+            "type": "string",
+            "enum": [
+              "file"
+            ]
+          },
+          {
+            "type": "string",
+            "enum": [
+              "unknown"
+            ]
+          }
+        ]
+      },
+      "AttachmentSummaryDto": {
+        "type": "object",
+        "required": [
+          "guid",
+          "original_guid",
+          "total_bytes",
+          "kind",
+          "transfer_complete",
+          "present_on_disk",
+          "hide_attachment",
+          "metadata_url",
+          "content_url"
+        ],
+        "properties": {
+          "content_url": {
+            "type": "string",
+            "description": "Safe relative link to attachment bytes.",
+            "example": "/v1/attachments/at_0_1234567890ABCDEF/content"
+          },
+          "guid": {
+            "type": "string"
+          },
+          "hide_attachment": {
+            "type": "boolean"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/AttachmentKindDto"
+          },
+          "metadata_url": {
+            "type": "string",
+            "description": "Safe relative link to attachment metadata.",
+            "example": "/v1/attachments/at_0_1234567890ABCDEF"
+          },
+          "mime_type": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "original_guid": {
+            "type": "string"
+          },
+          "present_on_disk": {
+            "type": "boolean"
+          },
+          "total_bytes": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "transfer_complete": {
+            "type": "boolean"
+          },
+          "transfer_name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "uti": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "AttributedBodyErrorDto": {
+        "type": "string",
+        "enum": [
+          "invalid_typed_stream",
+          "not_attributed_string",
+          "missing_text"
+        ]
+      },
+      "AudioContentDto": {
+        "type": "object",
+        "required": [
+          "body",
+          "attachments"
+        ],
+        "properties": {
+          "attachments": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AttachmentSummaryDto"
+            }
+          },
+          "body": {
+            "$ref": "#/components/schemas/MessageBodyDto"
+          }
+        }
+      },
+      "ChatDetailDto": {
+        "type": "object",
+        "required": [
+          "id",
+          "guid",
+          "is_group",
+          "transport",
+          "participants"
+        ],
+        "properties": {
+          "display_name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "guid": {
+            "type": "string"
+          },
+          "id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "identifier": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "is_group": {
+            "type": "boolean"
+          },
+          "participants": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/HandleDto"
+            }
+          },
+          "room_name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "transport": {
+            "$ref": "#/components/schemas/TransportDto"
+          }
+        }
+      },
+      "ChatIdPath": {
+        "type": "object",
+        "required": [
+          "chat_id"
+        ],
+        "properties": {
+          "chat_id": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Internal chat row identifier."
+          }
+        }
+      },
+      "ChatPageDto": {
+        "type": "object",
+        "required": [
+          "items",
+          "page"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ChatSummaryDto"
+            }
+          },
+          "page": {
+            "$ref": "#/components/schemas/PageMetaDto"
+          }
+        }
+      },
+      "ChatSummaryDto": {
+        "type": "object",
+        "required": [
+          "id",
+          "guid",
+          "is_group",
+          "transport",
+          "participant_count"
+        ],
+        "properties": {
+          "display_name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "guid": {
+            "type": "string"
+          },
+          "id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "is_group": {
+            "type": "boolean"
+          },
+          "participant_count": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "transport": {
+            "$ref": "#/components/schemas/TransportDto"
+          }
+        }
+      },
+      "ConditionalRequestHeaders": {
+        "type": "object",
+        "properties": {
+          "if_modified_since": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Timestamp validator for conditional GET/HEAD requests."
+          },
+          "if_none_match": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Validator for conditional GET/HEAD requests."
+          }
+        }
+      },
+      "DirectionDto": {
+        "type": "string",
+        "enum": [
+          "sent",
+          "received"
+        ]
+      },
+      "ErrorBody": {
+        "type": "object",
+        "required": [
+          "code",
+          "message"
+        ],
+        "properties": {
+          "code": {
+            "$ref": "#/components/schemas/ErrorCode"
+          },
+          "details": {},
+          "message": {
+            "type": "string"
+          }
+        }
+      },
+      "ErrorCode": {
+        "type": "string",
+        "enum": [
+          "validation_error",
+          "not_found",
+          "range_not_satisfiable",
+          "service_unavailable",
+          "internal_error"
+        ]
+      },
+      "ErrorResponse": {
+        "type": "object",
+        "required": [
+          "error"
+        ],
+        "properties": {
+          "error": {
+            "$ref": "#/components/schemas/ErrorBody"
+          }
+        }
+      },
+      "GroupActionKindDto": {
+        "type": "string",
+        "enum": [
+          "participant_added",
+          "participant_removed",
+          "name_change",
+          "participant_left",
+          "group_icon_changed",
+          "group_icon_removed",
+          "chat_background_changed",
+          "chat_background_removed",
+          "phone_number_changed",
+          "unknown"
+        ]
+      },
+      "GroupEventContentDto": {
+        "type": "object",
+        "required": [
+          "action"
+        ],
+        "properties": {
+          "action": {
+            "$ref": "#/components/schemas/GroupActionKindDto"
+          },
+          "actor": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "title": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "HandleDto": {
+        "type": "object",
+        "required": [
+          "id",
+          "service"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "service": {
+            "type": "string"
+          }
+        }
+      },
+      "HealthStatusDto": {
+        "type": "object",
+        "required": [
+          "status"
+        ],
+        "properties": {
+          "status": {
+            "type": "string",
+            "example": "ok"
+          }
+        }
+      },
+      "MessageBodyDto": {
+        "type": "object",
+        "properties": {
+          "attributed_body_error": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/AttributedBodyErrorDto"
+              }
+            ]
+          },
+          "text": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "MessageContentDto": {
+        "oneOf": [
+          {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/TextContentDto"
+              },
+              {
+                "type": "object",
+                "required": [
+                  "type"
+                ],
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "enum": [
+                      "text"
+                    ]
+                  }
+                }
+              }
+            ]
+          },
+          {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/AudioContentDto"
+              },
+              {
+                "type": "object",
+                "required": [
+                  "type"
+                ],
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "enum": [
+                      "audio"
+                    ]
+                  }
+                }
+              }
+            ]
+          },
+          {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/AttachmentContentDto"
+              },
+              {
+                "type": "object",
+                "required": [
+                  "type"
+                ],
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "enum": [
+                      "attachment"
+                    ]
+                  }
+                }
+              }
+            ]
+          },
+          {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ReactionContentDto"
+              },
+              {
+                "type": "object",
+                "required": [
+                  "type"
+                ],
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "enum": [
+                      "reaction"
+                    ]
+                  }
+                }
+              }
+            ]
+          },
+          {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/GroupEventContentDto"
+              },
+              {
+                "type": "object",
+                "required": [
+                  "type"
+                ],
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "enum": [
+                      "group_event"
+                    ]
+                  }
+                }
+              }
+            ]
+          },
+          {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/AppBalloonContentDto"
+              },
+              {
+                "type": "object",
+                "required": [
+                  "type"
+                ],
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "enum": [
+                      "app_balloon"
+                    ]
+                  }
+                }
+              }
+            ]
+          },
+          {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/SharePlayContentDto"
+              },
+              {
+                "type": "object",
+                "required": [
+                  "type"
+                ],
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "enum": [
+                      "share_play"
+                    ]
+                  }
+                }
+              }
+            ]
+          },
+          {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ShareMyLocationContentDto"
+              },
+              {
+                "type": "object",
+                "required": [
+                  "type"
+                ],
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "enum": [
+                      "share_my_location"
+                    ]
+                  }
+                }
+              }
+            ]
+          },
+          {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/SystemContentDto"
+              },
+              {
+                "type": "object",
+                "required": [
+                  "type"
+                ],
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "enum": [
+                      "system"
+                    ]
+                  }
+                }
+              }
+            ]
+          },
+          {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/UnknownContentDto"
+              },
+              {
+                "type": "object",
+                "required": [
+                  "type"
+                ],
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "enum": [
+                      "unknown"
+                    ]
+                  }
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "MessageDetailDto": {
+        "type": "object",
+        "required": [
+          "guid",
+          "direction",
+          "transport",
+          "chat_ids",
+          "content"
+        ],
+        "properties": {
+          "chat_ids": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          "content": {
+            "$ref": "#/components/schemas/MessageContentDto"
+          },
+          "direction": {
+            "$ref": "#/components/schemas/DirectionDto"
+          },
+          "edited_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time",
+            "example": "2024-01-15T12:10:00Z"
+          },
+          "guid": {
+            "type": "string"
+          },
+          "read_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time",
+            "example": "2024-01-15T12:05:00Z"
+          },
+          "reply_to_guid": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "retracted_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "sender": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/HandleDto"
+              }
+            ]
+          },
+          "sent_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time",
+            "example": "2024-01-15T12:00:00Z"
+          },
+          "thread_originator_guid": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "transport": {
+            "$ref": "#/components/schemas/TransportDto"
+          }
+        }
+      },
+      "MessageGuidPath": {
+        "type": "object",
+        "required": [
+          "guid"
+        ],
+        "properties": {
+          "guid": {
+            "type": "string",
+            "description": "Message GUID."
+          }
+        }
+      },
+      "MessagePageDto": {
+        "type": "object",
+        "required": [
+          "items",
+          "page"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MessageSummaryDto"
+            }
+          },
+          "page": {
+            "$ref": "#/components/schemas/PageMetaDto"
+          }
+        }
+      },
+      "MessageSummaryDto": {
+        "type": "object",
+        "required": [
+          "guid",
+          "direction",
+          "transport",
+          "content"
+        ],
+        "properties": {
+          "content": {
+            "$ref": "#/components/schemas/MessageContentDto"
+          },
+          "direction": {
+            "$ref": "#/components/schemas/DirectionDto"
+          },
+          "guid": {
+            "type": "string"
+          },
+          "sender": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/HandleDto"
+              }
+            ]
+          },
+          "sent_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time",
+            "example": "2024-01-15T12:00:00Z"
+          },
+          "transport": {
+            "$ref": "#/components/schemas/TransportDto"
+          }
+        }
+      },
+      "OpaquePayloadDto": {
+        "type": "object",
+        "required": [
+          "present"
+        ],
+        "properties": {
+          "present": {
+            "type": "boolean"
+          },
+          "size_bytes": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "example": 1024,
+            "minimum": 0
+          }
+        }
+      },
+      "PageMetaDto": {
+        "type": "object",
+        "required": [
+          "limit",
+          "has_more"
+        ],
+        "properties": {
+          "has_more": {
+            "type": "boolean",
+            "description": "Whether additional items exist beyond this page."
+          },
+          "limit": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Applied page size for this response.",
+            "example": 50,
+            "maximum": 200,
+            "minimum": 1
+          },
+          "next_cursor": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "URL-safe versioned cursor for the next page when `has_more` is true.",
+            "example": "v1.eyJkYXRlIjoxNzA0MDk2MDAwfQ"
+          }
+        }
+      },
+      "PageParams": {
+        "type": "object",
+        "properties": {
+          "cursor": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "URL-safe versioned cursor for the next page. Results are ordered newest first."
+          },
+          "limit": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "description": "Maximum number of items to return. Defaults to 50. Keyset pagination only; no offsets.",
+            "minimum": 0
+          }
+        }
+      },
+      "PhotosBalloonDto": {
+        "type": "object",
+        "properties": {
+          "caption": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "url": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "PollBalloonDto": {
+        "type": "object",
+        "required": [
+          "options"
+        ],
+        "properties": {
+          "options": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PollOptionDto"
+            }
+          },
+          "title": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "PollOptionDto": {
+        "type": "object",
+        "required": [
+          "text",
+          "option_id"
+        ],
+        "properties": {
+          "option_id": {
+            "type": "string"
+          },
+          "text": {
+            "type": "string"
+          }
+        }
+      },
+      "RangeRequestHeader": {
+        "type": "object",
+        "properties": {
+          "range": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Byte range for partial content requests."
+          }
+        }
+      },
+      "ReactionActionDto": {
+        "type": "string",
+        "enum": [
+          "added",
+          "removed"
+        ]
+      },
+      "ReactionContentDto": {
+        "type": "object",
+        "required": [
+          "kind"
+        ],
+        "properties": {
+          "kind": {
+            "$ref": "#/components/schemas/ReactionKindDto"
+          },
+          "target_guid": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "ReactionKindDto": {
+        "oneOf": [
+          {
+            "type": "object",
+            "required": [
+              "tapback",
+              "action",
+              "type"
+            ],
+            "properties": {
+              "action": {
+                "$ref": "#/components/schemas/ReactionActionDto"
+              },
+              "tapback": {
+                "$ref": "#/components/schemas/TapbackDto"
+              },
+              "type": {
+                "type": "string",
+                "enum": [
+                  "tapback"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "type"
+            ],
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": [
+                  "apple_pay"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "code",
+              "type"
+            ],
+            "properties": {
+              "code": {
+                "type": "integer",
+                "format": "int64"
+              },
+              "type": {
+                "type": "string",
+                "enum": [
+                  "unknown"
+                ]
+              }
+            }
+          }
+        ]
+      },
+      "ShareMyLocationContentDto": {
+        "type": "object",
+        "required": [
+          "status"
+        ],
+        "properties": {
+          "other_handle": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "status": {
+            "$ref": "#/components/schemas/ShareMyLocationStatusDto"
+          }
+        }
+      },
+      "ShareMyLocationStatusDto": {
+        "type": "string",
+        "enum": [
+          "started",
+          "stopped"
+        ]
+      },
+      "SharePlayContentDto": {
+        "type": "object",
+        "required": [
+          "payload"
+        ],
+        "properties": {
+          "payload": {
+            "$ref": "#/components/schemas/OpaquePayloadDto"
+          },
+          "text": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "SystemContentDto": {
+        "type": "object",
+        "required": [
+          "is_system",
+          "is_service"
+        ],
+        "properties": {
+          "is_service": {
+            "type": "boolean"
+          },
+          "is_system": {
+            "type": "boolean"
+          },
+          "text": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "TapbackDto": {
+        "type": "string",
+        "enum": [
+          "love",
+          "like",
+          "dislike",
+          "laugh",
+          "emphasize",
+          "question",
+          "unknown"
+        ]
+      },
+      "TextContentDto": {
+        "type": "object",
+        "required": [
+          "body",
+          "is_forward",
+          "is_auto_reply"
+        ],
+        "properties": {
+          "body": {
+            "$ref": "#/components/schemas/MessageBodyDto"
+          },
+          "is_auto_reply": {
+            "type": "boolean"
+          },
+          "is_forward": {
+            "type": "boolean"
+          }
+        }
+      },
+      "TransportDto": {
+        "type": "string",
+        "enum": [
+          "imessage",
+          "sms",
+          "rcs",
+          "unknown"
+        ]
+      },
+      "UnknownContentDto": {
+        "type": "object",
+        "required": [
+          "item_type",
+          "associated_message_type",
+          "attachments"
+        ],
+        "properties": {
+          "associated_message_type": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "attachments": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AttachmentSummaryDto"
+            }
+          },
+          "item_type": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "text": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "UrlBalloonDto": {
+        "type": "object",
+        "properties": {
+          "summary": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "title": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "url": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      }
+    },
+    "securitySchemes": {
+      "reverse_proxy": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "description": "Authentication is expected to be enforced by an external reverse proxy or firewall. This API does not implement authentication or TLS."
+      }
+    }
+  },
+  "security": [
+    {
+      "reverse_proxy": []
+    }
+  ],
+  "tags": [
+    {
+      "name": "health",
+      "description": "Health and readiness probes"
+    },
+    {
+      "name": "chats",
+      "description": "Chat listing and chat-scoped messages"
+    },
+    {
+      "name": "messages",
+      "description": "Global message listing and lookup"
+    },
+    {
+      "name": "attachments",
+      "description": "Attachment metadata and byte streaming"
+    },
+    {
+      "name": "meta",
+      "description": "API metadata and contract export"
+    }
+  ]
+}

@@ -1,41 +1,72 @@
-use axum::{Json, Router, extract::State, http::StatusCode, routing::get};
-use serde::Serialize;
+use axum::{Json, extract::State, http::StatusCode};
 use sqlx::SqlitePool;
 
-use crate::db::is_pool_healthy;
+use crate::{
+    api::{
+        dto::{ChatPageDto, PageMetaDto, common::HealthStatusDto},
+        params::PageParams,
+        router::AppState,
+    },
+    db::is_pool_healthy,
+};
 
-#[derive(Clone)]
-pub struct AppState {
-    pub db: Option<SqlitePool>,
+pub(crate) fn require_db(
+    pool: &Option<SqlitePool>,
+) -> Result<&SqlitePool, crate::api::error::ApiError> {
+    pool.as_ref().ok_or_else(|| {
+        crate::api::error::ApiError::service_unavailable("Messages database is unavailable")
+    })
 }
 
-#[derive(Serialize)]
-struct HealthResponse {
-    status: &'static str,
+pub(crate) fn validate_page(page: &PageParams) -> Result<u32, crate::api::error::ApiError> {
+    page.validated_limit()?;
+    page.validated_cursor()?;
+    page.validated_limit()
 }
 
-pub fn router(state: AppState) -> Router {
-    Router::new()
-        .route("/healthz", get(healthz))
-        .with_state(state)
-}
-
-async fn healthz(State(state): State<AppState>) -> (StatusCode, Json<HealthResponse>) {
+/// Health check
+///
+/// Reports whether the read-only Messages database pool is healthy.
+#[utoipa::path(
+    get,
+    path = "/healthz",
+    operation_id = "getHealth",
+    tag = "health",
+    responses(
+        (status = 200, description = "Database pool is healthy", body = HealthStatusDto),
+        (status = 503, description = "Database pool is unavailable", body = HealthStatusDto),
+    )
+)]
+pub async fn healthz(
+    State(state): State<AppState>,
+) -> Result<(StatusCode, Json<HealthStatusDto>), (StatusCode, Json<HealthStatusDto>)> {
     let healthy = match &state.db {
         Some(pool) => is_pool_healthy(pool).await,
         None => false,
     };
 
     if healthy {
-        (StatusCode::OK, Json(HealthResponse { status: "ok" }))
-    } else {
-        (
-            StatusCode::SERVICE_UNAVAILABLE,
-            Json(HealthResponse {
-                status: "unavailable",
+        Ok((
+            StatusCode::OK,
+            Json(HealthStatusDto {
+                status: "ok".to_owned(),
             }),
-        )
+        ))
+    } else {
+        Err((
+            StatusCode::SERVICE_UNAVAILABLE,
+            Json(HealthStatusDto {
+                status: "unavailable".to_owned(),
+            }),
+        ))
     }
+}
+
+pub(crate) fn empty_chat_page(limit: u32) -> Json<ChatPageDto> {
+    Json(ChatPageDto {
+        items: Vec::new(),
+        page: PageMetaDto::empty(limit),
+    })
 }
 
 #[cfg(test)]
@@ -45,8 +76,11 @@ mod tests {
     use http_body_util::BodyExt;
     use tower::ServiceExt;
 
-    use super::{AppState, router};
-    use crate::{db::connect_pool, fixtures::FixtureDb};
+    use crate::{
+        api::router::{AppState, router},
+        db::connect_pool,
+        fixtures::FixtureDb,
+    };
 
     #[tokio::test]
     async fn healthz_reports_ok_for_healthy_database() {
@@ -54,7 +88,7 @@ mod tests {
         let pool = connect_pool(fixture.path())
             .await
             .expect("connect read-only pool");
-        let app = router(AppState { db: Some(pool) });
+        let app = router(AppState::new(Some(pool)));
 
         let response = app
             .oneshot(
@@ -82,7 +116,7 @@ mod tests {
 
     #[tokio::test]
     async fn healthz_reports_unavailable_without_leaking_paths() {
-        let app = router(AppState { db: None });
+        let app = router(AppState::new(None));
 
         let response = app
             .oneshot(
@@ -109,31 +143,5 @@ mod tests {
         );
         assert!(!payload.contains("chat.db"));
         assert!(!payload.contains("Library/Messages"));
-    }
-
-    #[tokio::test]
-    async fn healthz_reports_unavailable_for_missing_database_path() {
-        let app = router(AppState { db: None });
-
-        let response = app
-            .oneshot(
-                Request::builder()
-                    .uri("/healthz")
-                    .body(Body::empty())
-                    .expect("request"),
-            )
-            .await
-            .expect("response");
-
-        assert_eq!(response.status(), StatusCode::SERVICE_UNAVAILABLE);
-    }
-
-    #[test]
-    fn health_response_never_contains_database_path() {
-        let serialized = serde_json::to_string(&super::HealthResponse {
-            status: "unavailable",
-        })
-        .expect("serialize");
-        assert!(!serialized.contains("/Users/test/Library/Messages/chat.db"));
     }
 }
