@@ -3,7 +3,7 @@ use chrono::{DateTime, Utc};
 /// Seconds between the Unix epoch (1970-01-01) and the Apple/Cocoa epoch (2001-01-01).
 const APPLE_EPOCH_UNIX_SECS: i64 = 978_307_200;
 
-#[derive(Debug)]
+#[derive(Debug, sqlx::FromRow)]
 pub struct MessageRow {
     pub row_id: i64,
     pub guid: String,
@@ -43,7 +43,7 @@ pub struct MessageRow {
     pub expressive_send_style_id: Option<String>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, sqlx::FromRow)]
 pub struct ChatRow {
     pub row_id: i64,
     pub guid: String,
@@ -54,13 +54,13 @@ pub struct ChatRow {
     pub style: Option<i64>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, sqlx::FromRow)]
 pub struct ChatMessageJoinRow {
     pub chat_id: i64,
     pub message_id: i64,
 }
 
-#[derive(Debug)]
+#[derive(Debug, sqlx::FromRow)]
 pub struct ChatHandleJoinRow {
     pub chat_id: i64,
     pub handle_id: String,
@@ -80,7 +80,7 @@ pub fn parse_apple_timestamp(nanos_since_apple_epoch: i64) -> Option<DateTime<Ut
     DateTime::from_timestamp(secs, nsecs)
 }
 
-#[derive(Debug)]
+#[derive(Debug, sqlx::FromRow)]
 pub struct AttachmentRow {
     pub message_id: i64,
     pub guid: String,

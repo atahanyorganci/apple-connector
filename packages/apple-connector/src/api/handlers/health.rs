@@ -2,11 +2,7 @@ use axum::{Json, extract::State, http::StatusCode};
 use sqlx::SqlitePool;
 
 use crate::{
-    api::{
-        dto::{ChatPageDto, PageMetaDto, common::HealthStatusDto},
-        params::PageParams,
-        router::AppState,
-    },
+    api::{dto::common::HealthStatusDto, params::PageParams, router::AppState},
     db::is_pool_healthy,
 };
 
@@ -60,13 +56,6 @@ pub async fn healthz(
             }),
         ))
     }
-}
-
-pub(crate) fn empty_chat_page(limit: u32) -> Json<ChatPageDto> {
-    Json(ChatPageDto {
-        items: Vec::new(),
-        page: PageMetaDto::empty(limit),
-    })
 }
 
 #[cfg(test)]
