@@ -6,7 +6,7 @@ mod messages;
 
 use std::{error::Error, io::Error as IoError, net::SocketAddr};
 
-pub use api::{AppState, router};
+pub use api::{AppState, build_openapi_spec, router};
 pub use cli::{Cli, default_database_path};
 pub use db::{DatabaseError, connect_pool, database_open_failure, ensure_database_exists};
 pub use messages::{
@@ -40,7 +40,7 @@ pub async fn run(cli: Cli) -> Result<(), Box<dyn Error>> {
         }
     };
 
-    let app = router(AppState { db });
+    let app = router(AppState::new(db));
     let address: SocketAddr = cli
         .socket_addr()
         .parse()

@@ -4,6 +4,10 @@ version = "0.1.0"
 edition = "2024"
 license = "MIT"
 
+[[bin]]
+name = "export-openapi"
+path = "src/bin/export-openapi.rs"
+
 [dependencies]
 apple-typedstream = { path = "../apple-typedstream" }
 axum = "0.8"
