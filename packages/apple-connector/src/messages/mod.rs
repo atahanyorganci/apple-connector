@@ -1,3 +1,4 @@
+mod assembly;
 mod attachments;
 mod attributed_body;
 mod balloon;
@@ -5,7 +6,9 @@ mod classify;
 mod inventory;
 mod load;
 mod model;
+pub(crate) mod repository;
 mod row;
+mod sql;
 mod threads;
 
 pub use inventory::MessageInventory;

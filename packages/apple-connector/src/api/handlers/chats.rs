@@ -3,12 +3,19 @@ use axum::{
     extract::{Query, State},
 };
 
-use super::health::{empty_chat_page, require_db, validate_page};
-use crate::api::{
-    dto::{ChatDetailDto, ChatPageDto, MessagePageDto, PageMetaDto},
-    error::{ApiError, ErrorResponse},
-    params::{ChatIdPath, PageParams},
-    router::AppState,
+use super::health::{require_db, validate_page};
+use crate::{
+    api::{
+        cursor::{ChatListCursor, ChatMessageCursor, decode},
+        dto::{
+            ChatDetailDto, ChatPageDto, MessagePageDto, PageMetaDto,
+            convert::{chat_detail_to_dto, chat_summary_to_dto, message_summary_to_dto},
+        },
+        error::{ApiError, ErrorResponse},
+        params::{ChatIdPath, PageParams},
+        router::AppState,
+    },
+    messages::repository::{ChatLookupError, MessageRepository},
 };
 
 /// List chats
@@ -31,10 +38,26 @@ pub async fn list_chats(
     State(state): State<AppState>,
     Query(page): Query<PageParams>,
 ) -> Result<Json<ChatPageDto>, ApiError> {
-    require_db(&state.db)?;
+    let pool = require_db(&state.db)?;
     let limit = validate_page(&page)?;
-    let _ = limit;
-    Ok(empty_chat_page(limit))
+    let cursor = page
+        .validated_cursor()?
+        .map(decode::<ChatListCursor>)
+        .transpose()?;
+
+    let page = MessageRepository::new(pool)
+        .list_chats(limit, cursor)
+        .await
+        .map_err(|error| ApiError::internal(error.to_string()))?;
+
+    Ok(Json(ChatPageDto {
+        items: page.items.iter().map(chat_summary_to_dto).collect(),
+        page: PageMetaDto {
+            limit,
+            has_more: page.has_more,
+            next_cursor: page.next_cursor,
+        },
+    }))
 }
 
 /// Get chat
@@ -57,8 +80,14 @@ pub async fn get_chat(
     State(state): State<AppState>,
     axum::extract::Path(ChatIdPath { chat_id }): axum::extract::Path<ChatIdPath>,
 ) -> Result<Json<ChatDetailDto>, ApiError> {
-    require_db(&state.db)?;
-    Err(ApiError::not_found(format!("chat {chat_id} not found")))
+    let pool = require_db(&state.db)?;
+    let chat = MessageRepository::new(pool)
+        .get_chat(chat_id)
+        .await
+        .map_err(|error| ApiError::internal(error.to_string()))?
+        .ok_or_else(|| ApiError::not_found(format!("chat {chat_id} not found")))?;
+
+    Ok(Json(chat_detail_to_dto(&chat)))
 }
 
 /// List chat messages
@@ -86,15 +115,81 @@ pub async fn list_chat_messages(
     axum::extract::Path(ChatIdPath { chat_id }): axum::extract::Path<ChatIdPath>,
     Query(page): Query<PageParams>,
 ) -> Result<Json<MessagePageDto>, ApiError> {
-    require_db(&state.db)?;
+    let pool = require_db(&state.db)?;
     let limit = validate_page(&page)?;
-    let _ = (chat_id, limit);
-    Err(ApiError::not_found(format!("chat {chat_id} not found")))
+    let cursor = page
+        .validated_cursor()?
+        .map(decode::<ChatMessageCursor>)
+        .transpose()?;
+
+    let page = MessageRepository::new(pool)
+        .list_chat_messages(chat_id, limit, cursor)
+        .await
+        .map_err(|error| ApiError::internal(error.to_string()))?;
+
+    match page {
+        Err(ChatLookupError::NotFound) => {
+            Err(ApiError::not_found(format!("chat {chat_id} not found")))
+        }
+        Ok(page) => Ok(Json(message_page_to_dto(page, limit))),
+    }
 }
 
-pub(crate) fn empty_message_page(limit: u32) -> Json<MessagePageDto> {
-    Json(MessagePageDto {
-        items: Vec::new(),
-        page: PageMetaDto::empty(limit),
-    })
+pub(crate) fn message_page_to_dto(
+    page: crate::messages::repository::Page<crate::messages::Message>,
+    limit: u32,
+) -> MessagePageDto {
+    MessagePageDto {
+        items: page.items.iter().map(message_summary_to_dto).collect(),
+        page: PageMetaDto {
+            limit,
+            has_more: page.has_more,
+            next_cursor: page.next_cursor,
+        },
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use axum::body::Body;
+    use http::{Request, StatusCode};
+    use http_body_util::BodyExt;
+    use tower::ServiceExt;
+
+    use crate::{
+        api::router::{AppState, router},
+        db::connect_pool,
+        fixtures::FixtureDb,
+    };
+
+    #[tokio::test]
+    async fn list_chats_returns_seeded_chat() {
+        let fixture = FixtureDb::seeded().await.expect("seeded fixture");
+        let pool = connect_pool(fixture.path()).await.expect("connect pool");
+        let app = router(AppState::new(Some(pool)));
+
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .uri("/v1/chats")
+                    .body(Body::empty())
+                    .expect("request"),
+            )
+            .await
+            .expect("response");
+
+        assert_eq!(response.status(), StatusCode::OK);
+
+        let body = response
+            .into_body()
+            .collect()
+            .await
+            .expect("body")
+            .to_bytes();
+        let payload: serde_json::Value = serde_json::from_slice(&body).expect("json");
+        assert_eq!(
+            payload["items"].as_array().map(|items| items.len()),
+            Some(1)
+        );
+    }
 }
