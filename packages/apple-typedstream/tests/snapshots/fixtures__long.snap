@@ -1,0 +1,51 @@
+---
+source: packages/apple-typedstream/tests/fixtures.rs
+expression: value
+---
+Archived(
+    ArchivedObject {
+        classes: [
+            Class {
+                name: "NSAttributedString",
+                version: 0,
+            },
+            Class {
+                name: "NSObject",
+                version: 0,
+            },
+        ],
+        fields: [
+            TypedValues {
+                encoding: "@",
+                values: [
+                    String(
+                        "fixture: long Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed nibh velit, tristique eu mi at, rhoncus tincidunt turpis. Donec vitae interdum metus, at placerat justo.",
+                    ),
+                ],
+            },
+            TypedValues {
+                encoding: "iI",
+                values: [
+                    I64(
+                        1,
+                    ),
+                    U64(
+                        179,
+                    ),
+                ],
+            },
+            TypedValues {
+                encoding: "@",
+                values: [
+                    Map(
+                        {
+                            "__kIMMessagePartAttributeName": I64(
+                                0,
+                            ),
+                        },
+                    ),
+                ],
+            },
+        ],
+    },
+)

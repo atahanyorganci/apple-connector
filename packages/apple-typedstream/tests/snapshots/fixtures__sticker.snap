@@ -1,0 +1,57 @@
+---
+source: packages/apple-typedstream/tests/fixtures.rs
+expression: value
+---
+Archived(
+    ArchivedObject {
+        classes: [
+            Class {
+                name: "NSAttributedString",
+                version: 0,
+            },
+            Class {
+                name: "NSObject",
+                version: 0,
+            },
+        ],
+        fields: [
+            TypedValues {
+                encoding: "@",
+                values: [
+                    String(
+                        "￼",
+                    ),
+                ],
+            },
+            TypedValues {
+                encoding: "iI",
+                values: [
+                    I64(
+                        1,
+                    ),
+                    U64(
+                        1,
+                    ),
+                ],
+            },
+            TypedValues {
+                encoding: "@",
+                values: [
+                    Map(
+                        {
+                            "__kIMEmojiImageAttributeName": I64(
+                                1,
+                            ),
+                            "__kIMFileTransferGUIDAttributeName": String(
+                                "D400984E-62E5-45A9-AE69-BADBA5E69A5C",
+                            ),
+                            "__kIMMessagePartAttributeName": I64(
+                                0,
+                            ),
+                        },
+                    ),
+                ],
+            },
+        ],
+    },
+)

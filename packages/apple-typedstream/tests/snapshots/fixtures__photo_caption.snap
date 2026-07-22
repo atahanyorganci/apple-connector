@@ -1,0 +1,77 @@
+---
+source: packages/apple-typedstream/tests/fixtures.rs
+expression: value
+---
+Archived(
+    ArchivedObject {
+        classes: [
+            Class {
+                name: "NSAttributedString",
+                version: 0,
+            },
+            Class {
+                name: "NSObject",
+                version: 0,
+            },
+        ],
+        fields: [
+            TypedValues {
+                encoding: "@",
+                values: [
+                    String(
+                        "￼fixture: photo caption",
+                    ),
+                ],
+            },
+            TypedValues {
+                encoding: "iI",
+                values: [
+                    I64(
+                        1,
+                    ),
+                    U64(
+                        1,
+                    ),
+                ],
+            },
+            TypedValues {
+                encoding: "@",
+                values: [
+                    Map(
+                        {
+                            "__kIMFileTransferGUIDAttributeName": String(
+                                "714A7477-1CA9-4EA8-8D65-C3FB7DEB0C39",
+                            ),
+                            "__kIMMessagePartAttributeName": I64(
+                                0,
+                            ),
+                        },
+                    ),
+                ],
+            },
+            TypedValues {
+                encoding: "iI",
+                values: [
+                    I64(
+                        2,
+                    ),
+                    U64(
+                        22,
+                    ),
+                ],
+            },
+            TypedValues {
+                encoding: "@",
+                values: [
+                    Map(
+                        {
+                            "__kIMMessagePartAttributeName": I64(
+                                1,
+                            ),
+                        },
+                    ),
+                ],
+            },
+        ],
+    },
+)

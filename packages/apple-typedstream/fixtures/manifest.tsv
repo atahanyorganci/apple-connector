@@ -1,0 +1,22 @@
+# filename	rowid	expected
+attributed-body-01-plain-short.bin	4965	fixture: plain short
+attributed-body-02-spaced.bin	4967	fixture: spaced
+attributed-body-03-long.bin	4969	fixture: long Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed nibh velit, tristique eu mi at, rhoncus tincidunt turpis. Donec vitae interdum metus, at placerat justo.
+attributed-body-04-multiline.bin	4971	fixture: line one\nfixture: line two\nfixture: line three
+attributed-body-05-url.bin	4973	https://example.com
+attributed-body-06-text-url.bin	4975	fixture: visit https://example.com today
+attributed-body-07-phone.bin	4977	call me at +1 (555) 123-4567
+attributed-body-08-email.bin	4979	email me at test@example.com
+attributed-body-09-emoji.bin	4981	👍🎉🔥
+attributed-body-10-emoji-text.bin	4983	fixture: emoji test 👍 thanks
+attributed-body-11-turkish.bin	4985	fixture: Türkçe şöyle güzel bir cümle
+attributed-body-12-mention-name.bin	4987	@Name fixture mention test
+attributed-body-13-mention-someone.bin	4989	@someone fixture mention test
+attributed-body-14-original.bin	4991	fixture: original message
+attributed-body-15-quoted-reply.bin	4993	fixture: quoted reply
+attributed-body-16-edit.bin	4995	fixture: after edit
+attributed-body-17-forward.bin	4997	fixture: forwarded content sample
+attributed-body-18-photo-caption.bin	5001	fixture: photo caption
+attributed-body-19-sticker.bin	5003	
+attributed-body-20-expressive.bin	5005	
+attributed-body-21-hello.bin	5007	Hello

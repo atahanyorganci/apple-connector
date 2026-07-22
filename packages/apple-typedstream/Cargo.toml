@@ -1,0 +1,13 @@
+[package]
+name = "apple-typedstream"
+version = "0.1.0"
+edition = "2024"
+license = "MIT"
+description = "Serde Serializer and Deserializer for Apple typedstream (NSArchiver) blobs"
+
+[dependencies]
+serde = { version = "1.0.228", features = ["derive"] }
+
+[dev-dependencies]
+insta = "1.48.0"
+serde_bytes = "0.11.19"

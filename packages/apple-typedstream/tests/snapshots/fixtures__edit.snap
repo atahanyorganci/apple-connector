@@ -1,0 +1,51 @@
+---
+source: packages/apple-typedstream/tests/fixtures.rs
+expression: value
+---
+Archived(
+    ArchivedObject {
+        classes: [
+            Class {
+                name: "NSAttributedString",
+                version: 0,
+            },
+            Class {
+                name: "NSObject",
+                version: 0,
+            },
+        ],
+        fields: [
+            TypedValues {
+                encoding: "@",
+                values: [
+                    String(
+                        "fixture: after edit",
+                    ),
+                ],
+            },
+            TypedValues {
+                encoding: "iI",
+                values: [
+                    I64(
+                        1,
+                    ),
+                    U64(
+                        19,
+                    ),
+                ],
+            },
+            TypedValues {
+                encoding: "@",
+                values: [
+                    Map(
+                        {
+                            "__kIMMessagePartAttributeName": I64(
+                                0,
+                            ),
+                        },
+                    ),
+                ],
+            },
+        ],
+    },
+)
