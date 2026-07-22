@@ -1,52 +1,17 @@
-use std::{
-    env,
-    error::Error,
-    io::{Error as IoError, ErrorKind},
-    path::PathBuf,
-};
+use std::error::Error;
 
-use apple_connector::{MessageInventory, load_all};
-use sqlx::{
-    Connection,
-    sqlite::{SqliteConnectOptions, SqliteConnection},
-};
+use apple_connector::Cli;
+use clap::Parser;
+use tracing_subscriber::EnvFilter;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
-    let home =
-        env::var_os("HOME").ok_or_else(|| IoError::new(ErrorKind::NotFound, "HOME is not set"))?;
-    let database_path = PathBuf::from(home).join("Library/Messages/chat.db");
-
-    if !database_path.is_file() {
-        return Err(IoError::new(
-            ErrorKind::NotFound,
-            format!("Messages database not found at {}", database_path.display()),
+    tracing_subscriber::fmt()
+        .with_env_filter(
+            EnvFilter::from_default_env().add_directive("apple_connector=info".parse()?),
         )
-        .into());
-    }
+        .init();
 
-    let options = SqliteConnectOptions::new()
-        .filename(&database_path)
-        .read_only(true);
-    let mut connection = SqliteConnection::connect_with(&options).await.map_err(|error| {
-        IoError::new(
-            ErrorKind::PermissionDenied,
-            format!(
-                "Could not open {}. Grant Full Disk Access to this terminal and try again: {error}",
-                database_path.display()
-            ),
-        )
-    })?;
-
-    let messages = load_all(&mut connection).await?;
-    let inventory = MessageInventory::from_messages(&messages);
-
-    for message in &messages {
-        println!("{message:#?}\n");
-    }
-
-    eprint!("{inventory}");
-    eprintln!("loaded {} messages", messages.len());
-
-    Ok(())
+    let cli = Cli::parse();
+    apple_connector::run(cli).await
 }
