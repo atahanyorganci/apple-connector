@@ -1,0 +1,5 @@
+[yanked]
+# Warn for yanked crates in Cargo.lock (default: true)
+enabled = false
+# Auto-update the crates.io index (default: true)
+update_index = false
