@@ -1,3 +1,5 @@
+use chrono::{DateTime, Utc};
+
 #[derive(Debug, Clone)]
 pub struct Message {
     pub envelope: MessageEnvelope,
@@ -11,10 +13,10 @@ pub struct MessageEnvelope {
     pub direction: Direction,
     pub transport: Transport,
     pub sender: Option<Handle>,
-    pub sent_at: Option<String>,
-    pub read_at: Option<String>,
-    pub edited_at: Option<String>,
-    pub retracted_at: Option<String>,
+    pub sent_at: Option<DateTime<Utc>>,
+    pub read_at: Option<DateTime<Utc>>,
+    pub edited_at: Option<DateTime<Utc>>,
+    pub retracted_at: Option<DateTime<Utc>>,
     pub reply_to_guid: Option<String>,
     pub thread_originator_guid: Option<String>,
 }
@@ -60,6 +62,7 @@ pub enum MessageContent {
     GroupEvent(GroupEvent),
     AppBalloon(AppBalloon),
     SharePlay(SharePlayMessage),
+    ShareMyLocation(ShareMyLocationMessage),
     System(SystemMessage),
     Unknown(UnknownMessage),
 }
@@ -139,7 +142,31 @@ pub struct GroupEvent {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum GroupActionKind {
-    Unknown(i64),
+    ParticipantAdded,
+    ParticipantRemoved,
+    NameChange,
+    ParticipantLeft,
+    GroupIconChanged,
+    GroupIconRemoved,
+    ChatBackgroundChanged,
+    ChatBackgroundRemoved,
+    PhoneNumberChanged,
+    Unknown {
+        item_type: i64,
+        group_action_type: i64,
+    },
+}
+
+#[derive(Debug, Clone)]
+pub struct ShareMyLocationMessage {
+    pub status: ShareMyLocationStatus,
+    pub other_handle: Option<String>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ShareMyLocationStatus {
+    Started,
+    Stopped,
 }
 
 #[derive(Debug, Clone)]

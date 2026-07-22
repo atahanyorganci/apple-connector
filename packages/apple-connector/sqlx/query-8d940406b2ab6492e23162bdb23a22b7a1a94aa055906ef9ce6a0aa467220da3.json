@@ -1,6 +1,6 @@
 {
   "db_name": "SQLite",
-  "query": "\n        SELECT\n            message.ROWID AS \"row_id!\",\n            message.guid AS \"guid!\",\n            message.text,\n            message.attributedBody AS attributed_body,\n            message.service,\n            datetime(message.date / 1000000000 + 978307200, 'unixepoch') AS sent_at,\n            datetime(message.date_read / 1000000000 + 978307200, 'unixepoch') AS read_at,\n            datetime(message.date_edited / 1000000000 + 978307200, 'unixepoch') AS edited_at,\n            datetime(message.date_retracted / 1000000000 + 978307200, 'unixepoch') AS retracted_at,\n            message.is_from_me AS \"is_from_me!: bool\",\n            sender.id AS sender_id,\n            sender.service AS sender_service,\n            message.item_type AS \"item_type!\",\n            message.associated_message_guid,\n            message.associated_message_type AS \"associated_message_type!\",\n            message.group_action_type AS \"group_action_type!\",\n            message.group_title,\n            actor.id AS other_handle_id,\n            message.balloon_bundle_id,\n            message.payload_data,\n            message.is_audio_message AS \"is_audio_message!: bool\",\n            message.cache_has_attachments AS \"cache_has_attachments!: bool\",\n            message.is_forward AS \"is_forward!: bool\",\n            message.is_auto_reply AS \"is_auto_reply!: bool\",\n            message.is_system_message AS \"is_system_message!: bool\",\n            message.is_service_message AS \"is_service_message!: bool\",\n            message.reply_to_guid,\n            message.thread_originator_guid,\n            message.expressive_send_style_id\n        FROM message\n        LEFT JOIN handle AS sender ON message.handle_id = sender.ROWID\n        LEFT JOIN handle AS actor ON message.other_handle = actor.ROWID\n        ORDER BY message.date ASC, message.ROWID ASC\n        ",
+  "query": "\n        SELECT\n            message.ROWID AS \"row_id!\",\n            message.guid AS \"guid!\",\n            message.text,\n            message.attributedBody AS attributed_body,\n            message.service,\n            message.date AS \"sent_at!\",\n            message.date_read AS \"read_at!\",\n            message.date_edited AS \"edited_at!\",\n            message.date_retracted AS \"retracted_at!\",\n            message.is_from_me AS \"is_from_me!: bool\",\n            sender.id AS sender_id,\n            sender.service AS sender_service,\n            message.item_type AS \"item_type!\",\n            message.associated_message_guid,\n            message.associated_message_type AS \"associated_message_type!\",\n            message.group_action_type AS \"group_action_type!\",\n            message.group_title,\n            message.handle_id AS \"handle_id!\",\n            message.other_handle AS \"other_handle!\",\n            actor.id AS other_handle_id,\n            message.share_status AS \"share_status!: bool\",\n            message.balloon_bundle_id,\n            message.payload_data,\n            message.is_audio_message AS \"is_audio_message!: bool\",\n            message.cache_has_attachments AS \"cache_has_attachments!: bool\",\n            message.is_forward AS \"is_forward!: bool\",\n            message.is_auto_reply AS \"is_auto_reply!: bool\",\n            message.is_system_message AS \"is_system_message!: bool\",\n            message.is_service_message AS \"is_service_message!: bool\",\n            message.reply_to_guid,\n            message.thread_originator_guid,\n            message.expressive_send_style_id\n        FROM message\n        LEFT JOIN handle AS sender ON message.handle_id = sender.ROWID\n        LEFT JOIN handle AS actor ON message.other_handle = actor.ROWID\n        ORDER BY message.date ASC, message.ROWID ASC\n        ",
   "describe": {
     "columns": [
       {
@@ -59,28 +59,48 @@
         }
       },
       {
-        "name": "sent_at",
+        "name": "sent_at!",
         "ordinal": 5,
-        "type_info": "Text",
-        "origin": "Expression"
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "message",
+            "name": "date"
+          }
+        }
       },
       {
-        "name": "read_at",
+        "name": "read_at!",
         "ordinal": 6,
-        "type_info": "Text",
-        "origin": "Expression"
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "message",
+            "name": "date_read"
+          }
+        }
       },
       {
-        "name": "edited_at",
+        "name": "edited_at!",
         "ordinal": 7,
-        "type_info": "Text",
-        "origin": "Expression"
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "message",
+            "name": "date_edited"
+          }
+        }
       },
       {
-        "name": "retracted_at",
+        "name": "retracted_at!",
         "ordinal": 8,
-        "type_info": "Text",
-        "origin": "Expression"
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "message",
+            "name": "date_retracted"
+          }
+        }
       },
       {
         "name": "is_from_me!: bool",
@@ -171,8 +191,30 @@
         }
       },
       {
-        "name": "other_handle_id",
+        "name": "handle_id!",
         "ordinal": 17,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "message",
+            "name": "handle_id"
+          }
+        }
+      },
+      {
+        "name": "other_handle!",
+        "ordinal": 18,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "message",
+            "name": "other_handle"
+          }
+        }
+      },
+      {
+        "name": "other_handle_id",
+        "ordinal": 19,
         "type_info": "Text",
         "origin": {
           "Table": {
@@ -182,8 +224,19 @@
         }
       },
       {
+        "name": "share_status!: bool",
+        "ordinal": 20,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "message",
+            "name": "share_status"
+          }
+        }
+      },
+      {
         "name": "balloon_bundle_id",
-        "ordinal": 18,
+        "ordinal": 21,
         "type_info": "Text",
         "origin": {
           "Table": {
@@ -194,7 +247,7 @@
       },
       {
         "name": "payload_data",
-        "ordinal": 19,
+        "ordinal": 22,
         "type_info": "Blob",
         "origin": {
           "Table": {
@@ -205,7 +258,7 @@
       },
       {
         "name": "is_audio_message!: bool",
-        "ordinal": 20,
+        "ordinal": 23,
         "type_info": "Integer",
         "origin": {
           "Table": {
@@ -216,7 +269,7 @@
       },
       {
         "name": "cache_has_attachments!: bool",
-        "ordinal": 21,
+        "ordinal": 24,
         "type_info": "Integer",
         "origin": {
           "Table": {
@@ -227,7 +280,7 @@
       },
       {
         "name": "is_forward!: bool",
-        "ordinal": 22,
+        "ordinal": 25,
         "type_info": "Integer",
         "origin": {
           "Table": {
@@ -238,7 +291,7 @@
       },
       {
         "name": "is_auto_reply!: bool",
-        "ordinal": 23,
+        "ordinal": 26,
         "type_info": "Integer",
         "origin": {
           "Table": {
@@ -249,7 +302,7 @@
       },
       {
         "name": "is_system_message!: bool",
-        "ordinal": 24,
+        "ordinal": 27,
         "type_info": "Integer",
         "origin": {
           "Table": {
@@ -260,7 +313,7 @@
       },
       {
         "name": "is_service_message!: bool",
-        "ordinal": 25,
+        "ordinal": 28,
         "type_info": "Integer",
         "origin": {
           "Table": {
@@ -271,7 +324,7 @@
       },
       {
         "name": "reply_to_guid",
-        "ordinal": 26,
+        "ordinal": 29,
         "type_info": "Text",
         "origin": {
           "Table": {
@@ -282,7 +335,7 @@
       },
       {
         "name": "thread_originator_guid",
-        "ordinal": 27,
+        "ordinal": 30,
         "type_info": "Text",
         "origin": {
           "Table": {
@@ -293,7 +346,7 @@
       },
       {
         "name": "expressive_send_style_id",
-        "ordinal": 28,
+        "ordinal": 31,
         "type_info": "Text",
         "origin": {
           "Table": {
@@ -335,8 +388,11 @@
       true,
       true,
       true,
+      true,
+      true,
+      true,
       true
     ]
   },
-  "hash": "bd2a29a1681d17c827dbf79cdadfa10b25c3f964f9320ee7bd22a06793835f66"
+  "hash": "8d940406b2ab6492e23162bdb23a22b7a1a94aa055906ef9ce6a0aa467220da3"
 }

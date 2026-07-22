@@ -2,8 +2,9 @@ use super::{
     attributed_body,
     model::{
         AppBalloon, Attachment, AttachmentMessage, AudioMessage, GroupActionKind, GroupEvent,
-        MessageBody, MessageContent, Reaction, ReactionAction, ReactionKind, SharePlayMessage,
-        SystemMessage, Tapback, TextMessage, UnknownMessage,
+        MessageBody, MessageContent, Reaction, ReactionAction, ReactionKind,
+        ShareMyLocationMessage, ShareMyLocationStatus, SharePlayMessage, SystemMessage, Tapback,
+        TextMessage, UnknownMessage,
     },
     row::{AttachmentRow, MessageRow},
 };
@@ -23,10 +24,18 @@ pub fn classify(row: &MessageRow, attachments: &[AttachmentRow]) -> MessageConte
 
     match row.item_type {
         0 => classify_normal(row, attachments),
-        2 => MessageContent::GroupEvent(GroupEvent {
-            action: GroupActionKind::Unknown(row.group_action_type),
+        1..=3 => MessageContent::GroupEvent(GroupEvent {
+            action: map_group_action(row),
             title: row.group_title.clone(),
             actor: row.other_handle_id.clone(),
+        }),
+        4 => MessageContent::ShareMyLocation(ShareMyLocationMessage {
+            status: if row.share_status {
+                ShareMyLocationStatus::Stopped
+            } else {
+                ShareMyLocationStatus::Started
+            },
+            other_handle: row.other_handle_id.clone(),
         }),
         6 => MessageContent::SharePlay(SharePlayMessage {
             balloon_bundle_id: row.balloon_bundle_id.clone(),
@@ -34,6 +43,29 @@ pub fn classify(row: &MessageRow, attachments: &[AttachmentRow]) -> MessageConte
             text: message_body(row).text,
         }),
         _ => unknown(row, attachments),
+    }
+}
+
+fn map_group_action(row: &MessageRow) -> GroupActionKind {
+    match (
+        row.item_type,
+        row.group_action_type,
+        row.other_handle,
+        row.group_title.as_deref(),
+    ) {
+        (1, 0, who, _) if who != 0 && row.handle_id == who => GroupActionKind::PhoneNumberChanged,
+        (1, 0, who, _) if who != 0 => GroupActionKind::ParticipantAdded,
+        (1, 1, who, _) if who != 0 => GroupActionKind::ParticipantRemoved,
+        (2, _, _, Some(_)) => GroupActionKind::NameChange,
+        (3, 0, _, _) => GroupActionKind::ParticipantLeft,
+        (3, 1, _, _) => GroupActionKind::GroupIconChanged,
+        (3, 2, _, _) => GroupActionKind::GroupIconRemoved,
+        (3, 4, _, _) => GroupActionKind::ChatBackgroundChanged,
+        (3, 6, _, _) => GroupActionKind::ChatBackgroundRemoved,
+        (item_type, group_action_type, _, _) => GroupActionKind::Unknown {
+            item_type,
+            group_action_type,
+        },
     }
 }
 
@@ -163,8 +195,11 @@ fn map_tapback(value: i64) -> Tapback {
 
 #[cfg(test)]
 mod tests {
-    use super::message_body;
-    use crate::messages::row::MessageRow;
+    use super::{classify, map_group_action, message_body};
+    use crate::messages::{
+        model::{GroupActionKind, MessageContent, ShareMyLocationStatus},
+        row::MessageRow,
+    };
 
     fn empty_row() -> MessageRow {
         MessageRow {
@@ -173,10 +208,10 @@ mod tests {
             text: None,
             attributed_body: None,
             service: None,
-            sent_at: None,
-            read_at: None,
-            edited_at: None,
-            retracted_at: None,
+            sent_at: 0,
+            read_at: 0,
+            edited_at: 0,
+            retracted_at: 0,
             is_from_me: false,
             sender_id: None,
             sender_service: None,
@@ -185,7 +220,10 @@ mod tests {
             associated_message_type: 0,
             group_action_type: 0,
             group_title: None,
+            handle_id: 0,
+            other_handle: 0,
             other_handle_id: None,
+            share_status: false,
             balloon_bundle_id: None,
             payload_data: None,
             is_audio_message: false,
@@ -224,5 +262,68 @@ mod tests {
         row.attributed_body = Some(b"not a typedstream".to_vec());
 
         assert_eq!(message_body(&row).text, None);
+    }
+
+    #[test]
+    fn classifies_share_my_location_started() {
+        let mut row = empty_row();
+        row.item_type = 4;
+        row.share_status = false;
+        row.other_handle_id = Some("+15551212".to_owned());
+
+        match classify(&row, &[]) {
+            MessageContent::ShareMyLocation(location) => {
+                assert_eq!(location.status, ShareMyLocationStatus::Started);
+                assert_eq!(location.other_handle.as_deref(), Some("+15551212"));
+            }
+            other => panic!("expected ShareMyLocation, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn classifies_share_my_location_stopped() {
+        let mut row = empty_row();
+        row.item_type = 4;
+        row.share_status = true;
+
+        match classify(&row, &[]) {
+            MessageContent::ShareMyLocation(location) => {
+                assert_eq!(location.status, ShareMyLocationStatus::Stopped);
+            }
+            other => panic!("expected ShareMyLocation, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn classifies_group_rename_from_bro_txt() {
+        let mut row = empty_row();
+        row.item_type = 2;
+        row.group_action_type = 0;
+        row.group_title = Some("batakhaklıyımikiüstübatar".to_owned());
+
+        match classify(&row, &[]) {
+            MessageContent::GroupEvent(event) => {
+                assert_eq!(event.action, GroupActionKind::NameChange);
+                assert_eq!(event.title.as_deref(), Some("batakhaklıyımikiüstübatar"));
+            }
+            other => panic!("expected GroupEvent, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn maps_group_icon_and_participant_actions() {
+        let mut row = empty_row();
+        row.item_type = 3;
+        row.group_action_type = 1;
+        assert_eq!(map_group_action(&row), GroupActionKind::GroupIconChanged);
+
+        row.item_type = 1;
+        row.group_action_type = 0;
+        row.other_handle = 42;
+        row.handle_id = 7;
+        assert_eq!(map_group_action(&row), GroupActionKind::ParticipantAdded);
+
+        row.handle_id = 42;
+        assert_eq!(map_group_action(&row), GroupActionKind::PhoneNumberChanged);
     }
 }
