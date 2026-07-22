@@ -3,12 +3,14 @@
 This directory contains a schema dump and empty copy of macOS Messages.app's
 `chat.db` SQLite database for local development and tests.
 
-| File                 | Purpose                                                 |
-| -------------------- | ------------------------------------------------------- |
-| `chat.schema.sql`    | Full schema: tables, indexes, triggers                  |
-| `chat.db`            | Generated locally from `chat.schema.sql` (gitignored)   |
-| `dump-schema.sh`     | Refresh `chat.schema.sql` from a live Messages database |
-| `create-empty-db.sh` | Recreate `chat.db` from `chat.schema.sql`               |
+| File                        | Purpose                                                 |
+| --------------------------- | ------------------------------------------------------- |
+| `chat.schema.sql`           | Full schema: tables, indexes, triggers                  |
+| `chat.db`                   | Generated locally from `chat.schema.sql` (gitignored)   |
+| `attributed-body-hello.bin` | Short typedstream blob for attributedBody decode tests |
+| `attributed-body-long.bin`  | Long typedstream blob for I16-length decode tests      |
+| `dump-schema.sh`            | Refresh `chat.schema.sql` from a live Messages database |
+| `create-empty-db.sh`        | Recreate `chat.db` from `chat.schema.sql`               |
 
 ## Refresh from your Mac
 

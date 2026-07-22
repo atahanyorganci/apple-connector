@@ -1,3 +1,4 @@
+mod attributed_body;
 mod classify;
 mod load;
 mod model;

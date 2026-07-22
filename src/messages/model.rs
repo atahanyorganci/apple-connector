@@ -67,7 +67,6 @@ pub enum MessageContent {
 #[derive(Debug, Clone)]
 pub struct MessageBody {
     pub text: Option<String>,
-    pub has_attributed_body: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -162,7 +161,6 @@ pub struct SystemMessage {
     pub is_system: bool,
     pub is_service: bool,
     pub text: Option<String>,
-    pub has_attributed_body: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -170,6 +168,5 @@ pub struct UnknownMessage {
     pub item_type: i64,
     pub associated_message_type: i64,
     pub text: Option<String>,
-    pub has_attributed_body: bool,
     pub attachments: Vec<Attachment>,
 }
