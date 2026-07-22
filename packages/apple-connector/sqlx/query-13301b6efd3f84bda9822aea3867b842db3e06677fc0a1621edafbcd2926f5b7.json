@@ -1,0 +1,50 @@
+{
+  "db_name": "SQLite",
+  "query": "\n        SELECT\n            chat_handle_join.chat_id AS \"chat_id!\",\n            handle.id AS \"handle_id!\",\n            handle.service AS \"handle_service!\"\n        FROM chat_handle_join\n        JOIN handle ON chat_handle_join.handle_id = handle.ROWID\n        ORDER BY chat_handle_join.chat_id ASC, handle.ROWID ASC\n        ",
+  "describe": {
+    "columns": [
+      {
+        "name": "chat_id!",
+        "ordinal": 0,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "chat_handle_join",
+            "name": "chat_id"
+          }
+        }
+      },
+      {
+        "name": "handle_id!",
+        "ordinal": 1,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "handle",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "name": "handle_service!",
+        "ordinal": 2,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "handle",
+            "name": "service"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 0
+    },
+    "nullable": [
+      true,
+      false,
+      false
+    ]
+  },
+  "hash": "13301b6efd3f84bda9822aea3867b842db3e06677fc0a1621edafbcd2926f5b7"
+}

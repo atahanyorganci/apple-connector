@@ -19,6 +19,8 @@ pub struct MessageEnvelope {
     pub retracted_at: Option<DateTime<Utc>>,
     pub reply_to_guid: Option<String>,
     pub thread_originator_guid: Option<String>,
+    /// Chats this message belongs to (`chat_message_join`).
+    pub chat_ids: Vec<i64>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -271,4 +273,33 @@ pub struct UnknownMessage {
     pub associated_message_type: i64,
     pub text: Option<String>,
     pub attachments: Vec<Attachment>,
+}
+
+#[derive(Debug, Clone)]
+pub struct Chat {
+    pub row_id: i64,
+    pub guid: String,
+    pub identifier: Option<String>,
+    pub display_name: Option<String>,
+    pub room_name: Option<String>,
+    pub transport: Transport,
+    /// Apple `chat.style == 43` for group chats.
+    pub is_group: bool,
+    pub participants: Vec<Handle>,
+    pub messages: Vec<Message>,
+    pub reply_threads: Vec<ReplyThread>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ReplyThread {
+    /// Root message GUID for the thread.
+    pub originator_guid: String,
+    /// Replies in this thread (excluding the originator), parented by `reply_to_guid`.
+    pub replies: Vec<ReplyRef>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ReplyRef {
+    pub guid: String,
+    pub reply_to_guid: String,
 }
