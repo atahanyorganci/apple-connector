@@ -1,0 +1,98 @@
+{
+  "db_name": "SQLite",
+  "query": "\n        SELECT\n            chat.ROWID AS \"row_id!\",\n            chat.guid AS \"guid!\",\n            chat.chat_identifier,\n            chat.display_name,\n            chat.room_name,\n            chat.service_name,\n            chat.style\n        FROM chat\n        ORDER BY chat.ROWID ASC\n        ",
+  "describe": {
+    "columns": [
+      {
+        "name": "row_id!",
+        "ordinal": 0,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "chat",
+            "name": "ROWID"
+          }
+        }
+      },
+      {
+        "name": "guid!",
+        "ordinal": 1,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "chat",
+            "name": "guid"
+          }
+        }
+      },
+      {
+        "name": "chat_identifier",
+        "ordinal": 2,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "chat",
+            "name": "chat_identifier"
+          }
+        }
+      },
+      {
+        "name": "display_name",
+        "ordinal": 3,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "chat",
+            "name": "display_name"
+          }
+        }
+      },
+      {
+        "name": "room_name",
+        "ordinal": 4,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "chat",
+            "name": "room_name"
+          }
+        }
+      },
+      {
+        "name": "service_name",
+        "ordinal": 5,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "chat",
+            "name": "service_name"
+          }
+        }
+      },
+      {
+        "name": "style",
+        "ordinal": 6,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "chat",
+            "name": "style"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 0
+    },
+    "nullable": [
+      false,
+      false,
+      true,
+      true,
+      true,
+      true,
+      true
+    ]
+  },
+  "hash": "3130bd08425b90b5d02f9368c2d9652ae753c62ed89147f80e038dc760e4ce43"
+}

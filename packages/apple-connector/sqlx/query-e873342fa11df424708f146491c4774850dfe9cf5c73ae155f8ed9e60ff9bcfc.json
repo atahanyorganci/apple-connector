@@ -1,0 +1,38 @@
+{
+  "db_name": "SQLite",
+  "query": "\n        SELECT\n            chat_message_join.chat_id AS \"chat_id!\",\n            chat_message_join.message_id AS \"message_id!\"\n        FROM chat_message_join\n        ORDER BY\n            chat_message_join.chat_id ASC,\n            chat_message_join.message_date ASC,\n            chat_message_join.message_id ASC\n        ",
+  "describe": {
+    "columns": [
+      {
+        "name": "chat_id!",
+        "ordinal": 0,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "chat_message_join",
+            "name": "chat_id"
+          }
+        }
+      },
+      {
+        "name": "message_id!",
+        "ordinal": 1,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "chat_message_join",
+            "name": "message_id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 0
+    },
+    "nullable": [
+      true,
+      true
+    ]
+  },
+  "hash": "e873342fa11df424708f146491c4774850dfe9cf5c73ae155f8ed9e60ff9bcfc"
+}

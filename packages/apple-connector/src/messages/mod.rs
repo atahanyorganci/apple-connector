@@ -4,12 +4,14 @@ mod classify;
 mod load;
 mod model;
 mod row;
+mod threads;
 
-pub use load::load_all;
+pub use load::{load_all, load_chats};
 pub use model::{
     AppBalloon, AppBalloonKind, Attachment, AttachmentMessage, AttributedRun, AudioMessage,
-    BodyAttribute, Direction, GroupActionKind, GroupEvent, Handle, Message, MessageBody,
+    BodyAttribute, Chat, Direction, GroupActionKind, GroupEvent, Handle, Message, MessageBody,
     MessageContent, MessageEnvelope, PhotosBalloon, PollBalloon, PollOption, Reaction,
-    ReactionAction, ReactionKind, ShareMyLocationMessage, ShareMyLocationStatus, SharePlayMessage,
-    SystemMessage, Tapback, TextMessage, Transport, UnknownMessage, UrlBalloon,
+    ReactionAction, ReactionKind, ReplyRef, ReplyThread, ShareMyLocationMessage,
+    ShareMyLocationStatus, SharePlayMessage, SystemMessage, Tapback, TextMessage, Transport,
+    UnknownMessage, UrlBalloon,
 };

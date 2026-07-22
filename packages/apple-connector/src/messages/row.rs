@@ -43,6 +43,30 @@ pub struct MessageRow {
     pub expressive_send_style_id: Option<String>,
 }
 
+#[derive(Debug)]
+pub struct ChatRow {
+    pub row_id: i64,
+    pub guid: String,
+    pub chat_identifier: Option<String>,
+    pub display_name: Option<String>,
+    pub room_name: Option<String>,
+    pub service_name: Option<String>,
+    pub style: Option<i64>,
+}
+
+#[derive(Debug)]
+pub struct ChatMessageJoinRow {
+    pub chat_id: i64,
+    pub message_id: i64,
+}
+
+#[derive(Debug)]
+pub struct ChatHandleJoinRow {
+    pub chat_id: i64,
+    pub handle_id: String,
+    pub handle_service: String,
+}
+
 /// Parse an Apple/Cocoa Core Data timestamp (nanoseconds since 2001-01-01 UTC).
 ///
 /// A value of `0` means "unset" and becomes `None`.
