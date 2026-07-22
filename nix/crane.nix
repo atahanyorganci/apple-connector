@@ -23,6 +23,8 @@
       fileset = lib.fileset.unions [
         (craneLibNightly.fileset.commonCargoSources projectRoot)
         (lib.fileset.maybeMissing (projectRoot + "/sqlx"))
+        (lib.fileset.maybeMissing (projectRoot + "/fixtures/messages/attributed-body-hello.bin"))
+        (lib.fileset.maybeMissing (projectRoot + "/fixtures/messages/attributed-body-long.bin"))
       ];
     };
     commonArgs = {

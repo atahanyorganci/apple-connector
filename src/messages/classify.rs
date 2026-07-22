@@ -1,4 +1,5 @@
 use super::{
+    attributed_body,
     model::{
         AppBalloon, Attachment, AttachmentMessage, AudioMessage, GroupActionKind, GroupEvent,
         MessageBody, MessageContent, Reaction, ReactionAction, ReactionKind, SharePlayMessage,
@@ -16,8 +17,7 @@ pub fn classify(row: &MessageRow, attachments: &[AttachmentRow]) -> MessageConte
         return MessageContent::System(SystemMessage {
             is_system: row.is_system_message,
             is_service: row.is_service_message,
-            text: row.text.clone(),
-            has_attributed_body: row.has_attributed_body(),
+            text: message_body(row).text,
         });
     }
 
@@ -31,7 +31,7 @@ pub fn classify(row: &MessageRow, attachments: &[AttachmentRow]) -> MessageConte
         6 => MessageContent::SharePlay(SharePlayMessage {
             balloon_bundle_id: row.balloon_bundle_id.clone(),
             payload_data: row.payload_data.clone(),
-            text: row.text.clone(),
+            text: message_body(row).text,
         }),
         _ => unknown(row, attachments),
     }
@@ -46,7 +46,7 @@ fn classify_normal(row: &MessageRow, attachments: &[AttachmentRow]) -> MessageCo
         return MessageContent::AppBalloon(AppBalloon {
             bundle_id,
             payload_data: row.payload_data.clone(),
-            text: row.text.clone(),
+            text: message_body(row).text,
         });
     }
 
@@ -78,17 +78,25 @@ fn unknown(row: &MessageRow, attachments: &[AttachmentRow]) -> MessageContent {
     MessageContent::Unknown(UnknownMessage {
         item_type: row.item_type,
         associated_message_type: row.associated_message_type,
-        text: row.text.clone(),
-        has_attributed_body: row.has_attributed_body(),
+        text: message_body(row).text,
         attachments: to_attachments(attachments),
     })
 }
 
 fn message_body(row: &MessageRow) -> MessageBody {
-    MessageBody {
-        text: row.text.clone(),
-        has_attributed_body: row.has_attributed_body(),
-    }
+    let text = row
+        .text
+        .as_deref()
+        .map(str::trim)
+        .filter(|text| !text.is_empty())
+        .map(str::to_owned)
+        .or_else(|| {
+            row.attributed_body
+                .as_deref()
+                .and_then(attributed_body::decode)
+        });
+
+    MessageBody { text }
 }
 
 fn to_attachments(attachments: &[AttachmentRow]) -> Vec<Attachment> {
@@ -150,5 +158,53 @@ fn map_tapback(value: i64) -> Tapback {
         2004 => Tapback::Emphasize,
         2005 => Tapback::Question,
         other => Tapback::Unknown(other),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::message_body;
+    use crate::messages::row::MessageRow;
+
+    fn empty_row() -> MessageRow {
+        MessageRow {
+            row_id: 1,
+            guid: "guid".to_owned(),
+            text: None,
+            attributed_body: None,
+            service: None,
+            sent_at: None,
+            read_at: None,
+            edited_at: None,
+            retracted_at: None,
+            is_from_me: false,
+            sender_id: None,
+            sender_service: None,
+            item_type: 0,
+            associated_message_guid: None,
+            associated_message_type: 0,
+            group_action_type: 0,
+            group_title: None,
+            other_handle_id: None,
+            balloon_bundle_id: None,
+            payload_data: None,
+            is_audio_message: false,
+            cache_has_attachments: false,
+            is_forward: false,
+            is_auto_reply: false,
+            is_system_message: false,
+            is_service_message: false,
+            reply_to_guid: None,
+            thread_originator_guid: None,
+            expressive_send_style_id: None,
+        }
+    }
+
+    #[test]
+    fn prefers_plain_text_column_when_present() {
+        let mut row = empty_row();
+        row.text = Some("  hello  ".to_owned());
+
+        assert_eq!(message_body(&row).text.as_deref(), Some("hello"));
     }
 }

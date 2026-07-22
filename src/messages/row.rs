@@ -31,14 +31,6 @@ pub struct MessageRow {
     pub expressive_send_style_id: Option<String>,
 }
 
-impl MessageRow {
-    pub fn has_attributed_body(&self) -> bool {
-        self.attributed_body
-            .as_ref()
-            .is_some_and(|body| !body.is_empty())
-    }
-}
-
 #[derive(Debug)]
 pub struct AttachmentRow {
     pub message_id: i64,
