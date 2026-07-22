@@ -70,8 +70,9 @@ pub struct AttachmentRow {
 
 #[cfg(test)]
 mod tests {
-    use super::parse_apple_timestamp;
     use chrono::{TimeZone, Utc};
+
+    use super::parse_apple_timestamp;
 
     #[test]
     fn unset_zero_is_none() {

@@ -28,6 +28,7 @@
         (lib.fileset.maybeMissing (packageRoot + "/sqlx"))
         (lib.fileset.maybeMissing (packageRoot + "/fixtures/messages/attributed-body-hello.bin"))
         (lib.fileset.maybeMissing (packageRoot + "/fixtures/messages/attributed-body-long.bin"))
+        (lib.fileset.maybeMissing (packageRoot + "/fixtures/messages/balloons"))
         (lib.fileset.maybeMissing (projectRoot + "/packages/apple-typedstream/fixtures"))
         (lib.fileset.maybeMissing (projectRoot + "/packages/apple-typedstream/tests/snapshots"))
       ];

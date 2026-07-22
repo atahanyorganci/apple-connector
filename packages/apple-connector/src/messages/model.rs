@@ -172,8 +172,50 @@ pub enum ShareMyLocationStatus {
 #[derive(Debug, Clone)]
 pub struct AppBalloon {
     pub bundle_id: String,
-    pub payload_data: Option<Vec<u8>>,
     pub text: Option<String>,
+    pub kind: AppBalloonKind,
+}
+
+#[derive(Debug, Clone)]
+pub enum AppBalloonKind {
+    Url(UrlBalloon),
+    Photos(PhotosBalloon),
+    Poll(PollBalloon),
+    DigitalTouch,
+    Unknown { payload_data: Option<Vec<u8>> },
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct UrlBalloon {
+    pub url: Option<String>,
+    pub original_url: Option<String>,
+    pub title: Option<String>,
+    pub summary: Option<String>,
+    pub site_name: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PhotosBalloon {
+    pub url: Option<String>,
+    pub app_name: Option<String>,
+    pub ldtext: Option<String>,
+    pub caption: Option<String>,
+    pub subcaption: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PollBalloon {
+    pub title: Option<String>,
+    pub creator_handle: Option<String>,
+    pub options: Vec<PollOption>,
+    pub ldtext: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PollOption {
+    pub text: String,
+    pub option_id: String,
+    pub creator_handle: Option<String>,
 }
 
 #[derive(Debug, Clone)]
