@@ -17,6 +17,11 @@
         alejandra.enable = true;
         deadnix.enable = true;
         mdsh.enable = true;
+        shfmt.enable = true;
+        sql-formatter = {
+          enable = true;
+          dialect = "sqlite";
+        };
         taplo.enable = true;
       };
       settings.formatter = {

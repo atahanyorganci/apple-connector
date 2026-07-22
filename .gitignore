@@ -1,2 +1,4 @@
 /target
 result*
+fixtures/messages/chat.db
+fixtures/messages/chat.db-*
