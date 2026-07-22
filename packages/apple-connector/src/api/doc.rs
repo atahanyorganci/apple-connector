@@ -18,8 +18,9 @@ use super::{
     },
     error::{ErrorBody, ErrorCode, ErrorResponse},
     params::{
-        AttachmentGuidPath, ChatIdPath, ConditionalRequestHeaders, MessageGuidPath, PageParams,
-        RangeRequestHeader,
+        AttachmentGuidPath, ChatIdPath, ConditionalRequestHeaders, ContentTypeFilterDto,
+        DirectionFilterDto, MessageGuidPath, MessageListParams, PageParams, RangeRequestHeader,
+        TransportFilterDto,
     },
 };
 
@@ -85,6 +86,8 @@ impl Modify for SecurityAddon {
         ChatPageDto,
         ChatSummaryDto,
         ConditionalRequestHeaders,
+        ContentTypeFilterDto,
+        DirectionFilterDto,
         DirectionDto,
         ErrorBody,
         ErrorCode,
@@ -97,6 +100,7 @@ impl Modify for SecurityAddon {
         MessageContentDto,
         MessageDetailDto,
         MessageGuidPath,
+        MessageListParams,
         MessagePageDto,
         MessageSummaryDto,
         OpaquePayloadDto,
@@ -115,6 +119,7 @@ impl Modify for SecurityAddon {
         SystemContentDto,
         TapbackDto,
         TextContentDto,
+        TransportFilterDto,
         TransportDto,
         UnknownContentDto,
         UrlBalloonDto,
@@ -335,6 +340,35 @@ mod tests {
         };
         assert!(headers.contains_key("Content-Range"));
         assert!(headers.contains_key("Accept-Ranges"));
+    }
+
+    #[test]
+    fn contract_documents_list_messages_search_parameters() {
+        let spec = build_openapi_spec();
+        let json = serde_json::to_value(&spec).expect("spec json");
+        let parameters = json["paths"]["/v1/messages"]["get"]["parameters"]
+            .as_array()
+            .expect("listMessages parameters");
+        let names: Vec<_> = parameters
+            .iter()
+            .filter_map(|parameter| parameter["name"].as_str())
+            .collect();
+        for name in [
+            "q",
+            "chat_id",
+            "sender",
+            "before",
+            "after",
+            "direction",
+            "transport",
+            "content_type",
+            "has_attachments",
+        ] {
+            assert!(
+                names.contains(&name),
+                "missing listMessages parameter `{name}`"
+            );
+        }
     }
 
     #[test]

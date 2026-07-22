@@ -14,6 +14,20 @@ const MAX_CONNECTIONS: u32 = 5;
 const ACQUIRE_TIMEOUT: Duration = Duration::from_secs(5);
 const BUSY_TIMEOUT: Duration = Duration::from_secs(5);
 
+/// Upper bound for individual read queries against `chat.db`.
+pub const QUERY_TIMEOUT: Duration = Duration::from_secs(15);
+
+pub async fn run_timed_query<T, F, Fut>(query: F) -> Result<T, sqlx::Error>
+where
+    F: FnOnce() -> Fut,
+    Fut: std::future::Future<Output = Result<T, sqlx::Error>>,
+{
+    match tokio::time::timeout(QUERY_TIMEOUT, query()).await {
+        Ok(result) => result,
+        Err(_) => Err(sqlx::Error::PoolTimedOut),
+    }
+}
+
 #[derive(Debug)]
 pub enum DatabaseError {
     NotFound,

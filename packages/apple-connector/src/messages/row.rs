@@ -96,6 +96,21 @@ pub struct AttachmentRow {
     pub emoji_description: Option<String>,
 }
 
+#[derive(Debug, sqlx::FromRow)]
+pub struct AttachmentByGuidRow {
+    pub guid: String,
+    pub original_guid: String,
+    pub filename: Option<String>,
+    pub uti: Option<String>,
+    pub mime_type: Option<String>,
+    pub transfer_name: Option<String>,
+    pub total_bytes: i64,
+    pub is_sticker: bool,
+    pub transfer_state: i64,
+    pub hide_attachment: bool,
+    pub emoji_description: Option<String>,
+}
+
 #[cfg(test)]
 mod tests {
     use chrono::{TimeZone, Utc};

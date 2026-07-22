@@ -757,7 +757,7 @@
           "messages"
         ],
         "summary": "List messages",
-        "description": "Returns messages across all chats ordered newest first with keyset pagination.",
+        "description": "Returns messages across all chats ordered newest first with keyset pagination.\nSupports metadata filters and bounded case-insensitive text search.",
         "operationId": "listMessages",
         "parameters": [
           {
@@ -785,6 +785,105 @@
             },
             "style": "form",
             "example": "v1.eyJkYXRlIjoxNzA0MDk2MDAwfQ"
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "description": "Case-insensitive search over plain text and decoded attributed-body text.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 256
+            },
+            "style": "form",
+            "example": "hello"
+          },
+          {
+            "name": "chat_id",
+            "in": "query",
+            "description": "Restrict results to messages in this chat.",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "style": "form",
+            "example": 42
+          },
+          {
+            "name": "sender",
+            "in": "query",
+            "description": "Restrict results to messages from this handle identifier.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "style": "form",
+            "example": "+15551234567"
+          },
+          {
+            "name": "before",
+            "in": "query",
+            "description": "Return messages sent strictly before this RFC 3339 timestamp.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "style": "form",
+            "example": "2024-01-15T12:00:00Z"
+          },
+          {
+            "name": "after",
+            "in": "query",
+            "description": "Return messages sent strictly after this RFC 3339 timestamp.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "style": "form",
+            "example": "2024-01-01T00:00:00Z"
+          },
+          {
+            "name": "direction",
+            "in": "query",
+            "description": "Restrict results to sent or received messages.",
+            "required": false,
+            "schema": {
+              "$ref": "#/components/schemas/DirectionFilterDto"
+            },
+            "style": "form"
+          },
+          {
+            "name": "transport",
+            "in": "query",
+            "description": "Restrict results to a transport/service.",
+            "required": false,
+            "schema": {
+              "$ref": "#/components/schemas/TransportFilterDto"
+            },
+            "style": "form"
+          },
+          {
+            "name": "content_type",
+            "in": "query",
+            "description": "Restrict results to a coarse message content category.",
+            "required": false,
+            "schema": {
+              "$ref": "#/components/schemas/ContentTypeFilterDto"
+            },
+            "style": "form"
+          },
+          {
+            "name": "has_attachments",
+            "in": "query",
+            "description": "Restrict results to messages with or without attachments.",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            },
+            "style": "form"
           }
         ],
         "responses": {
@@ -799,7 +898,7 @@
             }
           },
           "400": {
-            "description": "Invalid pagination parameters",
+            "description": "Invalid pagination or filter parameters",
             "content": {
               "application/json": {
                 "schema": {
@@ -1400,7 +1499,29 @@
           }
         }
       },
+      "ContentTypeFilterDto": {
+        "type": "string",
+        "enum": [
+          "text",
+          "audio",
+          "attachment",
+          "reaction",
+          "group_event",
+          "app_balloon",
+          "share_play",
+          "share_my_location",
+          "system",
+          "unknown"
+        ]
+      },
       "DirectionDto": {
+        "type": "string",
+        "enum": [
+          "sent",
+          "received"
+        ]
+      },
+      "DirectionFilterDto": {
         "type": "string",
         "enum": [
           "sent",
@@ -1840,6 +1961,103 @@
           }
         }
       },
+      "MessageListParams": {
+        "type": "object",
+        "properties": {
+          "after": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Return messages sent strictly after this RFC 3339 timestamp."
+          },
+          "before": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Return messages sent strictly before this RFC 3339 timestamp."
+          },
+          "chat_id": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "description": "Restrict results to messages in this chat."
+          },
+          "content_type": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/ContentTypeFilterDto",
+                "description": "Restrict results to a coarse message content category."
+              }
+            ]
+          },
+          "cursor": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "URL-safe versioned cursor for the next page. Results are ordered newest first."
+          },
+          "direction": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/DirectionFilterDto",
+                "description": "Restrict results to sent or received messages."
+              }
+            ]
+          },
+          "has_attachments": {
+            "type": [
+              "boolean",
+              "null"
+            ],
+            "description": "Restrict results to messages with or without attachments."
+          },
+          "limit": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "description": "Maximum number of items to return. Defaults to 50. Keyset pagination only; no offsets.",
+            "minimum": 0
+          },
+          "q": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Case-insensitive search over plain text and decoded attributed-body text."
+          },
+          "sender": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Restrict results to messages from this handle identifier."
+          },
+          "transport": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/TransportFilterDto",
+                "description": "Restrict results to a transport/service."
+              }
+            ]
+          }
+        }
+      },
       "MessagePageDto": {
         "type": "object",
         "required": [
@@ -2210,6 +2428,15 @@
         }
       },
       "TransportDto": {
+        "type": "string",
+        "enum": [
+          "imessage",
+          "sms",
+          "rcs",
+          "unknown"
+        ]
+      },
+      "TransportFilterDto": {
         "type": "string",
         "enum": [
           "imessage",

@@ -1,3 +1,5 @@
+use std::path::Path;
+
 use sqlx::SqlitePool;
 
 use super::{
@@ -5,13 +7,20 @@ use super::{
         assemble_messages, chat_summary_from_row, fetch_attachments_for_messages,
         fetch_chat_ids_for_messages, fetch_chat_row_by_id, fetch_participants_for_chats,
     },
-    model::{Chat, Message},
-    row::{ChatRow, MessageRow},
-    sql::{CHAT_MESSAGE_PAGE, GLOBAL_MESSAGE_PAGE, MESSAGE_BY_GUID},
+    attachment_path::is_present_on_disk,
+    attachments::assemble_attachment,
+    model::{Attachment, Chat, Message},
+    row::{AttachmentByGuidRow, AttachmentRow, ChatRow, MessageRow},
+    sql::{ATTACHMENT_BY_GUID, CHAT_MESSAGE_PAGE, MESSAGE_BY_GUID},
 };
 use crate::api::cursor::{
-    ChatListCursor, ChatMessageCursor, GlobalMessageCursor, encode as encode_cursor,
+    ChatListCursor, ChatMessageCursor, GlobalMessageCursor, MessageSearchCursor, encode,
 };
+
+#[derive(Debug, Clone)]
+pub enum MessageListCursor {
+    Global(GlobalMessageCursor),
+}
 
 #[derive(Debug, Clone)]
 pub struct Page<T> {
@@ -50,6 +59,14 @@ impl<'a> MessageRepository<'a> {
     }
 
     pub async fn list_chats(
+        &self,
+        limit: u32,
+        cursor: Option<ChatListCursor>,
+    ) -> Result<Page<Chat>, sqlx::Error> {
+        crate::db::run_timed_query(|| self.list_chats_inner(limit, cursor)).await
+    }
+
+    async fn list_chats_inner(
         &self,
         limit: u32,
         cursor: Option<ChatListCursor>,
@@ -116,7 +133,7 @@ impl<'a> MessageRepository<'a> {
         let next_cursor = has_more
             .then(|| rows.last().map(chat_list_cursor_from_row))
             .flatten()
-            .and_then(|cursor| encode_cursor(&cursor).ok());
+            .and_then(|cursor| encode(&cursor).ok());
 
         let chat_ids: Vec<i64> = rows.iter().map(|row| row.row_id).collect();
         let participants_by_chat = fetch_participants_for_chats(self.pool, &chat_ids).await?;
@@ -173,7 +190,7 @@ impl<'a> MessageRepository<'a> {
         let (scoped_rows, has_more) = split_page(rows, limit);
         let next_cursor = if has_more {
             scoped_rows.last().and_then(|row| {
-                encode_cursor(&ChatMessageCursor {
+                encode(&ChatMessageCursor {
                     message_date: row.join_message_date,
                     message_id: row.message.row_id,
                 })
@@ -198,27 +215,146 @@ impl<'a> MessageRepository<'a> {
         }))
     }
 
-    pub async fn list_messages(
+    pub async fn list_messages_filtered(
         &self,
+        filters: &super::search::MessageFilters,
         limit: u32,
-        cursor: Option<GlobalMessageCursor>,
+        search_cursor: Option<MessageSearchCursor>,
+        global_cursor: Option<MessageListCursor>,
     ) -> Result<Page<Message>, sqlx::Error> {
+        if filters.requires_text_scan() {
+            return self.search_messages(filters, limit, search_cursor).await;
+        }
+
+        let scan_cursor = match global_cursor {
+            Some(MessageListCursor::Global(cursor)) => Some((cursor.date, cursor.row_id)),
+            None => search_cursor.map(|cursor| (cursor.date, cursor.row_id)),
+        };
+
         let fetch_limit = i64::from(limit) + 1;
-        let rows = sqlx::query_as::<_, MessageRow>(GLOBAL_MESSAGE_PAGE)
-            .bind(cursor.map(|value| value.date))
-            .bind(cursor.map(|value| value.row_id))
-            .bind(fetch_limit)
+        let mut builder = super::search::build_filtered_select(filters);
+        super::search::push_scan_cursor(
+            &mut builder,
+            scan_cursor.map(|(date, _)| date),
+            scan_cursor.map(|(_, row_id)| row_id),
+        );
+        builder.push(" ORDER BY message.date DESC, message.ROWID DESC LIMIT ");
+        builder.push_bind(fetch_limit);
+
+        let rows = builder
+            .build_query_as::<MessageRow>()
             .fetch_all(self.pool)
             .await?;
 
-        self.messages_page(rows, limit, |last_row| {
-            encode_cursor(&GlobalMessageCursor {
-                date: last_row.sent_at,
-                row_id: last_row.row_id,
-            })
-            .ok()
+        let use_search_cursor = filters.is_active();
+        self.messages_page_with_cursor(rows, limit, |last_row| {
+            if use_search_cursor {
+                encode(&MessageSearchCursor {
+                    date: last_row.sent_at,
+                    row_id: last_row.row_id,
+                    filters: filters.snapshot(),
+                })
+                .ok()
+            } else {
+                encode(&GlobalMessageCursor {
+                    date: last_row.sent_at,
+                    row_id: last_row.row_id,
+                })
+                .ok()
+            }
         })
         .await
+    }
+
+    async fn search_messages(
+        &self,
+        filters: &super::search::MessageFilters,
+        limit: u32,
+        cursor: Option<MessageSearchCursor>,
+    ) -> Result<Page<Message>, sqlx::Error> {
+        use super::search::{
+            CANDIDATE_CHUNK_SIZE, MESSAGE_SCAN_BUDGET, push_scan_cursor, text_matches,
+        };
+
+        let query = filters.q.as_deref().expect("search requires q");
+        let mut matching_rows = Vec::new();
+        let mut scanned = 0_u32;
+        let mut scan_position = cursor.map(|value| (value.date, value.row_id));
+        let mut reached_end = false;
+
+        'search: while scanned < MESSAGE_SCAN_BUDGET {
+            let mut builder = super::search::build_filtered_select(filters);
+            push_scan_cursor(
+                &mut builder,
+                scan_position.map(|(date, _)| date),
+                scan_position.map(|(_, row_id)| row_id),
+            );
+            builder.push(" ORDER BY message.date DESC, message.ROWID DESC LIMIT ");
+            builder.push_bind(i64::from(CANDIDATE_CHUNK_SIZE));
+
+            let chunk = builder
+                .build_query_as::<MessageRow>()
+                .fetch_all(self.pool)
+                .await?;
+
+            if chunk.is_empty() {
+                reached_end = true;
+                break;
+            }
+
+            let chunk_len = chunk.len();
+            for row in chunk {
+                scanned += 1;
+                scan_position = Some((row.sent_at, row.row_id));
+
+                if text_matches(&row, query) {
+                    matching_rows.push(row);
+                    if matching_rows.len() > limit as usize {
+                        break 'search;
+                    }
+                }
+
+                if scanned >= MESSAGE_SCAN_BUDGET {
+                    break;
+                }
+            }
+
+            if chunk_len < CANDIDATE_CHUNK_SIZE as usize {
+                reached_end = true;
+                break;
+            }
+        }
+
+        let has_more = matching_rows.len() > limit as usize
+            || (!reached_end && scanned >= MESSAGE_SCAN_BUDGET);
+        if matching_rows.len() > limit as usize {
+            matching_rows.truncate(limit as usize);
+        }
+
+        let next_cursor = has_more
+            .then(|| {
+                scan_position.and_then(|(date, row_id)| {
+                    encode(&MessageSearchCursor {
+                        date,
+                        row_id,
+                        filters: filters.snapshot(),
+                    })
+                    .ok()
+                })
+            })
+            .flatten();
+
+        let message_ids: Vec<i64> = matching_rows.iter().map(|row| row.row_id).collect();
+        let attachments_by_message =
+            fetch_attachments_for_messages(self.pool, &message_ids).await?;
+        let chat_ids_by_message = fetch_chat_ids_for_messages(self.pool, &message_ids).await?;
+        let items = assemble_messages(matching_rows, attachments_by_message, chat_ids_by_message);
+
+        Ok(Page {
+            items,
+            has_more,
+            next_cursor,
+        })
     }
 
     pub async fn get_message_by_guid(&self, guid: &str) -> Result<Option<Message>, sqlx::Error> {
@@ -242,7 +378,23 @@ impl<'a> MessageRepository<'a> {
         )
     }
 
-    async fn messages_page<F>(
+    pub async fn get_attachment_by_guid(
+        &self,
+        guid: &str,
+        attachment_root: &Path,
+    ) -> Result<Option<Attachment>, sqlx::Error> {
+        let Some(row) = sqlx::query_as::<_, AttachmentByGuidRow>(ATTACHMENT_BY_GUID)
+            .bind(guid)
+            .fetch_optional(self.pool)
+            .await?
+        else {
+            return Ok(None);
+        };
+
+        Ok(Some(assemble_attachment_by_guid(&row, attachment_root)))
+    }
+
+    async fn messages_page_with_cursor<F>(
         &self,
         rows: Vec<MessageRow>,
         limit: u32,
@@ -300,15 +452,37 @@ fn chat_list_cursor_from_row(row: &ChatActivityRow) -> ChatListCursor {
     }
 }
 
+fn assemble_attachment_by_guid(row: &AttachmentByGuidRow, attachment_root: &Path) -> Attachment {
+    let attachment_row = AttachmentRow {
+        message_id: 0,
+        guid: row.guid.clone(),
+        original_guid: row.original_guid.clone(),
+        filename: row.filename.clone(),
+        uti: row.uti.clone(),
+        mime_type: row.mime_type.clone(),
+        transfer_name: row.transfer_name.clone(),
+        total_bytes: row.total_bytes,
+        is_sticker: row.is_sticker,
+        transfer_state: row.transfer_state,
+        hide_attachment: row.hide_attachment,
+        emoji_description: row.emoji_description.clone(),
+    };
+    let body_refs = std::collections::HashMap::new();
+    let mut attachment = assemble_attachment(&attachment_row, &body_refs);
+    attachment.present_on_disk = is_present_on_disk(attachment_root, row.filename.as_deref());
+    attachment
+}
+
 #[cfg(test)]
 mod tests {
     use sqlx::Connection;
 
-    use super::MessageRepository;
+    use super::{MessageListCursor, MessageRepository};
     use crate::{
         api::cursor::{ChatMessageCursor, GlobalMessageCursor},
         db::connect_pool,
         fixtures::FixtureDb,
+        messages::search::MessageFilters,
     };
 
     async fn seed_pagination_fixture() -> FixtureDb {
@@ -402,7 +576,12 @@ mod tests {
 
         loop {
             let page = repository
-                .list_messages(2, cursor)
+                .list_messages_filtered(
+                    &MessageFilters::default(),
+                    2,
+                    None,
+                    cursor.map(MessageListCursor::Global),
+                )
                 .await
                 .expect("list messages");
             for message in &page.items {
