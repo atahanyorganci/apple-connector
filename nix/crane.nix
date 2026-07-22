@@ -7,6 +7,9 @@
   }: let
     inherit (pkgs) lib;
     projectRoot = ../.;
+    packageRoot = projectRoot + "/packages/apple-connector";
+    packageManifest =
+      builtins.fromTOML (builtins.readFile (packageRoot + "/Cargo.toml"));
     rustTarget = "aarch64-apple-darwin";
     rustToolchainFor = p:
       p.rust-bin.selectLatestNightlyWith (
@@ -22,44 +25,43 @@
       root = projectRoot;
       fileset = lib.fileset.unions [
         (craneLibNightly.fileset.commonCargoSources projectRoot)
-        (lib.fileset.maybeMissing (projectRoot + "/sqlx"))
-        (lib.fileset.maybeMissing (projectRoot + "/fixtures/messages/attributed-body-hello.bin"))
-        (lib.fileset.maybeMissing (projectRoot + "/fixtures/messages/attributed-body-long.bin"))
+        (lib.fileset.maybeMissing (packageRoot + "/sqlx"))
+        (lib.fileset.maybeMissing (packageRoot + "/fixtures/messages/attributed-body-hello.bin"))
+        (lib.fileset.maybeMissing (packageRoot + "/fixtures/messages/attributed-body-long.bin"))
       ];
     };
-    commonArgs = {
+    workspaceArgs = {
       inherit src;
       strictDeps = true;
       buildInputs = [pkgs.libiconv pkgs.sqlite];
+      cargoToml = projectRoot + "/Cargo.toml";
+      pname = "apple-connector";
+      version = packageManifest.package.version;
       SQLX_OFFLINE = "true";
-      SQLX_OFFLINE_DIR = "sqlx";
+      SQLX_OFFLINE_DIR = "packages/apple-connector/sqlx";
     };
+    commonArgs =
+      workspaceArgs
+      // {
+        cargoExtraArgs = "-p apple-connector";
+      };
     cargoArtifacts = craneLibNightly.buildDepsOnly commonArgs;
     individualCrateArgs =
       commonArgs
       // {
         inherit cargoArtifacts;
-        inherit (craneLibNightly.crateNameFromCargoToml {inherit src;}) version;
         doCheck = false;
       };
 
-    apple-connector = craneLibNightly.buildPackage (
-      individualCrateArgs
-      // {
-        pname = "apple-connector";
-        inherit src;
-      }
-    );
+    apple-connector = craneLibNightly.buildPackage individualCrateArgs;
   in {
     checks = {
-      apple-connector-audit = craneLib.cargoAudit {
-        inherit src;
-        advisory-db = inputs.advisory-db;
-      };
+      apple-connector-audit = craneLib.cargoAudit (workspaceArgs
+        // {
+          advisory-db = inputs.advisory-db;
+        });
 
-      apple-connector-deny = craneLib.cargoDeny {
-        inherit src;
-      };
+      apple-connector-deny = craneLib.cargoDeny workspaceArgs;
 
       apple-connector-clippy = craneLibNightly.cargoClippy (commonArgs
         // {
