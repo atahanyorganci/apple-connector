@@ -84,12 +84,16 @@ pub fn parse_apple_timestamp(nanos_since_apple_epoch: i64) -> Option<DateTime<Ut
 pub struct AttachmentRow {
     pub message_id: i64,
     pub guid: String,
+    pub original_guid: String,
     pub filename: Option<String>,
     pub uti: Option<String>,
     pub mime_type: Option<String>,
     pub transfer_name: Option<String>,
     pub total_bytes: i64,
     pub is_sticker: bool,
+    pub transfer_state: i64,
+    pub hide_attachment: bool,
+    pub emoji_description: Option<String>,
 }
 
 #[cfg(test)]
