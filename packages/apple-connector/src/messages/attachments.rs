@@ -266,6 +266,7 @@ mod tests {
                     attributes: Vec::new(),
                 },
             ],
+            attributed_body_error: None,
         };
         let mut attachment = row("at_0_ABC");
         attachment.transfer_state = TRANSFER_STATE_COMPLETE;
@@ -299,6 +300,7 @@ mod tests {
                     inline_sticker: true,
                 }],
             }],
+            attributed_body_error: None,
         };
         let mut attachment = row("display-guid");
         attachment.original_guid = "orig-guid".to_owned();

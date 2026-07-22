@@ -73,6 +73,15 @@ pub enum MessageContent {
 pub struct MessageBody {
     pub text: Option<String>,
     pub runs: Vec<AttributedRun>,
+    /// Set when `attributedBody` was present but could not be decoded.
+    pub attributed_body_error: Option<AttributedBodyDecodeError>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum AttributedBodyDecodeError {
+    InvalidTypedStream,
+    NotAttributedString,
+    MissingText,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

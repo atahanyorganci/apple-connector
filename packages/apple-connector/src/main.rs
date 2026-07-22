@@ -5,7 +5,7 @@ use std::{
     path::PathBuf,
 };
 
-use apple_connector::load_all;
+use apple_connector::{MessageInventory, load_all};
 use sqlx::{
     Connection,
     sqlite::{SqliteConnectOptions, SqliteConnection},
@@ -39,11 +39,13 @@ async fn main() -> Result<(), Box<dyn Error>> {
     })?;
 
     let messages = load_all(&mut connection).await?;
+    let inventory = MessageInventory::from_messages(&messages);
 
     for message in &messages {
         println!("{message:#?}\n");
     }
 
+    eprint!("{inventory}");
     eprintln!("loaded {} messages", messages.len());
 
     Ok(())
