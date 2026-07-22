@@ -1,10 +1,10 @@
 use super::{
-    attributed_body,
+    attributed_body, balloon,
     model::{
-        AppBalloon, Attachment, AttachmentMessage, AudioMessage, GroupActionKind, GroupEvent,
-        MessageBody, MessageContent, Reaction, ReactionAction, ReactionKind,
-        ShareMyLocationMessage, ShareMyLocationStatus, SharePlayMessage, SystemMessage, Tapback,
-        TextMessage, UnknownMessage,
+        Attachment, AttachmentMessage, AudioMessage, GroupActionKind, GroupEvent, MessageBody,
+        MessageContent, Reaction, ReactionAction, ReactionKind, ShareMyLocationMessage,
+        ShareMyLocationStatus, SharePlayMessage, SystemMessage, Tapback, TextMessage,
+        UnknownMessage,
     },
     row::{AttachmentRow, MessageRow},
 };
@@ -75,11 +75,11 @@ fn classify_normal(row: &MessageRow, attachments: &[AttachmentRow]) -> MessageCo
         .clone()
         .filter(|bundle_id| !bundle_id.is_empty())
     {
-        return MessageContent::AppBalloon(AppBalloon {
+        return MessageContent::AppBalloon(balloon::decode(
             bundle_id,
-            payload_data: row.payload_data.clone(),
-            text: message_body(row).text,
-        });
+            row.payload_data.as_deref(),
+            message_body(row).text,
+        ));
     }
 
     let attachments = to_attachments(attachments);
