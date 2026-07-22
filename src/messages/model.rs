@@ -1,0 +1,175 @@
+#[derive(Debug, Clone)]
+pub struct Message {
+    pub envelope: MessageEnvelope,
+    pub content: MessageContent,
+}
+
+#[derive(Debug, Clone)]
+pub struct MessageEnvelope {
+    pub row_id: i64,
+    pub guid: String,
+    pub direction: Direction,
+    pub transport: Transport,
+    pub sender: Option<Handle>,
+    pub sent_at: Option<String>,
+    pub read_at: Option<String>,
+    pub edited_at: Option<String>,
+    pub retracted_at: Option<String>,
+    pub reply_to_guid: Option<String>,
+    pub thread_originator_guid: Option<String>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Direction {
+    Sent,
+    Received,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Transport {
+    IMessage,
+    Sms,
+    Rcs,
+    Unknown(String),
+}
+
+impl Transport {
+    pub fn from_service(service: Option<&str>) -> Self {
+        match service {
+            Some("iMessage") => Self::IMessage,
+            Some("SMS") => Self::Sms,
+            Some("RCS") => Self::Rcs,
+            Some(other) => Self::Unknown(other.to_owned()),
+            None => Self::Unknown(String::new()),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Handle {
+    pub id: String,
+    pub service: String,
+}
+
+#[derive(Debug, Clone)]
+pub enum MessageContent {
+    Text(TextMessage),
+    Audio(AudioMessage),
+    Attachment(AttachmentMessage),
+    Reaction(Reaction),
+    GroupEvent(GroupEvent),
+    AppBalloon(AppBalloon),
+    SharePlay(SharePlayMessage),
+    System(SystemMessage),
+    Unknown(UnknownMessage),
+}
+
+#[derive(Debug, Clone)]
+pub struct MessageBody {
+    pub text: Option<String>,
+    pub has_attributed_body: bool,
+}
+
+#[derive(Debug, Clone)]
+pub struct TextMessage {
+    pub body: MessageBody,
+    pub is_forward: bool,
+    pub is_auto_reply: bool,
+    pub expressive_send_style_id: Option<String>,
+}
+
+#[derive(Debug, Clone)]
+pub struct AudioMessage {
+    pub body: MessageBody,
+    pub attachments: Vec<Attachment>,
+}
+
+#[derive(Debug, Clone)]
+pub struct AttachmentMessage {
+    pub body: MessageBody,
+    pub attachments: Vec<Attachment>,
+}
+
+#[derive(Debug, Clone)]
+pub struct Attachment {
+    pub guid: String,
+    pub filename: Option<String>,
+    pub uti: Option<String>,
+    pub mime_type: Option<String>,
+    pub transfer_name: Option<String>,
+    pub total_bytes: i64,
+    pub is_sticker: bool,
+}
+
+#[derive(Debug, Clone)]
+pub struct Reaction {
+    pub target_guid: Option<String>,
+    pub kind: ReactionKind,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ReactionKind {
+    Tapback(Tapback, ReactionAction),
+    ApplePay,
+    Unknown(i64),
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Tapback {
+    Love,
+    Like,
+    Dislike,
+    Laugh,
+    Emphasize,
+    Question,
+    Unknown(i64),
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ReactionAction {
+    Added,
+    Removed,
+}
+
+#[derive(Debug, Clone)]
+pub struct GroupEvent {
+    pub action: GroupActionKind,
+    pub title: Option<String>,
+    pub actor: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum GroupActionKind {
+    Unknown(i64),
+}
+
+#[derive(Debug, Clone)]
+pub struct AppBalloon {
+    pub bundle_id: String,
+    pub payload_data: Option<Vec<u8>>,
+    pub text: Option<String>,
+}
+
+#[derive(Debug, Clone)]
+pub struct SharePlayMessage {
+    pub balloon_bundle_id: Option<String>,
+    pub payload_data: Option<Vec<u8>>,
+    pub text: Option<String>,
+}
+
+#[derive(Debug, Clone)]
+pub struct SystemMessage {
+    pub is_system: bool,
+    pub is_service: bool,
+    pub text: Option<String>,
+    pub has_attributed_body: bool,
+}
+
+#[derive(Debug, Clone)]
+pub struct UnknownMessage {
+    pub item_type: i64,
+    pub associated_message_type: i64,
+    pub text: Option<String>,
+    pub has_attributed_body: bool,
+    pub attachments: Vec<Attachment>,
+}
