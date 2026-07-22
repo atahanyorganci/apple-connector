@@ -1,0 +1,15 @@
+[package]
+name = "apple-connector"
+version = "0.1.0"
+edition = "2024"
+license = "MIT"
+
+[dependencies]
+sqlx = { version = "0.9.0", default-features = false, features = [
+  "derive",
+  "macros",
+  "runtime-tokio",
+  "sqlite",
+  "sqlite-unbundled",
+] }
+tokio = { version = "1.53.1", features = ["macros", "rt-multi-thread"] }

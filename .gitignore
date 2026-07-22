@@ -1,6 +1,7 @@
 /target
 result*
 .env
-.sqlx/
-fixtures/messages/chat.db
-fixtures/messages/chat.db-*
+/.sqlx/
+packages/apple-connector/.sqlx/
+packages/apple-connector/fixtures/messages/chat.db
+packages/apple-connector/fixtures/messages/chat.db-*

@@ -1,7 +1,8 @@
 # Apple Connector
 
-Proof of concept for reading the five most recent Messages.app messages directly
-from `~/Library/Messages/chat.db`.
+Monorepo for reading Apple platform data on macOS. The first package,
+[`packages/apple-connector`](packages/apple-connector/), loads and classifies
+Messages.app rows from `~/Library/Messages/chat.db`.
 
 ## Requirements
 
@@ -18,33 +19,36 @@ binary directly, add `target/debug/apple-connector` there as well.
 
 ```bash
 nix develop
-cargo run
+cargo run -p apple-connector
 ```
 
-The program opens the Messages database read-only and prints the newest five
-message rows. If it reports that the database cannot be opened, Full Disk Access
-has not been applied to the process.
+The program opens the Messages database read-only and prints all loaded messages.
+If it reports that the database cannot be opened, Full Disk Access has not been
+applied to the process.
 
 ## Fixtures
 
-An empty Messages schema and database live in [`fixtures/messages/`](fixtures/messages/).
+An empty Messages schema and database live in
+[`packages/apple-connector/fixtures/messages/`](packages/apple-connector/fixtures/messages/).
 Use them for local development without reading your real `~/Library/Messages/chat.db`.
 
 ```bash
-./fixtures/messages/create-empty-db.sh
-cp .env.example .env
+./packages/apple-connector/fixtures/messages/create-empty-db.sh
+cp packages/apple-connector/.env.example packages/apple-connector/.env
 cargo install sqlx-cli --version 0.9.0 --no-default-features --features sqlite
-cargo sqlx prepare --workspace
-rsync -a --delete .sqlx/ sqlx/
+cargo sqlx prepare -p apple-connector
+rsync -a --delete .sqlx/ packages/apple-connector/sqlx/
 ```
 
-Commit the updated `sqlx/` directory. Nix builds use `SQLX_OFFLINE=true` with
-`SQLX_OFFLINE_DIR=sqlx` and do not need a database connection.
+Commit the updated `packages/apple-connector/sqlx/` directory. Nix builds use
+`SQLX_OFFLINE=true` with `SQLX_OFFLINE_DIR=packages/apple-connector/sqlx` and do
+not need a database connection.
 
 ## SQL queries
 
-Queries in `src/main.rs` are verified at compile time with SQLx `query_as!`. After
-changing SQL, run the fixture steps above to refresh the offline cache.
+Queries in `packages/apple-connector/src/` are verified at compile time with SQLx
+`query_as!`. After changing SQL, run the fixture steps above to refresh the offline
+cache.
 
 ## License
 
