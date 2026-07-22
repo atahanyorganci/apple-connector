@@ -204,7 +204,25 @@ mod tests {
     fn prefers_plain_text_column_when_present() {
         let mut row = empty_row();
         row.text = Some("  hello  ".to_owned());
+        row.attributed_body = Some(b"not a typedstream".to_vec());
 
         assert_eq!(message_body(&row).text.as_deref(), Some("hello"));
+    }
+
+    #[test]
+    fn falls_back_to_attributed_body() {
+        let mut row = empty_row();
+        row.attributed_body =
+            Some(include_bytes!("../../fixtures/messages/attributed-body-hello.bin").to_vec());
+
+        assert_eq!(message_body(&row).text.as_deref(), Some("Noter test"));
+    }
+
+    #[test]
+    fn ignores_malformed_attributed_body() {
+        let mut row = empty_row();
+        row.attributed_body = Some(b"not a typedstream".to_vec());
+
+        assert_eq!(message_body(&row).text, None);
     }
 }
