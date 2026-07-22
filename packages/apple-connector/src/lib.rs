@@ -1,3 +1,4 @@
+pub mod fixtures;
 mod messages;
 
 pub use messages::{
