@@ -2,11 +2,19 @@ use base64::{Engine, engine::general_purpose::URL_SAFE_NO_PAD};
 use serde::{Deserialize, Serialize};
 
 use super::{error::ApiError, params::CURSOR_VERSION};
+use crate::messages::search::MessageFiltersSnapshot;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct GlobalMessageCursor {
     pub date: i64,
     pub row_id: i64,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct MessageSearchCursor {
+    pub date: i64,
+    pub row_id: i64,
+    pub filters: MessageFiltersSnapshot,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -54,6 +62,52 @@ pub fn decode<T: for<'de> Deserialize<'de>>(cursor: &str) -> Result<T, ApiError>
             serde_json::json!({ "field": "cursor" }),
         )
     })
+}
+
+pub fn decode_search_cursor(
+    cursor: &str,
+    expected_filters: &MessageFiltersSnapshot,
+) -> Result<MessageSearchCursor, ApiError> {
+    let decoded = decode::<MessageSearchCursor>(cursor)?;
+    if decoded.filters != *expected_filters {
+        return Err(ApiError::validation_with_details(
+            "cursor does not match the active filters",
+            serde_json::json!({ "field": "cursor" }),
+        ));
+    }
+    Ok(decoded)
+}
+
+pub fn decode_global_or_reject_for_filters(cursor: &str) -> Result<GlobalMessageCursor, ApiError> {
+    let bytes = cursor
+        .strip_prefix(&format!("{CURSOR_VERSION}."))
+        .ok_or_else(|| {
+            ApiError::validation_with_details(
+                format!("cursor must start with `{CURSOR_VERSION}.`"),
+                serde_json::json!({
+                    "field": "cursor",
+                    "expected_prefix": format!("{CURSOR_VERSION}."),
+                }),
+            )
+        })?;
+
+    let raw = base64::engine::general_purpose::URL_SAFE_NO_PAD
+        .decode(bytes)
+        .map_err(|_| {
+            ApiError::validation_with_details(
+                "cursor is not valid base64url",
+                serde_json::json!({ "field": "cursor" }),
+            )
+        })?;
+
+    if serde_json::from_slice::<MessageSearchCursor>(&raw).is_ok() {
+        return Err(ApiError::validation_with_details(
+            "cursor does not match the active filters",
+            serde_json::json!({ "field": "cursor" }),
+        ));
+    }
+
+    decode::<GlobalMessageCursor>(cursor)
 }
 
 #[cfg(test)]

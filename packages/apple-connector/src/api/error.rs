@@ -106,6 +106,17 @@ impl ApiError {
         }
     }
 
+    pub fn method_not_allowed() -> Self {
+        Self {
+            status: StatusCode::METHOD_NOT_ALLOWED,
+            body: ErrorBody {
+                code: ErrorCode::ValidationError,
+                message: "method not allowed".to_owned(),
+                details: None,
+            },
+        }
+    }
+
     pub fn status(&self) -> StatusCode {
         self.status
     }

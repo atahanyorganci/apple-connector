@@ -34,13 +34,14 @@ pub async fn run(cli: Cli) -> Result<(), Box<dyn Error>> {
 
     let db = match connect_pool(&database_path).await {
         Ok(pool) => Some(pool),
-        Err(error) => {
-            warn!("{}", error.startup_message(&database_path));
+        Err(_error) => {
+            warn!("Messages database could not be opened; API will report unavailable");
             None
         }
     };
 
-    let app = router(AppState::new(db));
+    let attachment_root = cli.attachment_root_path()?;
+    let app = router(AppState::with_attachment_root(db, attachment_root));
     let address: SocketAddr = cli
         .socket_addr()
         .parse()

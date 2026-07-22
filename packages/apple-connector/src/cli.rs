@@ -23,6 +23,10 @@ pub struct Cli {
     /// Path to the read-only Messages `chat.db` database.
     #[arg(long, value_name = "PATH")]
     pub database: Option<PathBuf>,
+
+    /// Path to the Messages attachment directory. Defaults to `Attachments` next to `chat.db`.
+    #[arg(long, value_name = "PATH")]
+    pub attachment_root: Option<PathBuf>,
 }
 
 impl Cli {
@@ -35,6 +39,16 @@ impl Cli {
             Some(path) => Ok(path.clone()),
             None => default_database_path(),
         }
+    }
+
+    pub fn attachment_root_path(&self) -> Result<PathBuf, IoError> {
+        if let Some(path) = &self.attachment_root {
+            return Ok(path.clone());
+        }
+
+        Ok(crate::messages::attachment_path::default_attachment_root(
+            &self.database_path()?,
+        ))
     }
 
     pub fn warns_about_public_binding(&self) -> bool {

@@ -41,7 +41,7 @@ pub fn assemble_attachments(rows: &[AttachmentRow], body: &MessageBody) -> Vec<A
     attachments
 }
 
-fn assemble_attachment(
+pub(crate) fn assemble_attachment(
     row: &AttachmentRow,
     body_refs: &HashMap<&str, AttachmentBodyRef>,
 ) -> Attachment {

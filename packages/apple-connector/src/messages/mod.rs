@@ -1,5 +1,6 @@
 mod assembly;
-mod attachments;
+pub(crate) mod attachment_path;
+pub(crate) mod attachments;
 mod attributed_body;
 mod balloon;
 mod classify;
@@ -8,6 +9,7 @@ mod load;
 mod model;
 pub(crate) mod repository;
 mod row;
+pub(crate) mod search;
 mod sql;
 mod threads;
 

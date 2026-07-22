@@ -1,22 +1,40 @@
-use std::sync::Arc;
+use std::{path::PathBuf, sync::Arc};
 
-use axum::Router;
+use axum::{Router, middleware::from_fn};
 use sqlx::SqlitePool;
 use utoipa::{OpenApi, openapi::OpenApi as OpenApiSpec};
 use utoipa_axum::{router::OpenApiRouter, routes};
 
-use super::doc::ApiDoc;
+use super::{
+    doc::ApiDoc,
+    middleware::{method_not_allowed, not_found, request_timeout, security_headers, trace_request},
+};
+use crate::messages::attachment_path::canonicalize_attachment_root;
 
 #[derive(Clone)]
 pub struct AppState {
     pub db: Option<SqlitePool>,
     pub openapi: Arc<OpenApiSpec>,
+    pub attachment_root: Arc<PathBuf>,
 }
 
 impl AppState {
     pub fn new(db: Option<SqlitePool>) -> Self {
+        Self::with_attachment_root(
+            db,
+            PathBuf::from("/var/empty/apple-connector-attachments-unconfigured"),
+        )
+    }
+
+    pub fn with_attachment_root(db: Option<SqlitePool>, attachment_root: PathBuf) -> Self {
+        let attachment_root =
+            canonicalize_attachment_root(&attachment_root).unwrap_or(attachment_root);
         let openapi = Arc::new(build_openapi_spec());
-        Self { db, openapi }
+        Self {
+            db,
+            openapi,
+            attachment_root: Arc::new(attachment_root),
+        }
     }
 }
 
@@ -25,7 +43,12 @@ pub fn build_openapi_spec() -> OpenApiSpec {
 }
 
 pub fn router(state: AppState) -> Router {
-    openapi_router().with_state(state).into()
+    let api: Router = openapi_router().with_state(state).into();
+    api.fallback(not_found)
+        .method_not_allowed_fallback(method_not_allowed)
+        .layer(from_fn(request_timeout))
+        .layer(from_fn(security_headers))
+        .route_layer(from_fn(trace_request))
 }
 
 fn openapi_router() -> OpenApiRouter<AppState> {
@@ -88,5 +111,50 @@ mod tests {
                 "missing route {method} {path}"
             );
         }
+    }
+
+    #[tokio::test]
+    async fn unknown_route_returns_json_404_with_security_headers() {
+        let app = router(AppState::new(None));
+
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .uri("/secret/path?token=abc")
+                    .body(Body::empty())
+                    .expect("request"),
+            )
+            .await
+            .expect("response");
+
+        assert_eq!(response.status(), StatusCode::NOT_FOUND);
+        assert_eq!(
+            response.headers().get("x-content-type-options").unwrap(),
+            "nosniff"
+        );
+        assert!(
+            response
+                .headers()
+                .get("access-control-allow-origin")
+                .is_none()
+        );
+    }
+
+    #[tokio::test]
+    async fn unsupported_method_returns_json_405() {
+        let app = router(AppState::new(None));
+
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .method(Method::POST)
+                    .uri("/healthz")
+                    .body(Body::empty())
+                    .expect("request"),
+            )
+            .await
+            .expect("response");
+
+        assert_eq!(response.status(), StatusCode::METHOD_NOT_ALLOWED);
     }
 }
