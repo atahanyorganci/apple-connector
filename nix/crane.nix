@@ -5,6 +5,7 @@
     self',
     ...
   }: let
+    inherit (pkgs) lib;
     projectRoot = ../.;
     rustTarget = "aarch64-apple-darwin";
     rustToolchainFor = p:
@@ -17,11 +18,19 @@
       );
     rustToolchain = rustToolchainFor pkgs;
     craneLibNightly = craneLib.overrideToolchain rustToolchainFor;
-    src = craneLibNightly.cleanCargoSource projectRoot;
+    src = lib.fileset.toSource {
+      root = projectRoot;
+      fileset = lib.fileset.unions [
+        (craneLibNightly.fileset.commonCargoSources projectRoot)
+        (lib.fileset.maybeMissing (projectRoot + "/sqlx"))
+      ];
+    };
     commonArgs = {
       inherit src;
       strictDeps = true;
       buildInputs = [pkgs.libiconv pkgs.sqlite];
+      SQLX_OFFLINE = "true";
+      SQLX_OFFLINE_DIR = "sqlx";
     };
     cargoArtifacts = craneLibNightly.buildDepsOnly commonArgs;
     individualCrateArgs =
