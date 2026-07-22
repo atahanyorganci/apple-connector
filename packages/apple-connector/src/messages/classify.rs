@@ -1,10 +1,9 @@
 use super::{
-    attributed_body, balloon,
+    attachments, attributed_body, balloon,
     model::{
-        Attachment, AttachmentMessage, AudioMessage, GroupActionKind, GroupEvent, MessageBody,
-        MessageContent, Reaction, ReactionAction, ReactionKind, ShareMyLocationMessage,
-        ShareMyLocationStatus, SharePlayMessage, SystemMessage, Tapback, TextMessage,
-        UnknownMessage,
+        AttachmentMessage, AudioMessage, GroupActionKind, GroupEvent, MessageBody, MessageContent,
+        Reaction, ReactionAction, ReactionKind, ShareMyLocationMessage, ShareMyLocationStatus,
+        SharePlayMessage, SystemMessage, Tapback, TextMessage, UnknownMessage,
     },
     row::{AttachmentRow, MessageRow},
 };
@@ -82,24 +81,19 @@ fn classify_normal(row: &MessageRow, attachments: &[AttachmentRow]) -> MessageCo
         ));
     }
 
-    let attachments = to_attachments(attachments);
+    let body = message_body(row);
+    let attachments = attachments::assemble_attachments(attachments, &body);
 
     if row.is_audio_message {
-        return MessageContent::Audio(AudioMessage {
-            body: message_body(row),
-            attachments,
-        });
+        return MessageContent::Audio(AudioMessage { body, attachments });
     }
 
     if !attachments.is_empty() || row.cache_has_attachments {
-        return MessageContent::Attachment(AttachmentMessage {
-            body: message_body(row),
-            attachments,
-        });
+        return MessageContent::Attachment(AttachmentMessage { body, attachments });
     }
 
     MessageContent::Text(TextMessage {
-        body: message_body(row),
+        body,
         is_forward: row.is_forward,
         is_auto_reply: row.is_auto_reply,
         expressive_send_style_id: row.expressive_send_style_id.clone(),
@@ -107,11 +101,12 @@ fn classify_normal(row: &MessageRow, attachments: &[AttachmentRow]) -> MessageCo
 }
 
 fn unknown(row: &MessageRow, attachments: &[AttachmentRow]) -> MessageContent {
+    let body = message_body(row);
     MessageContent::Unknown(UnknownMessage {
         item_type: row.item_type,
         associated_message_type: row.associated_message_type,
-        text: message_body(row).text,
-        attachments: to_attachments(attachments),
+        text: body.text.clone(),
+        attachments: attachments::assemble_attachments(attachments, &body),
     })
 }
 
@@ -135,21 +130,6 @@ fn message_body(row: &MessageRow) -> MessageBody {
         text,
         runs: Vec::new(),
     }
-}
-
-fn to_attachments(attachments: &[AttachmentRow]) -> Vec<Attachment> {
-    attachments
-        .iter()
-        .map(|attachment| Attachment {
-            guid: attachment.guid.clone(),
-            filename: attachment.filename.clone(),
-            uti: attachment.uti.clone(),
-            mime_type: attachment.mime_type.clone(),
-            transfer_name: attachment.transfer_name.clone(),
-            total_bytes: attachment.total_bytes,
-            is_sticker: attachment.is_sticker,
-        })
-        .collect()
 }
 
 fn parse_reaction(row: &MessageRow) -> Option<Reaction> {
@@ -332,5 +312,61 @@ mod tests {
 
         row.handle_id = 42;
         assert_eq!(map_group_action(&row), GroupActionKind::PhoneNumberChanged);
+    }
+
+    #[test]
+    fn keeps_caption_body_on_attachment_message() {
+        use crate::messages::{
+            model::{AttachmentKind, BodyAttribute},
+            row::AttachmentRow,
+        };
+
+        let mut row = empty_row();
+        row.cache_has_attachments = true;
+        row.attributed_body = Some(
+            include_bytes!(
+                "../../../apple-typedstream/fixtures/attributed-body-18-photo-caption.bin"
+            )
+            .to_vec(),
+        );
+
+        let attachment = AttachmentRow {
+            message_id: 1,
+            guid: "714A7477-1CA9-4EA8-8D65-C3FB7DEB0C39".to_owned(),
+            original_guid: "714A7477-1CA9-4EA8-8D65-C3FB7DEB0C39".to_owned(),
+            filename: None,
+            uti: Some("public.jpeg".to_owned()),
+            mime_type: Some("image/jpeg".to_owned()),
+            transfer_name: Some("photo.jpg".to_owned()),
+            total_bytes: 12,
+            is_sticker: false,
+            transfer_state: 5,
+            hide_attachment: false,
+            emoji_description: None,
+        };
+
+        match classify(&row, &[attachment]) {
+            MessageContent::Attachment(message) => {
+                assert_eq!(
+                    message.body.text.as_deref(),
+                    Some("\u{fffc}fixture: photo caption")
+                );
+                assert_eq!(message.attachments.len(), 1);
+                assert_eq!(message.attachments[0].kind, AttachmentKind::Image);
+                assert!(message.attachments[0].transfer_complete);
+                assert_eq!(
+                    message.attachments[0]
+                        .body_reference
+                        .as_ref()
+                        .map(|reference| reference.part),
+                    Some(Some(0))
+                );
+                assert!(matches!(
+                    message.body.runs[0].attributes[0],
+                    BodyAttribute::FileTransfer { .. }
+                ));
+            }
+            other => panic!("expected Attachment, got {other:?}"),
+        }
     }
 }

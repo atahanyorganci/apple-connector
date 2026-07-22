@@ -79,12 +79,16 @@ async fn load_library(
         SELECT
             message_attachment_join.message_id AS "message_id!",
             attachment.guid AS "guid!",
+            attachment.original_guid AS "original_guid!",
             attachment.filename,
             attachment.uti,
             attachment.mime_type,
             attachment.transfer_name,
             attachment.total_bytes AS "total_bytes!",
-            attachment.is_sticker AS "is_sticker!: bool"
+            attachment.is_sticker AS "is_sticker!: bool",
+            attachment.transfer_state AS "transfer_state!",
+            attachment.hide_attachment AS "hide_attachment!: bool",
+            attachment.emoji_image_short_description AS emoji_description
         FROM message_attachment_join
         JOIN attachment ON message_attachment_join.attachment_id = attachment.ROWID
         ORDER BY message_attachment_join.message_id ASC, attachment.ROWID ASC

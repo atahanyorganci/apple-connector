@@ -130,12 +130,41 @@ pub struct AttachmentMessage {
 #[derive(Debug, Clone)]
 pub struct Attachment {
     pub guid: String,
+    pub original_guid: String,
+    /// Path as stored in `attachment.filename` (often `~/Library/Messages/...`).
     pub filename: Option<String>,
+    /// `filename` with `~` expanded when possible.
+    pub resolved_path: Option<String>,
     pub uti: Option<String>,
     pub mime_type: Option<String>,
     pub transfer_name: Option<String>,
     pub total_bytes: i64,
-    pub is_sticker: bool,
+    pub kind: AttachmentKind,
+    /// Raw `attachment.transfer_state` (Apple commonly uses `5` for finished).
+    pub transfer_state: i64,
+    pub transfer_complete: bool,
+    /// True when `resolved_path` exists on disk.
+    pub present_on_disk: bool,
+    pub hide_attachment: bool,
+    pub emoji_description: Option<String>,
+    /// Linked `__kIMFileTransferGUIDAttributeName` run from attributedBody, if any.
+    pub body_reference: Option<AttachmentBodyRef>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum AttachmentKind {
+    Sticker { animated: bool },
+    Image,
+    Video,
+    Audio,
+    File,
+    Unknown,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct AttachmentBodyRef {
+    pub part: Option<i64>,
+    pub inline_sticker: bool,
 }
 
 #[derive(Debug, Clone)]
