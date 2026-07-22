@@ -2,9 +2,7 @@ use std::collections::HashMap;
 
 use apple_typedstream::{ArchivedObject, TypedValues, Value};
 
-use super::model::{
-    AttributedBodyDecodeError, AttributedRun, BodyAttribute, MessageBody,
-};
+use super::model::{AttributedBodyDecodeError, AttributedRun, BodyAttribute, MessageBody};
 
 pub fn decode(data: &[u8]) -> Result<MessageBody, AttributedBodyDecodeError> {
     let value = apple_typedstream::from_slice(data)
@@ -20,8 +18,7 @@ pub fn decode(data: &[u8]) -> Result<MessageBody, AttributedBodyDecodeError> {
         return Err(AttributedBodyDecodeError::NotAttributedString);
     }
 
-    let text = attributed_string_text(&object)
-        .ok_or(AttributedBodyDecodeError::MissingText)?;
+    let text = attributed_string_text(&object).ok_or(AttributedBodyDecodeError::MissingText)?;
     let runs = parse_runs(&object.fields, &text);
     Ok(MessageBody {
         text: Some(text),
@@ -284,7 +281,9 @@ mod tests {
             Some("fixture: spaced  ".to_owned())
         );
         assert_eq!(
-            decode(PHOTO_CAPTION_FIXTURE).ok().and_then(|body| body.text),
+            decode(PHOTO_CAPTION_FIXTURE)
+                .ok()
+                .and_then(|body| body.text),
             Some("\u{fffc}fixture: photo caption".to_owned())
         );
         assert_eq!(
