@@ -47,9 +47,7 @@ impl MessageInventory {
             inventory.count_content(&message.content);
             inventory.count_envelope(message);
 
-            if message_text(&message.content)
-                .is_none_or(|text| text.trim().is_empty())
-            {
+            if message_text(&message.content).is_none_or(|text| text.trim().is_empty()) {
                 inventory.empty_text += 1;
             }
 
@@ -163,11 +161,7 @@ impl fmt::Display for MessageInventory {
         writeln!(f, "    replies: {}", self.replies)?;
         writeln!(f, "    thread_originators: {}", self.thread_originators)?;
         writeln!(f, "    sentinel_sent_at: {}", self.sentinel_sent_at)?;
-        writeln!(
-            f,
-            "    sticker_attachments: {}",
-            self.sticker_attachments
-        )?;
+        writeln!(f, "    sticker_attachments: {}", self.sticker_attachments)?;
         writeln!(
             f,
             "    missing_attachment_files: {}",
