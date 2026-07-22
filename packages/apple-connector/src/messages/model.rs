@@ -67,9 +67,42 @@ pub enum MessageContent {
     Unknown(UnknownMessage),
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct MessageBody {
     pub text: Option<String>,
+    pub runs: Vec<AttributedRun>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct AttributedRun {
+    /// UTF-8 byte offset into [`MessageBody::text`].
+    pub start: usize,
+    /// UTF-8 byte offset into [`MessageBody::text`] (exclusive).
+    pub end: usize,
+    /// `__kIMMessagePartAttributeName` when present.
+    pub part: Option<i64>,
+    pub attributes: Vec<BodyAttribute>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum BodyAttribute {
+    Link {
+        url: String,
+        is_rich: bool,
+    },
+    Mention(String),
+    FileTransfer {
+        guid: String,
+        inline_sticker: bool,
+    },
+    PhoneNumber,
+    DataDetected,
+    CalendarEvent,
+    Breadcrumb {
+        marker: Option<String>,
+        flags: Option<i64>,
+    },
+    Unknown(String),
 }
 
 #[derive(Debug, Clone)]

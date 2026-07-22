@@ -116,19 +116,25 @@ fn unknown(row: &MessageRow, attachments: &[AttachmentRow]) -> MessageContent {
 }
 
 fn message_body(row: &MessageRow) -> MessageBody {
+    if let Some(body) = row
+        .attributed_body
+        .as_deref()
+        .and_then(attributed_body::decode)
+    {
+        return body;
+    }
+
     let text = row
         .text
         .as_deref()
         .map(str::trim)
         .filter(|text| !text.is_empty())
-        .map(str::to_owned)
-        .or_else(|| {
-            row.attributed_body
-                .as_deref()
-                .and_then(attributed_body::decode)
-        });
+        .map(str::to_owned);
 
-    MessageBody { text }
+    MessageBody {
+        text,
+        runs: Vec::new(),
+    }
 }
 
 fn to_attachments(attachments: &[AttachmentRow]) -> Vec<Attachment> {
@@ -239,12 +245,13 @@ mod tests {
     }
 
     #[test]
-    fn prefers_plain_text_column_when_present() {
+    fn prefers_plain_text_column_when_attributed_body_is_unusable() {
         let mut row = empty_row();
         row.text = Some("  hello  ".to_owned());
         row.attributed_body = Some(b"not a typedstream".to_vec());
 
         assert_eq!(message_body(&row).text.as_deref(), Some("hello"));
+        assert!(message_body(&row).runs.is_empty());
     }
 
     #[test]
