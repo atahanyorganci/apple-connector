@@ -1,4 +1,6 @@
 /target
 result*
+.env
+.sqlx/
 fixtures/messages/chat.db
 fixtures/messages/chat.db-*

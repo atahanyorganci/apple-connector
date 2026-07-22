@@ -10,7 +10,7 @@ use sqlx::{
     sqlite::{SqliteConnectOptions, SqliteConnection},
 };
 
-#[derive(Debug, sqlx::FromRow)]
+#[derive(Debug)]
 struct MessageRow {
     row_id: i64,
     guid: String,
@@ -68,17 +68,18 @@ async fn main() -> Result<(), Box<dyn Error>> {
         )
     })?;
 
-    let messages = sqlx::query_as::<_, MessageRow>(
+    let messages = sqlx::query_as!(
+        MessageRow,
         r#"
         SELECT
-            message.ROWID AS row_id,
-            message.guid,
+            message.ROWID AS "row_id!",
+            message.guid AS "guid!",
             message.text,
             datetime(
                 message.date / 1000000000 + 978307200,
                 'unixepoch'
             ) AS date_utc,
-            message.is_from_me,
+            message.is_from_me AS "is_from_me!: bool",
             handle.id AS sender
         FROM message
         LEFT JOIN handle ON message.handle_id = handle.ROWID

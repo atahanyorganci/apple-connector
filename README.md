@@ -32,7 +32,19 @@ Use them for local development without reading your real `~/Library/Messages/cha
 
 ```bash
 ./fixtures/messages/create-empty-db.sh
+cp .env.example .env
+cargo install sqlx-cli --version 0.9.0 --no-default-features --features sqlite
+cargo sqlx prepare --workspace
+rsync -a --delete .sqlx/ sqlx/
 ```
+
+Commit the updated `sqlx/` directory. Nix builds use `SQLX_OFFLINE=true` with
+`SQLX_OFFLINE_DIR=sqlx` and do not need a database connection.
+
+## SQL queries
+
+Queries in `src/main.rs` are verified at compile time with SQLx `query_as!`. After
+changing SQL, run the fixture steps above to refresh the offline cache.
 
 ## License
 
