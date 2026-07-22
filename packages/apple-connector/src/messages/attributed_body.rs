@@ -2,26 +2,31 @@ use std::collections::HashMap;
 
 use apple_typedstream::{ArchivedObject, TypedValues, Value};
 
-use super::model::{AttributedRun, BodyAttribute, MessageBody};
+use super::model::{
+    AttributedBodyDecodeError, AttributedRun, BodyAttribute, MessageBody,
+};
 
-pub fn decode(data: &[u8]) -> Option<MessageBody> {
-    let value = apple_typedstream::from_slice(data).ok()?;
+pub fn decode(data: &[u8]) -> Result<MessageBody, AttributedBodyDecodeError> {
+    let value = apple_typedstream::from_slice(data)
+        .map_err(|_| AttributedBodyDecodeError::InvalidTypedStream)?;
     let Value::Archived(object) = value else {
-        return None;
+        return Err(AttributedBodyDecodeError::NotAttributedString);
     };
     if !object
         .classes
         .iter()
         .any(|class| class.name == "NSAttributedString")
     {
-        return None;
+        return Err(AttributedBodyDecodeError::NotAttributedString);
     }
 
-    let text = attributed_string_text(&object)?;
+    let text = attributed_string_text(&object)
+        .ok_or(AttributedBodyDecodeError::MissingText)?;
     let runs = parse_runs(&object.fields, &text);
-    Some(MessageBody {
+    Ok(MessageBody {
         text: Some(text),
         runs,
+        attributed_body_error: None,
     })
 }
 
@@ -275,19 +280,19 @@ mod tests {
     #[test]
     fn preserves_whitespace_and_object_placeholders() {
         assert_eq!(
-            decode(SPACED_FIXTURE).and_then(|body| body.text),
+            decode(SPACED_FIXTURE).ok().and_then(|body| body.text),
             Some("fixture: spaced  ".to_owned())
         );
         assert_eq!(
-            decode(PHOTO_CAPTION_FIXTURE).and_then(|body| body.text),
+            decode(PHOTO_CAPTION_FIXTURE).ok().and_then(|body| body.text),
             Some("\u{fffc}fixture: photo caption".to_owned())
         );
         assert_eq!(
-            decode(STICKER_FIXTURE).and_then(|body| body.text),
+            decode(STICKER_FIXTURE).ok().and_then(|body| body.text),
             Some("\u{fffc}".to_owned())
         );
         assert_eq!(
-            decode(EXPRESSIVE_FIXTURE).and_then(|body| body.text),
+            decode(EXPRESSIVE_FIXTURE).ok().and_then(|body| body.text),
             Some("\u{fffd}".to_owned())
         );
     }
@@ -376,9 +381,17 @@ mod tests {
 
     #[test]
     fn rejects_malformed_and_non_attributed_streams() {
-        assert!(decode(b"not a typedstream").is_none());
+        use crate::messages::model::AttributedBodyDecodeError;
+
+        assert_eq!(
+            decode(b"not a typedstream"),
+            Err(AttributedBodyDecodeError::InvalidTypedStream)
+        );
 
         let string_stream = apple_typedstream::to_vec("plain NSString").expect("encode NSString");
-        assert!(decode(&string_stream).is_none());
+        assert_eq!(
+            decode(&string_stream),
+            Err(AttributedBodyDecodeError::NotAttributedString)
+        );
     }
 }

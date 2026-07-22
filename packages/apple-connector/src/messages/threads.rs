@@ -111,6 +111,7 @@ mod tests {
                 body: crate::messages::model::MessageBody {
                     text: Some(guid.to_owned()),
                     runs: Vec::new(),
+                    attributed_body_error: None,
                 },
                 is_forward: false,
                 is_auto_reply: false,
