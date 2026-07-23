@@ -9,7 +9,7 @@ VALUES
 INSERT INTO
   Z_PRIMARYKEY (Z_ENT, Z_NAME, Z_SUPER, Z_MAX)
 VALUES
-  (8, 'ICHashtag', 3, 0);
+  (8, 'ICHashtag', 3, 11);
 
 INSERT INTO
   Z_PRIMARYKEY (Z_ENT, Z_NAME, Z_SUPER, Z_MAX)
@@ -333,4 +333,30 @@ VALUES
     'public.plain-text',
     12,
     789145691.132099
+  );
+
+-- Hashtag linked to checklist note (ZNOTE1 = 6)
+INSERT INTO
+  ZICCLOUDSYNCINGOBJECT (
+    Z_PK,
+    Z_ENT,
+    Z_OPT,
+    ZMARKEDFORDELETION,
+    ZNOTE1,
+    ZIDENTIFIER,
+    ZALTTEXT,
+    ZTOKENCONTENTIDENTIFIER,
+    ZTYPEUTI1
+  )
+VALUES
+  (
+    11,
+    8,
+    1,
+    0,
+    6,
+    '11260344-8BD0-44D3-884D-D783C728B703',
+    '#reading',
+    'READING',
+    'com.apple.notes.inlinetextattachment.hashtag'
   );

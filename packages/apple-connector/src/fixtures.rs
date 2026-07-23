@@ -422,10 +422,21 @@ mod tests {
         .expect("body count")
         .get("count");
 
+        let hashtag_count: i64 = sqlx::query(
+            "SELECT COUNT(*) AS count FROM ZICCLOUDSYNCINGOBJECT \
+             WHERE ZTYPEUTI1 = 'com.apple.notes.inlinetextattachment.hashtag' \
+               AND ZNOTE1 = 6 AND ZALTTEXT = '#reading'",
+        )
+        .fetch_one(&pool)
+        .await
+        .expect("hashtag count")
+        .get("count");
+
         assert_eq!(folder_count, 1);
         assert!(note_count >= 5);
         assert_eq!(locked_count, 1);
         assert_eq!(checklist_count, 1);
         assert_eq!(body_count, 1);
+        assert_eq!(hashtag_count, 1);
     }
 }

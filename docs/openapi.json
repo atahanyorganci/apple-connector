@@ -1689,6 +1689,58 @@
         }
       }
     },
+    "/v1/notes/{note_id}/contents": {
+      "get": {
+        "tags": [
+          "notes"
+        ],
+        "summary": "Get note contents as Markdown",
+        "description": "Returns a `text/markdown` document with YAML front matter (`NoteContentsPreambleDto`)\nfollowed by the note body rendered as Markdown. Hashtags appear under `tags` in the\npreamble (leading `#` stripped). Locked notes and decode failures yield an empty body\nwhile still returning preamble metadata.",
+        "operationId": "getNoteContents",
+        "parameters": [
+          {
+            "name": "note_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Markdown document with YAML front matter",
+            "content": {
+              "text/markdown": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Note not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Notes database is unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/reminder-attachments/{id}": {
       "get": {
         "tags": [
@@ -3878,6 +3930,106 @@
               "string",
               "null"
             ]
+          }
+        }
+      },
+      "NoteContentsFolderDto": {
+        "type": "object",
+        "required": [
+          "id",
+          "kind"
+        ],
+        "properties": {
+          "id": {
+            "$ref": "#/components/schemas/NoteFolderId"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/FolderKindDto"
+          },
+          "name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "NoteContentsPreambleDto": {
+        "type": "object",
+        "description": "YAML front matter schema for `GET /v1/notes/{note_id}/contents`.\n\nThe HTTP response is a single `text/markdown` document; this schema documents\nthe fields serialized between the opening and closing `---` delimiters.",
+        "required": [
+          "schema_version",
+          "id",
+          "title",
+          "tags",
+          "is_pinned",
+          "has_checklist",
+          "is_locked",
+          "marked_for_deletion",
+          "has_attachments"
+        ],
+        "properties": {
+          "created_at": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/UnixTimestamp"
+              }
+            ]
+          },
+          "folder": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/NoteContentsFolderDto"
+              }
+            ]
+          },
+          "has_attachments": {
+            "type": "boolean"
+          },
+          "has_checklist": {
+            "type": "boolean"
+          },
+          "id": {
+            "$ref": "#/components/schemas/NoteId"
+          },
+          "is_locked": {
+            "type": "boolean"
+          },
+          "is_pinned": {
+            "type": "boolean"
+          },
+          "marked_for_deletion": {
+            "type": "boolean"
+          },
+          "modified_at": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/UnixTimestamp"
+              }
+            ]
+          },
+          "schema_version": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "title": {
+            "type": "string"
           }
         }
       },

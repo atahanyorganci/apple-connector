@@ -16,9 +16,9 @@ use super::{
         message::{MessageDetailDto, MessagePageDto, MessageSummaryDto},
         note::{
             ChecklistItemDto, EmbeddedObjectDto, FolderKindDto, NoteAttachmentDetailDto,
-            NoteAttachmentSummaryDto, NoteBodyDto, NoteDetailDto, NoteFolderDetailDto,
-            NoteFolderPageDto, NoteFolderSummaryDto, NotePageDto, NoteRunDto, NoteSummaryDto,
-            ParagraphStyleDto, ParagraphStyleKindDto,
+            NoteAttachmentSummaryDto, NoteBodyDto, NoteContentsFolderDto, NoteContentsPreambleDto,
+            NoteDetailDto, NoteFolderDetailDto, NoteFolderPageDto, NoteFolderSummaryDto,
+            NotePageDto, NoteRunDto, NoteSummaryDto, ParagraphStyleDto, ParagraphStyleKindDto,
         },
         pagination::PageMetaDto,
         reminder::{
@@ -115,6 +115,8 @@ impl Modify for SecurityAddon {
         NoteAttachmentIdPath,
         NoteAttachmentSummaryDto,
         NoteBodyDto,
+        NoteContentsFolderDto,
+        NoteContentsPreambleDto,
         NoteDetailDto,
         NoteFolderDetailDto,
         NoteFolderIdPath,
@@ -265,6 +267,7 @@ mod tests {
         ),
         ("get", "/v1/notes", "listNotes"),
         ("get", "/v1/notes/{note_id}", "getNote"),
+        ("get", "/v1/notes/{note_id}/contents", "getNoteContents"),
         ("get", "/v1/note-attachments/{id}", "getNoteAttachment"),
         (
             "get",

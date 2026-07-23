@@ -119,6 +119,7 @@ fn openapi_router() -> OpenApiRouter<AppState> {
             crate::api::handlers::note_folders::list_folder_notes
         ))
         .routes(routes!(crate::api::handlers::notes::list_notes))
+        .routes(routes!(crate::api::handlers::notes::get_note_contents))
         .routes(routes!(crate::api::handlers::notes::get_note))
         .routes(routes!(
             crate::api::handlers::note_attachments::get_note_attachment
@@ -161,6 +162,7 @@ mod tests {
         ("GET", "/v1/note-folders/1/notes"),
         ("GET", "/v1/notes"),
         ("GET", "/v1/notes/test-id"),
+        ("GET", "/v1/notes/test-id/contents"),
         ("GET", "/v1/note-attachments/test-id"),
         ("GET", "/v1/note-attachments/test-id/content"),
         ("HEAD", "/v1/note-attachments/test-id/content"),

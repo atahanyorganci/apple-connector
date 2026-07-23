@@ -1,6 +1,8 @@
 use axum::{
     Json,
     extract::{Query, State},
+    http::{HeaderValue, header},
+    response::Response,
 };
 
 use super::health::require_notes_db;
@@ -16,7 +18,7 @@ use crate::{
         router::AppState,
     },
     db::run_timed_query,
-    notes::NoteRepository,
+    notes::{NoteRepository, preamble_from_note, render_document},
 };
 
 /// List notes globally
@@ -116,4 +118,144 @@ pub async fn get_note(
     .map_err(|error| ApiError::internal(error.to_string()))?;
 
     Ok(Json(note_detail_to_dto(&note, &attachments)))
+}
+
+/// Get note contents as Markdown
+///
+/// Returns a `text/markdown` document with YAML front matter (`NoteContentsPreambleDto`)
+/// followed by the note body rendered as Markdown. Hashtags appear under `tags` in the
+/// preamble (leading `#` stripped). Locked notes and decode failures yield an empty body
+/// while still returning preamble metadata.
+#[utoipa::path(
+    get,
+    path = "/v1/notes/{note_id}/contents",
+    operation_id = "getNoteContents",
+    tag = "notes",
+    params(NoteIdPath),
+    responses(
+        (
+            status = 200,
+            description = "Markdown document with YAML front matter",
+            content_type = "text/markdown",
+            body = String,
+        ),
+        (status = 404, description = "Note not found", body = ErrorResponse),
+        (status = 503, description = "Notes database is unavailable", body = ErrorResponse),
+    )
+)]
+pub async fn get_note_contents(
+    State(state): State<AppState>,
+    axum::extract::Path(NoteIdPath { note_id }): axum::extract::Path<NoteIdPath>,
+) -> Result<Response, ApiError> {
+    let pool = require_notes_db(&state.notes_db)?;
+    let note = run_timed_query(|| async { NoteRepository::new(pool).get_note(&note_id).await })
+        .await
+        .map_err(|error| ApiError::internal(error.to_string()))?
+        .ok_or_else(|| ApiError::not_found(format!("note {note_id} not found")))?;
+
+    let tags = run_timed_query(|| async {
+        NoteRepository::new(pool)
+            .fetch_tags_for_note(note.summary.row_id)
+            .await
+    })
+    .await
+    .map_err(|error| ApiError::internal(error.to_string()))?;
+
+    let preamble = preamble_from_note(&note.summary, tags);
+    let document = render_document(&preamble, &note.body);
+
+    Response::builder()
+        .status(200)
+        .header(
+            header::CONTENT_TYPE,
+            HeaderValue::from_static("text/markdown; charset=utf-8"),
+        )
+        .body(axum::body::Body::from(document))
+        .map_err(|error| ApiError::internal(error.to_string()))
+}
+
+#[cfg(test)]
+mod tests {
+    use axum::body::Body;
+    use http::{Request, StatusCode};
+    use http_body_util::BodyExt;
+    use tower::ServiceExt;
+
+    use crate::{
+        api::router::{AppState, router},
+        connect_pool,
+        fixtures::{NotesFixtureDb, SEED_CHECKLIST_NOTE_ID, SEED_LOCKED_NOTE_ID},
+    };
+
+    #[tokio::test]
+    async fn get_note_contents_returns_markdown_with_tags() {
+        let fixture = NotesFixtureDb::seeded().await.expect("fixture");
+        let pool = connect_pool(fixture.path()).await.expect("pool");
+        let app = router(AppState::new(None, None, Some(pool)));
+
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .uri(format!("/v1/notes/{SEED_CHECKLIST_NOTE_ID}/contents"))
+                    .body(Body::empty())
+                    .expect("request"),
+            )
+            .await
+            .expect("response");
+
+        assert_eq!(response.status(), StatusCode::OK);
+        assert_eq!(
+            response
+                .headers()
+                .get("content-type")
+                .and_then(|value| value.to_str().ok()),
+            Some("text/markdown; charset=utf-8")
+        );
+
+        let body = response
+            .into_body()
+            .collect()
+            .await
+            .expect("body")
+            .to_bytes();
+        let document = String::from_utf8(body.to_vec()).expect("utf-8");
+
+        assert!(document.starts_with("---\n"));
+        assert!(document.contains("schema_version: 1"));
+        assert!(document.contains("tags:"));
+        assert!(document.contains("reading"));
+        assert!(
+            document.contains("- [ ]") || document.contains("- [x]"),
+            "document: {document}"
+        );
+    }
+
+    #[tokio::test]
+    async fn get_note_contents_locked_note_has_empty_body() {
+        let fixture = NotesFixtureDb::seeded().await.expect("fixture");
+        let pool = connect_pool(fixture.path()).await.expect("pool");
+        let app = router(AppState::new(None, None, Some(pool)));
+
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .uri(format!("/v1/notes/{SEED_LOCKED_NOTE_ID}/contents"))
+                    .body(Body::empty())
+                    .expect("request"),
+            )
+            .await
+            .expect("response");
+
+        assert_eq!(response.status(), StatusCode::OK);
+        let body = response
+            .into_body()
+            .collect()
+            .await
+            .expect("body")
+            .to_bytes();
+        let document = String::from_utf8(body.to_vec()).expect("utf-8");
+
+        assert!(document.contains("is_locked: true"));
+        assert!(document.trim_end().ends_with("---"));
+    }
 }

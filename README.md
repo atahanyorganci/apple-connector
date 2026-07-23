@@ -38,19 +38,19 @@ curl -s http://127.0.0.1:3000/openapi.json | jq .info.title
 
 ## CLI options
 
-| Option | Default | Description |
-| --- | --- | --- |
-| `--address <IP>` | `127.0.0.1` | Bind address. Loopback (`127.0.0.1`, `127.0.0.2`, `::1`) or explicit `0.0.0.0` only. |
-| `--port <PORT>` | `3000` | TCP port (`1`–`65535`; `0` is rejected). |
-| `--messages-database <PATH>` | `~/Library/Messages/chat.db` | Read-only path to Messages `chat.db`. The server never creates or mutates this file. |
-| `--reminders-database <PATH>` | auto-discover | Read-only path to the Reminders SQLite store. |
-| `--reminders-stores-dir <PATH>` | Group Containers `Stores/` | Directory scanned when auto-discovering the Reminders store. |
-| `--attachment-root <PATH>` | `<messages-database-dir>/Attachments` | Messages attachment directory (canonicalized and confined at runtime). |
-| `--reminders-attachment-root <PATH>` | `.Data-{UUID}_SUPPORT` next to store | Reminders attachment support directory. |
-| `--notes-database <PATH>` | Notes Group Container `NoteStore.sqlite` | Read-only path to the Notes SQLite store. |
-| `--notes-attachment-root <PATH>` | `Accounts/` under Notes Group Container | Notes attachment directory (canonicalized and confined at runtime). |
-| `--help` | — | Print usage and exit. |
-| `--version` | — | Print crate version and exit. |
+| Option                               | Default                                  | Description                                                                          |
+| ------------------------------------ | ---------------------------------------- | ------------------------------------------------------------------------------------ |
+| `--address <IP>`                     | `127.0.0.1`                              | Bind address. Loopback (`127.0.0.1`, `127.0.0.2`, `::1`) or explicit `0.0.0.0` only. |
+| `--port <PORT>`                      | `3000`                                   | TCP port (`1`–`65535`; `0` is rejected).                                             |
+| `--messages-database <PATH>`         | `~/Library/Messages/chat.db`             | Read-only path to Messages `chat.db`. The server never creates or mutates this file. |
+| `--reminders-database <PATH>`        | auto-discover                            | Read-only path to the Reminders SQLite store.                                        |
+| `--reminders-stores-dir <PATH>`      | Group Containers `Stores/`               | Directory scanned when auto-discovering the Reminders store.                         |
+| `--attachment-root <PATH>`           | `<messages-database-dir>/Attachments`    | Messages attachment directory (canonicalized and confined at runtime).               |
+| `--reminders-attachment-root <PATH>` | `.Data-{UUID}_SUPPORT` next to store     | Reminders attachment support directory.                                              |
+| `--notes-database <PATH>`            | Notes Group Container `NoteStore.sqlite` | Read-only path to the Notes SQLite store.                                            |
+| `--notes-attachment-root <PATH>`     | `Accounts/` under Notes Group Container  | Notes attachment directory (canonicalized and confined at runtime).                  |
+| `--help`                             | —                                        | Print usage and exit.                                                                |
+| `--version`                          | —                                        | Print crate version and exit.                                                        |
 
 Examples:
 
@@ -90,32 +90,33 @@ Press **Ctrl-C** to shut down. In-flight requests are drained before exit.
 
 ## HTTP endpoints
 
-| Method | Path | Description |
-| --- | --- | --- |
-| `GET` | `/healthz` | Composite database pool health (`messages` / `reminders` / `notes`: `ok` / `unavailable`). Returns `200` only when all three are `ok`. |
-| `GET` | `/v1/chats` | Paginated chat list (newest activity first). |
-| `GET` | `/v1/chats/{chat_id}` | Single chat metadata and participants. |
-| `GET` | `/v1/chats/{chat_id}/messages` | Paginated messages for one chat. |
-| `GET` | `/v1/messages` | Global message list with optional search/filters. |
-| `GET` | `/v1/messages/{guid}` | Single message with classified content. |
-| `GET` | `/v1/attachments/{guid}` | Attachment metadata (no local paths). |
-| `GET`, `HEAD` | `/v1/attachments/{guid}/content` | Attachment bytes with range/conditional support. |
-| `GET` | `/v1/reminder-lists` | Paginated reminder lists (newest modified first). |
-| `GET` | `/v1/reminder-lists/{list_id}` | Single list with sections and smart-list metadata. |
-| `GET` | `/v1/reminder-lists/{list_id}/reminders` | Paginated reminders scoped to one list. |
-| `GET` | `/v1/reminders` | Global reminder list with optional search/filters. |
-| `GET` | `/v1/reminders/{reminder_id}` | Single reminder with subtasks, tags, alarms, and attachments. |
-| `GET`, `HEAD` | `/v1/reminder-attachments/{id}/content` | Reminder attachment bytes with range/conditional support. |
-| `GET` | `/v1/reminder-attachments/{id}` | Reminder attachment metadata (no local paths). |
-| `GET` | `/v1/note-folders` | Paginated note folders (excludes Recently Deleted by default). |
-| `GET` | `/v1/note-folders/{folder_id}` | Single folder with parent/account metadata. |
-| `GET` | `/v1/note-folders/{folder_id}/notes` | Paginated notes in folder (newest modified first). |
-| `GET` | `/v1/notes` | Global note list with optional search/filters. |
-| `GET` | `/v1/notes/{note_id}` | Single note with decoded body, checklist items, and attachments. |
-| `GET`, `HEAD` | `/v1/note-attachments/{id}/content` | Note attachment bytes with range/conditional support. |
-| `GET` | `/v1/note-attachments/{id}` | Note attachment metadata (no local paths). |
-| `GET` | `/openapi.json` | OpenAPI 3.1 contract (same document as `docs/openapi.json`). |
-| `GET` | `/docs` | Scalar API reference (embedded OpenAPI 3.1 contract). |
+| Method        | Path                                     | Description                                                                                                                            |
+| ------------- | ---------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| `GET`         | `/healthz`                               | Composite database pool health (`messages` / `reminders` / `notes`: `ok` / `unavailable`). Returns `200` only when all three are `ok`. |
+| `GET`         | `/v1/chats`                              | Paginated chat list (newest activity first).                                                                                           |
+| `GET`         | `/v1/chats/{chat_id}`                    | Single chat metadata and participants.                                                                                                 |
+| `GET`         | `/v1/chats/{chat_id}/messages`           | Paginated messages for one chat.                                                                                                       |
+| `GET`         | `/v1/messages`                           | Global message list with optional search/filters.                                                                                      |
+| `GET`         | `/v1/messages/{guid}`                    | Single message with classified content.                                                                                                |
+| `GET`         | `/v1/attachments/{guid}`                 | Attachment metadata (no local paths).                                                                                                  |
+| `GET`, `HEAD` | `/v1/attachments/{guid}/content`         | Attachment bytes with range/conditional support.                                                                                       |
+| `GET`         | `/v1/reminder-lists`                     | Paginated reminder lists (newest modified first).                                                                                      |
+| `GET`         | `/v1/reminder-lists/{list_id}`           | Single list with sections and smart-list metadata.                                                                                     |
+| `GET`         | `/v1/reminder-lists/{list_id}/reminders` | Paginated reminders scoped to one list.                                                                                                |
+| `GET`         | `/v1/reminders`                          | Global reminder list with optional search/filters.                                                                                     |
+| `GET`         | `/v1/reminders/{reminder_id}`            | Single reminder with subtasks, tags, alarms, and attachments.                                                                          |
+| `GET`, `HEAD` | `/v1/reminder-attachments/{id}/content`  | Reminder attachment bytes with range/conditional support.                                                                              |
+| `GET`         | `/v1/reminder-attachments/{id}`          | Reminder attachment metadata (no local paths).                                                                                         |
+| `GET`         | `/v1/note-folders`                       | Paginated note folders (excludes Recently Deleted by default).                                                                         |
+| `GET`         | `/v1/note-folders/{folder_id}`           | Single folder with parent/account metadata.                                                                                            |
+| `GET`         | `/v1/note-folders/{folder_id}/notes`     | Paginated notes in folder (newest modified first).                                                                                     |
+| `GET`         | `/v1/notes`                              | Global note list with optional search/filters.                                                                                         |
+| `GET`         | `/v1/notes/{note_id}`                    | Single note with decoded body, checklist items, and attachments.                                                                       |
+| `GET`         | `/v1/notes/{note_id}/contents`           | Note as Markdown with YAML front matter (tags, metadata).                                                                              |
+| `GET`, `HEAD` | `/v1/note-attachments/{id}/content`      | Note attachment bytes with range/conditional support.                                                                                  |
+| `GET`         | `/v1/note-attachments/{id}`              | Note attachment metadata (no local paths).                                                                                             |
+| `GET`         | `/openapi.json`                          | OpenAPI 3.1 contract (same document as `docs/openapi.json`).                                                                           |
+| `GET`         | `/docs`                                  | Scalar API reference (embedded OpenAPI 3.1 contract).                                                                                  |
 
 Unknown routes return JSON `404`; unsupported methods return JSON `405`. All
 responses include `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`,
@@ -158,16 +159,16 @@ a cursor with different filters returns `400 validation_error`.
 
 `GET /v1/messages` supports:
 
-| Parameter | Description |
-| --- | --- |
-| `q` | Case-insensitive text search (max 256 chars). Matches plain `text` and decoded `attributedBody`. |
-| `chat_id` | Restrict to one chat row id. |
-| `sender` | Handle identifier (phone/email). |
-| `before`, `after` | ISO-8601 UTC bounds on message time. |
-| `direction` | `sent` or `received`. |
-| `transport` | `imessage`, `sms`, `rcs`, or `unknown`. |
-| `content_type` | Classified content kind (`text`, `attachment`, `reaction`, …). |
-| `has_attachments` | `true` or `false`. |
+| Parameter         | Description                                                                                      |
+| ----------------- | ------------------------------------------------------------------------------------------------ |
+| `q`               | Case-insensitive text search (max 256 chars). Matches plain `text` and decoded `attributedBody`. |
+| `chat_id`         | Restrict to one chat row id.                                                                     |
+| `sender`          | Handle identifier (phone/email).                                                                 |
+| `before`, `after` | ISO-8601 UTC bounds on message time.                                                             |
+| `direction`       | `sent` or `received`.                                                                            |
+| `transport`       | `imessage`, `sms`, `rcs`, or `unknown`.                                                          |
+| `content_type`    | Classified content kind (`text`, `attachment`, `reaction`, …).                                   |
+| `has_attachments` | `true` or `false`.                                                                               |
 
 Text search uses a resumable search cursor when filters are active. New rows
 written to `chat.db` by Messages.app are visible on the next request without
@@ -177,15 +178,15 @@ restarting the server.
 
 `GET /v1/reminders` and `GET /v1/reminder-lists/{list_id}/reminders` support:
 
-| Parameter | Description |
-| --- | --- |
-| `q` | Case-insensitive text search (max 256 chars) on title and notes. |
-| `completed`, `flagged` | Boolean completion/flag filters. |
-| `has_due_date`, `due_before`, `due_after` | Due-date presence and bounds. |
-| `priority_min` | Minimum Reminders priority value. |
-| `has_notes`, `top_level_only` | Notes presence and parent-only listing. |
-| `section_id` | Restrict to one section UUID. |
-| `include_subtasks`, `include_tags` | Expand nested subtasks and hashtag tags. |
+| Parameter                                 | Description                                                      |
+| ----------------------------------------- | ---------------------------------------------------------------- |
+| `q`                                       | Case-insensitive text search (max 256 chars) on title and notes. |
+| `completed`, `flagged`                    | Boolean completion/flag filters.                                 |
+| `has_due_date`, `due_before`, `due_after` | Due-date presence and bounds.                                    |
+| `priority_min`                            | Minimum Reminders priority value.                                |
+| `has_notes`, `top_level_only`             | Notes presence and parent-only listing.                          |
+| `section_id`                              | Restrict to one section UUID.                                    |
+| `include_subtasks`, `include_tags`        | Expand nested subtasks and hashtag tags.                         |
 
 Filtered requests bind cursors to the active filter set. Reusing a cursor with
 different filters returns `400 validation_error`.
@@ -194,13 +195,13 @@ different filters returns `400 validation_error`.
 
 `GET /v1/notes` and `GET /v1/note-folders/{folder_id}/notes` support:
 
-| Parameter | Description |
-| --- | --- |
-| `q` | Case-insensitive text search (max 256 chars) on title, snippet, and decoded body. |
-| `folder_id` | Restrict to one folder (row id or UUID). |
-| `is_pinned`, `is_locked`, `has_checklist`, `has_attachments` | Boolean metadata filters. |
-| `include_deleted` | Include Recently Deleted notes. |
-| `modified_before`, `modified_after` | ISO-8601 UTC bounds on modification time. |
+| Parameter                                                    | Description                                                                       |
+| ------------------------------------------------------------ | --------------------------------------------------------------------------------- |
+| `q`                                                          | Case-insensitive text search (max 256 chars) on title, snippet, and decoded body. |
+| `folder_id`                                                  | Restrict to one folder (row id or UUID).                                          |
+| `is_pinned`, `is_locked`, `has_checklist`, `has_attachments` | Boolean metadata filters.                                                         |
+| `include_deleted`                                            | Include Recently Deleted notes.                                                   |
+| `modified_before`, `modified_after`                          | ISO-8601 UTC bounds on modification time.                                         |
 
 Filtered requests bind cursors to the active filter set. Reusing a cursor with
 different filters returns `400 validation_error`.

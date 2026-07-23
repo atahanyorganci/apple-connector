@@ -405,6 +405,36 @@ impl<'a> NoteRepository<'a> {
         })
     }
 
+    pub async fn fetch_tags_for_note(&self, note_row_id: i64) -> Result<Vec<String>, sqlx::Error> {
+        let rows: Vec<(Option<String>,)> = sqlx::query_as(
+            "SELECT o.ZALTTEXT AS tag_name \
+             FROM ZICCLOUDSYNCINGOBJECT o \
+             WHERE o.ZMARKEDFORDELETION = 0 \
+               AND o.ZTYPEUTI1 = 'com.apple.notes.inlinetextattachment.hashtag' \
+               AND o.ZNOTE1 = ?1 \
+             ORDER BY o.Z_PK",
+        )
+        .bind(note_row_id)
+        .fetch_all(self.pool)
+        .await?;
+
+        let mut tags = Vec::new();
+        let mut seen = HashSet::new();
+        for (alt_text,) in rows {
+            let Some(alt_text) = alt_text else {
+                continue;
+            };
+            let tag = normalize_hashtag_label(&alt_text);
+            if tag.is_empty() {
+                continue;
+            }
+            if seen.insert(tag.to_lowercase()) {
+                tags.push(tag);
+            }
+        }
+        Ok(tags)
+    }
+
     pub async fn list_attachments_for_note(
         &self,
         note_row_id: i64,
@@ -468,6 +498,14 @@ impl<'a> NoteRepository<'a> {
             .map(|row_id| (row_id, attached.contains(&row_id)))
             .collect())
     }
+}
+
+fn normalize_hashtag_label(alt_text: &str) -> String {
+    alt_text
+        .strip_prefix('#')
+        .unwrap_or(alt_text)
+        .trim()
+        .to_owned()
 }
 
 fn split_page<T>(mut rows: Vec<T>, limit: u32) -> (Vec<T>, bool) {

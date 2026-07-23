@@ -193,3 +193,34 @@ pub struct NoteAttachmentDetailDto {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub modified_at: Option<UnixTimestamp>,
 }
+
+/// YAML front matter schema for `GET /v1/notes/{note_id}/contents`.
+///
+/// The HTTP response is a single `text/markdown` document; this schema documents
+/// the fields serialized between the opening and closing `---` delimiters.
+#[derive(Debug, Clone, Serialize, ToSchema)]
+pub struct NoteContentsPreambleDto {
+    pub schema_version: u32,
+    pub id: NoteId,
+    pub title: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub folder: Option<NoteContentsFolderDto>,
+    pub tags: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub created_at: Option<UnixTimestamp>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub modified_at: Option<UnixTimestamp>,
+    pub is_pinned: bool,
+    pub has_checklist: bool,
+    pub is_locked: bool,
+    pub marked_for_deletion: bool,
+    pub has_attachments: bool,
+}
+
+#[derive(Debug, Clone, Serialize, ToSchema)]
+pub struct NoteContentsFolderDto {
+    pub id: NoteFolderId,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub name: Option<String>,
+    pub kind: FolderKindDto,
+}

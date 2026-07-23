@@ -430,6 +430,38 @@ async fn integration_notes_fixture_endpoints() {
         "expected checklist items"
     );
 
+    let response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .uri(format!("/v1/notes/{SEED_CHECKLIST_NOTE_ID}/contents"))
+                .body(Body::empty())
+                .expect("request"),
+        )
+        .await
+        .expect("response");
+    assert_eq!(response.status(), StatusCode::OK);
+    assert_eq!(
+        response
+            .headers()
+            .get("content-type")
+            .and_then(|value| value.to_str().ok()),
+        Some("text/markdown; charset=utf-8")
+    );
+    let markdown = String::from_utf8(
+        response
+            .into_body()
+            .collect()
+            .await
+            .expect("body")
+            .to_bytes()
+            .to_vec(),
+    )
+    .expect("utf-8");
+    assert!(markdown.starts_with("---\n"));
+    assert!(markdown.contains("schema_version: 1"));
+    assert!(markdown.contains("reading"));
+
     let (status, smart) =
         response_json(app, &format!("/v1/note-folders/{SEED_PROJECTS_FOLDER_ID}")).await;
     assert_eq!(status, StatusCode::OK);
