@@ -4,7 +4,7 @@ use axum::{Router, middleware::from_fn};
 use sqlx::SqlitePool;
 use utoipa::{OpenApi, openapi::OpenApi as OpenApiSpec};
 use utoipa_axum::{router::OpenApiRouter, routes};
-use utoipa_swagger_ui::{Config, SwaggerUi};
+use utoipa_scalar::{Scalar, Servable};
 
 use super::{
     doc::ApiDoc,
@@ -45,7 +45,7 @@ pub fn build_openapi_spec() -> OpenApiSpec {
 
 pub fn router(state: AppState) -> Router {
     let api: Router = openapi_router().with_state(state).into();
-    api.merge(SwaggerUi::new("/swagger-ui").config(Config::from("/openapi.json")))
+    api.merge(Scalar::with_url("/docs", build_openapi_spec()))
         .fallback(not_found)
         .method_not_allowed_fallback(method_not_allowed)
         .layer(from_fn(request_timeout))
@@ -161,13 +161,13 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn swagger_ui_is_served_at_swagger_ui() {
+    async fn api_docs_are_served_at_docs() {
         let app = router(AppState::new(None));
 
         let response = app
             .oneshot(
                 Request::builder()
-                    .uri("/swagger-ui/")
+                    .uri("/docs")
                     .body(Body::empty())
                     .expect("request"),
             )
@@ -175,6 +175,12 @@ mod tests {
             .expect("response");
 
         assert_eq!(response.status(), StatusCode::OK);
-        assert_eq!(response.headers().get("content-type").unwrap(), "text/html");
+        assert!(
+            response
+                .headers()
+                .get("content-type")
+                .and_then(|value| value.to_str().ok())
+                .is_some_and(|value| value.starts_with("text/html"))
+        );
     }
 }

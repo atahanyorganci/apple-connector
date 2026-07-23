@@ -25,7 +25,7 @@ cargo run -p apple-connector
 
 By default the server binds to `127.0.0.1:3000`, opens
 `$HOME/Library/Messages/chat.db` read-only, and serves the API documented at
-`/openapi.json`. Browse and try endpoints interactively at `/swagger-ui/`.
+`/openapi.json`. Browse and try endpoints interactively at `/docs`.
 
 ```bash
 curl -s http://127.0.0.1:3000/healthz
@@ -92,7 +92,7 @@ Press **Ctrl-C** to shut down. In-flight requests are drained before exit.
 | `GET` | `/v1/attachments/{guid}` | Attachment metadata (no local paths). |
 | `GET`, `HEAD` | `/v1/attachments/{guid}/content` | Attachment bytes with range/conditional support. |
 | `GET` | `/openapi.json` | OpenAPI 3.1 contract (same document as `docs/openapi.json`). |
-| `GET` | `/swagger-ui/` | Swagger UI (loads the live spec from `/openapi.json`). |
+| `GET` | `/docs` | Scalar API reference (embedded OpenAPI 3.1 contract). |
 
 Unknown routes return JSON `404`; unsupported methods return JSON `405`. All
 responses include `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`,
