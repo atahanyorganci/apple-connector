@@ -24,7 +24,11 @@ pub fn decode_notedata(data: Option<&[u8]>, is_locked: bool) -> NoteBody {
 
     NoteBody {
         text: decoded.text,
-        runs: decoded.runs.into_iter().map(note_run_from_protobuf).collect(),
+        runs: decoded
+            .runs
+            .into_iter()
+            .map(note_run_from_protobuf)
+            .collect(),
         checklist_items: decoded
             .checklist_items
             .into_iter()

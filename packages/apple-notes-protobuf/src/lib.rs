@@ -120,8 +120,8 @@ pub fn decode_plain_text(data: &[u8]) -> Result<String, DecodeError> {
     }
 
     let decompressed = decompress_gzip(data)?;
-    let note_string = parse_note_string_from_document(&decompressed)
-        .map_err(DecodeError::InvalidProtobuf)?;
+    let note_string =
+        parse_note_string_from_document(&decompressed).map_err(DecodeError::InvalidProtobuf)?;
     Ok(note_string.text)
 }
 
@@ -204,7 +204,8 @@ fn decompress_gzip(data: &[u8]) -> Result<Vec<u8>, DecodeError> {
 }
 
 fn decode_legacy_bplist(data: &[u8]) -> Result<String, DecodeError> {
-    let value: Value = plist::from_bytes(data).map_err(|error| DecodeError::InvalidPlist(error.to_string()))?;
+    let value: Value =
+        plist::from_bytes(data).map_err(|error| DecodeError::InvalidPlist(error.to_string()))?;
     extract_text_from_plist(&value).ok_or_else(|| {
         DecodeError::InvalidPlist("legacy plist did not contain note text".to_owned())
     })
@@ -402,7 +403,10 @@ fn extract_checklist_items(text: &str, runs: &[AttributeRun]) -> Vec<ChecklistIt
             .paragraph_style
             .as_ref()
             .is_some_and(|style| matches!(style.style, ParagraphStyleKind::Checklist))
-            && let Some(id) = run.paragraph_style.as_ref().and_then(|style| style.todo_uuid.clone())
+            && let Some(id) = run
+                .paragraph_style
+                .as_ref()
+                .and_then(|style| style.todo_uuid.clone())
         {
             if current_id.as_ref() != Some(&id) {
                 flush_checklist_item(
@@ -462,7 +466,7 @@ fn flush_checklist_item(
 mod tests {
     use std::{fs, path::PathBuf};
 
-    use super::{decode_note_body, decode_plain_text, ParagraphStyleKind};
+    use super::{ParagraphStyleKind, decode_note_body, decode_plain_text};
 
     fn fixture_path(name: &str) -> PathBuf {
         PathBuf::from(env!("CARGO_MANIFEST_DIR"))
@@ -501,12 +505,11 @@ mod tests {
         assert!(body.decode_error.is_none(), "{:?}", body.decode_error);
         assert!(body.text.as_ref().is_some_and(|text| text.contains("IBAN")));
         assert!(!body.runs.is_empty());
-        assert!(body
-            .runs
-            .iter()
-            .any(|run| run.paragraph_style.as_ref().is_some_and(|style| {
-                matches!(style.style, ParagraphStyleKind::Title)
-            })));
+        assert!(body.runs.iter().any(|run| {
+            run.paragraph_style
+                .as_ref()
+                .is_some_and(|style| matches!(style.style, ParagraphStyleKind::Title))
+        }));
     }
 
     #[test]
@@ -522,9 +525,11 @@ mod tests {
         assert!(body.decode_error.is_none(), "{:?}", body.decode_error);
         assert!(body.text.as_ref().is_some_and(|text| !text.is_empty()));
         assert!(!body.checklist_items.is_empty());
-        assert!(body.checklist_items.iter().any(|item| {
-            item.text.contains("Simulacra") || item.text.contains("Algorithms")
-        }));
+        assert!(
+            body.checklist_items.iter().any(|item| {
+                item.text.contains("Simulacra") || item.text.contains("Algorithms")
+            })
+        );
     }
 
     #[test]

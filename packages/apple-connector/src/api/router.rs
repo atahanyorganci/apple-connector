@@ -111,9 +111,13 @@ fn openapi_router() -> OpenApiRouter<AppState> {
             crate::api::handlers::reminder_attachments::get_reminder_attachment_content,
             crate::api::handlers::reminder_attachments::head_reminder_attachment_content,
         ))
-        .routes(routes!(crate::api::handlers::note_folders::list_note_folders))
+        .routes(routes!(
+            crate::api::handlers::note_folders::list_note_folders
+        ))
         .routes(routes!(crate::api::handlers::note_folders::get_note_folder))
-        .routes(routes!(crate::api::handlers::note_folders::list_folder_notes))
+        .routes(routes!(
+            crate::api::handlers::note_folders::list_folder_notes
+        ))
         .routes(routes!(crate::api::handlers::notes::list_notes))
         .routes(routes!(crate::api::handlers::notes::get_note))
         .routes(routes!(

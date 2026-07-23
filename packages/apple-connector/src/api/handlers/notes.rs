@@ -58,9 +58,11 @@ pub async fn list_notes(
         let cursor = match params.cursor.as_deref() {
             None => None,
             Some(value) if filters.is_active() => Some(
-                decode_note_search_cursor(value, &filter_snapshot).map(|cursor| GlobalNoteCursor {
-                    modified_at: cursor.modified_at,
-                    row_id: cursor.row_id,
+                decode_note_search_cursor(value, &filter_snapshot).map(|cursor| {
+                    GlobalNoteCursor {
+                        modified_at: cursor.modified_at,
+                        row_id: cursor.row_id,
+                    }
                 })?,
             ),
             Some(value) => Some(decode::<GlobalNoteCursor>(value)?),

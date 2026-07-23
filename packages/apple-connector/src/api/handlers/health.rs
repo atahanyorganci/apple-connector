@@ -86,9 +86,8 @@ pub async fn healthz(
         reminders,
         notes,
     };
-    let all_ok = messages == HealthStatus::Ok
-        && reminders == HealthStatus::Ok
-        && notes == HealthStatus::Ok;
+    let all_ok =
+        messages == HealthStatus::Ok && reminders == HealthStatus::Ok && notes == HealthStatus::Ok;
 
     if all_ok {
         Ok((StatusCode::OK, Json(body)))
@@ -125,7 +124,11 @@ mod tests {
         let reminders_pool = connect_pool(reminders_fixture.path())
             .await
             .expect("reminders pool");
-        let app = router(AppState::new(Some(messages_pool), Some(reminders_pool), None));
+        let app = router(AppState::new(
+            Some(messages_pool),
+            Some(reminders_pool),
+            None,
+        ));
 
         let response = app
             .oneshot(

@@ -4,7 +4,7 @@ Monorepo for reading Apple platform data on macOS. The
 [`packages/apple-connector`](packages/apple-connector/) crate exposes a
 read-only HTTP API over Messages.app, Reminders.app, and Notes.app data backed by live
 SQLite connections to `~/Library/Messages/chat.db`, the Reminders Group
-Containers store, and `~/Library/Group Containers/group.com.apple.notes/NoteStore.sqlite`.
+Containers store, and the Notes Group Container `NoteStore.sqlite`.
 
 ## Requirements
 
@@ -26,10 +26,9 @@ cargo run -p apple-connector
 ```
 
 By default the server binds to `127.0.0.1:3000`, opens
-`$HOME/Library/Messages/chat.db`, auto-discovers the Reminders store, and opens
-`$HOME/Library/Group Containers/group.com.apple.notes/NoteStore.sqlite`
-read-only, and serves the API documented at `/openapi.json`. Browse and try
-endpoints interactively at `/docs`.
+`~/Library/Messages/chat.db`, auto-discovers the Reminders store, opens the Notes
+Group Container `NoteStore.sqlite` read-only, and serves the API documented at
+`/openapi.json`. Browse and try endpoints interactively at `/docs`.
 
 ```bash
 curl -s http://127.0.0.1:3000/healthz
@@ -43,12 +42,12 @@ curl -s http://127.0.0.1:3000/openapi.json | jq .info.title
 | --- | --- | --- |
 | `--address <IP>` | `127.0.0.1` | Bind address. Loopback (`127.0.0.1`, `127.0.0.2`, `::1`) or explicit `0.0.0.0` only. |
 | `--port <PORT>` | `3000` | TCP port (`1`–`65535`; `0` is rejected). |
-| `--messages-database <PATH>` | `$HOME/Library/Messages/chat.db` | Read-only path to Messages `chat.db`. The server never creates or mutates this file. |
+| `--messages-database <PATH>` | `~/Library/Messages/chat.db` | Read-only path to Messages `chat.db`. The server never creates or mutates this file. |
 | `--reminders-database <PATH>` | auto-discover | Read-only path to the Reminders SQLite store. |
 | `--reminders-stores-dir <PATH>` | Group Containers `Stores/` | Directory scanned when auto-discovering the Reminders store. |
 | `--attachment-root <PATH>` | `<messages-database-dir>/Attachments` | Messages attachment directory (canonicalized and confined at runtime). |
 | `--reminders-attachment-root <PATH>` | `.Data-{UUID}_SUPPORT` next to store | Reminders attachment support directory. |
-| `--notes-database <PATH>` | `$HOME/Library/Group Containers/group.com.apple.notes/NoteStore.sqlite` | Read-only path to the Notes SQLite store. |
+| `--notes-database <PATH>` | Notes Group Container `NoteStore.sqlite` | Read-only path to the Notes SQLite store. |
 | `--notes-attachment-root <PATH>` | `Accounts/` under Notes Group Container | Notes attachment directory (canonicalized and confined at runtime). |
 | `--help` | — | Print usage and exit. |
 | `--version` | — | Print crate version and exit. |
@@ -84,7 +83,7 @@ Press **Ctrl-C** to shut down. In-flight requests are drained before exit.
 
 - **Full Disk Access** is required to open `chat.db`, Reminders and Notes Group
   Containers stores, and attachment files under `~/Library/Messages/Attachments/`
-  and `~/Library/Group Containers/group.com.apple.notes/Accounts/`.
+  and the Notes Group Container `Accounts/` directory.
 - If any database cannot be opened, `/healthz` returns `503` with per-service
   status and data endpoints return structured `service_unavailable` errors.
   Startup logs do **not** include filesystem paths.

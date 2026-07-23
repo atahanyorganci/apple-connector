@@ -46,8 +46,8 @@ pub fn validate_attachment_path(
         std::fs::canonicalize(root).map_err(|_| AttachmentPathError::UnresolvablePath)?;
 
     let account_root = canonical_root.join(account_id.trim());
-    let canonical_account = std::fs::canonicalize(&account_root)
-        .map_err(|_| AttachmentPathError::UnresolvablePath)?;
+    let canonical_account =
+        std::fs::canonicalize(&account_root).map_err(|_| AttachmentPathError::UnresolvablePath)?;
 
     let metadata =
         std::fs::symlink_metadata(&resolved).map_err(|_| AttachmentPathError::NotAFile)?;

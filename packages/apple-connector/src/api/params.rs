@@ -700,9 +700,9 @@ impl NoteListParams {
 
         let folder_id = match self.folder_id.as_deref().map(str::trim) {
             None | Some("") => None,
-            Some(value) if value.parse::<i64>().is_ok() => Some(crate::notes::FolderIdFilter::RowId(
-                value.parse().expect("parsed"),
-            )),
+            Some(value) if value.parse::<i64>().is_ok() => Some(
+                crate::notes::FolderIdFilter::RowId(value.parse().expect("parsed")),
+            ),
             Some(value) if is_uuid(value) => {
                 Some(crate::notes::FolderIdFilter::Uuid(value.to_lowercase()))
             }

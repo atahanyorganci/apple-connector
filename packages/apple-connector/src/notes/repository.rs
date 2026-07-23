@@ -3,9 +3,7 @@ use std::collections::{HashMap, HashSet};
 use sqlx::{QueryBuilder, Sqlite, SqlitePool};
 
 use super::{
-    assembly::{
-        attachment_from_row, folder_from_row, note_detail_from_row, note_summary_from_row,
-    },
+    assembly::{attachment_from_row, folder_from_row, note_detail_from_row, note_summary_from_row},
     entities::{EntityIds, load_entity_ids},
     model::{NoteAttachment, NoteDetail, NoteFolder, NoteSummary},
     row::{AttachmentRow, FolderRow, NoteDetailRow, NoteRow},
@@ -46,8 +44,7 @@ impl<'a> NoteRepository<'a> {
         cursor: Option<FolderListCursor>,
         include_deleted: bool,
     ) -> Result<Page<NoteFolder>, sqlx::Error> {
-        crate::db::run_timed_query(|| self.list_folders_inner(limit, cursor, include_deleted))
-            .await
+        crate::db::run_timed_query(|| self.list_folders_inner(limit, cursor, include_deleted)).await
     }
 
     async fn list_folders_inner(
@@ -111,7 +108,9 @@ impl<'a> NoteRepository<'a> {
         builder.push(FOLDER_FROM);
         builder.push(" WHERE f.Z_ENT = ");
         builder.push_bind(entity_ids.folder);
-        builder.push(" AND f.ZMARKEDFORDELETION = 0 AND f.ZFOLDERTYPE != 1 AND lower(f.ZIDENTIFIER) = ");
+        builder.push(
+            " AND f.ZMARKEDFORDELETION = 0 AND f.ZFOLDERTYPE != 1 AND lower(f.ZIDENTIFIER) = ",
+        );
         builder.push_bind(id.to_lowercase());
 
         let row: Option<FolderRow> = builder.build_query_as().fetch_optional(self.pool).await?;
@@ -229,10 +228,7 @@ impl<'a> NoteRepository<'a> {
         let items = rows
             .into_iter()
             .map(|row| {
-                let has_attachments = attachment_flags
-                    .get(&row.row_id)
-                    .copied()
-                    .unwrap_or(false);
+                let has_attachments = attachment_flags.get(&row.row_id).copied().unwrap_or(false);
                 note_summary_from_row(row, has_attachments)
             })
             .collect();
@@ -255,8 +251,7 @@ impl<'a> NoteRepository<'a> {
         builder.push(" AND lower(n.ZIDENTIFIER) = ");
         builder.push_bind(id.to_lowercase());
 
-        let row: Option<NoteDetailRow> =
-            builder.build_query_as().fetch_optional(self.pool).await?;
+        let row: Option<NoteDetailRow> = builder.build_query_as().fetch_optional(self.pool).await?;
         let Some(row) = row else {
             return Ok(None);
         };
@@ -352,8 +347,8 @@ impl<'a> NoteRepository<'a> {
             }
         }
 
-        let has_more = matching_rows.len() > limit as usize
-            || (!reached_end && scanned >= NOTE_SCAN_BUDGET);
+        let has_more =
+            matching_rows.len() > limit as usize || (!reached_end && scanned >= NOTE_SCAN_BUDGET);
         if matching_rows.len() > limit as usize {
             matching_rows.truncate(limit as usize);
         }

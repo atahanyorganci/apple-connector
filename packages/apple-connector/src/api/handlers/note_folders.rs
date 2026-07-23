@@ -9,9 +9,7 @@ use crate::{
         cursor::{FolderListCursor, FolderNoteCursor, decode, decode_note_search_cursor},
         dto::{
             NoteFolderDetailDto, NoteFolderPageDto, NotePageDto,
-            note_convert::{
-                note_folder_detail_to_dto, note_folder_page_to_dto, note_page_to_dto,
-            },
+            note_convert::{note_folder_detail_to_dto, note_folder_page_to_dto, note_page_to_dto},
         },
         error::{ApiError, ErrorResponse},
         params::{NoteFolderIdPath, NoteFolderKey, NoteListParams, PageParams},
@@ -175,8 +173,8 @@ pub async fn list_folder_notes(
             page.next_cursor,
             limit,
         ))),
-        Err(FolderLookupError::NotFound) => {
-            Err(ApiError::not_found(format!("note folder {folder_id} not found")))
-        }
+        Err(FolderLookupError::NotFound) => Err(ApiError::not_found(format!(
+            "note folder {folder_id} not found"
+        ))),
     }
 }

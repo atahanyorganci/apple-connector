@@ -9,7 +9,7 @@ mod ids;
 mod timestamp;
 
 pub use ids::{
-    AttachmentId, ChatId, MessageId, NoteAttachmentId, NoteFolderId, NoteId,
-    ReminderAttachmentId, ReminderId, ReminderListId, SectionId,
+    AttachmentId, ChatId, MessageId, NoteAttachmentId, NoteFolderId, NoteId, ReminderAttachmentId,
+    ReminderId, ReminderListId, SectionId,
 };
 pub use timestamp::UnixTimestamp;

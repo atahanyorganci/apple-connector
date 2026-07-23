@@ -88,10 +88,8 @@ pub async fn load_inventory(pool: &SqlitePool) -> Result<NoteInventory, sqlx::Er
 
 #[cfg(test)]
 mod tests {
-    use crate::fixtures::NotesFixtureDb;
-    use crate::connect_pool;
-
     use super::load_inventory;
+    use crate::{connect_pool, fixtures::NotesFixtureDb};
 
     #[tokio::test]
     async fn seeded_fixture_inventory_counts_notes() {

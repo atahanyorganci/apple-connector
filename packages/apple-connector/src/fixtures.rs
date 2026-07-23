@@ -362,7 +362,9 @@ mod tests {
 
     #[tokio::test]
     async fn seeded_notes_fixture_contains_expected_rows() {
-        let fixture = NotesFixtureDb::seeded().await.expect("seeded notes fixture");
+        let fixture = NotesFixtureDb::seeded()
+            .await
+            .expect("seeded notes fixture");
         let options = SqliteConnectOptions::new()
             .filename(fixture.path())
             .read_only(true);

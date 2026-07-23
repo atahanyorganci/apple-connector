@@ -115,8 +115,7 @@ pub fn fields_by_number(fields: &[Field], number: u32) -> impl Iterator<Item = &
 }
 
 pub fn first_bytes(fields: &[Field], number: u32) -> Option<&[u8]> {
-    fields_by_number(fields, number)
-        .find_map(|field| field.bytes.as_deref())
+    fields_by_number(fields, number).find_map(|field| field.bytes.as_deref())
 }
 
 pub fn all_bytes(fields: &[Field], number: u32) -> Vec<&[u8]> {

@@ -6,17 +6,13 @@ use std::{
 pub fn default_notes_database_path() -> Result<PathBuf, IoError> {
     let home = std::env::var_os("HOME")
         .ok_or_else(|| IoError::new(ErrorKind::NotFound, "HOME is not set"))?;
-    Ok(PathBuf::from(home).join(
-        "Library/Group Containers/group.com.apple.notes/NoteStore.sqlite",
-    ))
+    Ok(PathBuf::from(home).join("Library/Group Containers/group.com.apple.notes/NoteStore.sqlite"))
 }
 
 pub fn default_notes_attachment_root() -> Result<PathBuf, IoError> {
     let home = std::env::var_os("HOME")
         .ok_or_else(|| IoError::new(ErrorKind::NotFound, "HOME is not set"))?;
-    Ok(PathBuf::from(home).join(
-        "Library/Group Containers/group.com.apple.notes/Accounts",
-    ))
+    Ok(PathBuf::from(home).join("Library/Group Containers/group.com.apple.notes/Accounts"))
 }
 
 pub fn notes_attachment_root_for_database(database_path: &Path) -> Result<PathBuf, IoError> {

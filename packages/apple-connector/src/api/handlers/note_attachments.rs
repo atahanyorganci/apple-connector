@@ -13,7 +13,7 @@ use crate::{
     api::{
         dto::{NoteAttachmentDetailDto, note_convert::note_attachment_detail_to_dto},
         error::{ApiError, ErrorResponse},
-        params::{ConditionalRequestHeaders, RangeRequestHeader, NoteAttachmentIdPath},
+        params::{ConditionalRequestHeaders, NoteAttachmentIdPath, RangeRequestHeader},
         router::AppState,
     },
     db::run_timed_query,
@@ -109,12 +109,9 @@ async fn resolve_attachment_path(
         .as_deref()
         .ok_or_else(|| ApiError::not_found(format!("note attachment {id} not found")))?;
 
-    let validated = validate_attachment_path(
-        state.notes_attachment_root.as_ref(),
-        account_id,
-        filename,
-    )
-    .map_err(|_| ApiError::not_found(format!("note attachment {id} not found")))?;
+    let validated =
+        validate_attachment_path(state.notes_attachment_root.as_ref(), account_id, filename)
+            .map_err(|_| ApiError::not_found(format!("note attachment {id} not found")))?;
 
     Ok((attachment, validated.canonical_path))
 }

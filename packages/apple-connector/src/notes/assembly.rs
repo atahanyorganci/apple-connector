@@ -1,11 +1,7 @@
 use super::{
     decode::decode_notedata,
-    model::{
-        FolderKind, NoteAttachment, NoteBody, NoteDetail, NoteFolder, NoteSummary,
-    },
-    row::{
-        AttachmentRow, FolderRow, NoteDetailRow, NoteRow, parse_core_data_timestamp,
-    },
+    model::{FolderKind, NoteAttachment, NoteBody, NoteDetail, NoteFolder, NoteSummary},
+    row::{AttachmentRow, FolderRow, NoteDetailRow, NoteRow, parse_core_data_timestamp},
 };
 
 pub fn folder_from_row(row: FolderRow) -> NoteFolder {

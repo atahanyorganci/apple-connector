@@ -2,9 +2,7 @@ use serde::Serialize;
 use utoipa::ToSchema;
 
 use super::pagination::PageMetaDto;
-use crate::apple_types::{
-    NoteAttachmentId, NoteFolderId, NoteId, UnixTimestamp,
-};
+use crate::apple_types::{NoteAttachmentId, NoteFolderId, NoteId, UnixTimestamp};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, ToSchema)]
 #[serde(rename_all = "snake_case")]

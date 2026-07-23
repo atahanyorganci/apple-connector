@@ -14,13 +14,13 @@ use super::{
             TextContentDto, UnknownContentDto, UrlBalloonDto,
         },
         message::{MessageDetailDto, MessagePageDto, MessageSummaryDto},
-        pagination::PageMetaDto,
         note::{
             ChecklistItemDto, EmbeddedObjectDto, FolderKindDto, NoteAttachmentDetailDto,
             NoteAttachmentSummaryDto, NoteBodyDto, NoteDetailDto, NoteFolderDetailDto,
             NoteFolderPageDto, NoteFolderSummaryDto, NotePageDto, NoteRunDto, NoteSummaryDto,
             ParagraphStyleDto, ParagraphStyleKindDto,
         },
+        pagination::PageMetaDto,
         reminder::{
             AlarmDto, AlarmKindDto, DueDto, RecurrenceDto, ReminderAttachmentDetailDto,
             ReminderAttachmentKindDto, ReminderAttachmentSummaryDto, ReminderDetailDto,
@@ -39,8 +39,8 @@ use super::{
     },
 };
 use crate::apple_types::{
-    AttachmentId, ChatId, MessageId, NoteAttachmentId, NoteFolderId, NoteId,
-    ReminderAttachmentId, ReminderId, ReminderListId, SectionId, UnixTimestamp,
+    AttachmentId, ChatId, MessageId, NoteAttachmentId, NoteFolderId, NoteId, ReminderAttachmentId,
+    ReminderId, ReminderListId, SectionId, UnixTimestamp,
 };
 
 struct SecurityAddon;

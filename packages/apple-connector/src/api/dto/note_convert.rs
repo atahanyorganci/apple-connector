@@ -118,9 +118,7 @@ pub fn note_detail_to_dto(note: &NoteDetail, attachments: &[NoteAttachment]) -> 
     }
 }
 
-pub fn note_attachment_detail_to_dto(
-    attachment: &NoteAttachment,
-) -> NoteAttachmentDetailDto {
+pub fn note_attachment_detail_to_dto(attachment: &NoteAttachment) -> NoteAttachmentDetailDto {
     NoteAttachmentDetailDto {
         id: NoteAttachmentId::new(attachment.id.clone()),
         row_id: attachment.row_id,

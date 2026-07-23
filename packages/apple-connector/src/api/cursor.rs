@@ -3,8 +3,7 @@ use serde::{Deserialize, Serialize};
 
 use super::{error::ApiError, params::CURSOR_VERSION};
 use crate::{
-    messages::search::MessageFiltersSnapshot,
-    notes::search::NoteFiltersSnapshot,
+    messages::search::MessageFiltersSnapshot, notes::search::NoteFiltersSnapshot,
     reminders::ReminderFiltersSnapshot,
 };
 

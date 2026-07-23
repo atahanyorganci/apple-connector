@@ -5,9 +5,8 @@ use std::time::Duration;
 use apple_connector::{
     AppState, connect_pool,
     fixtures::{
-        FixtureDb, NotesFixtureDb, RemindersFixtureDb, SEED_CHECKLIST_NOTE_ID,
-        SEED_LOCKED_NOTE_ID, SEED_NOTES_FOLDER_ID, SEED_PLAIN_TEXT_NOTE_ID,
-        SEED_PROJECTS_FOLDER_ID,
+        FixtureDb, NotesFixtureDb, RemindersFixtureDb, SEED_CHECKLIST_NOTE_ID, SEED_LOCKED_NOTE_ID,
+        SEED_NOTES_FOLDER_ID, SEED_PLAIN_TEXT_NOTE_ID, SEED_PROJECTS_FOLDER_ID,
     },
     router,
 };
@@ -405,11 +404,8 @@ async fn integration_notes_fixture_endpoints() {
         "expected seeded notes in folder"
     );
 
-    let (status, detail) = response_json(
-        app.clone(),
-        &format!("/v1/notes/{SEED_PLAIN_TEXT_NOTE_ID}"),
-    )
-    .await;
+    let (status, detail) =
+        response_json(app.clone(), &format!("/v1/notes/{SEED_PLAIN_TEXT_NOTE_ID}")).await;
     assert_eq!(status, StatusCode::OK);
     assert!(
         detail["body"]["text"]
@@ -418,20 +414,14 @@ async fn integration_notes_fixture_endpoints() {
         "expected decoded plain-text body"
     );
 
-    let (status, locked) = response_json(
-        app.clone(),
-        &format!("/v1/notes/{SEED_LOCKED_NOTE_ID}"),
-    )
-    .await;
+    let (status, locked) =
+        response_json(app.clone(), &format!("/v1/notes/{SEED_LOCKED_NOTE_ID}")).await;
     assert_eq!(status, StatusCode::OK);
     assert_eq!(locked["is_locked"], true);
     assert!(locked["body"]["text"].is_null());
 
-    let (status, checklist) = response_json(
-        app.clone(),
-        &format!("/v1/notes/{SEED_CHECKLIST_NOTE_ID}"),
-    )
-    .await;
+    let (status, checklist) =
+        response_json(app.clone(), &format!("/v1/notes/{SEED_CHECKLIST_NOTE_ID}")).await;
     assert_eq!(status, StatusCode::OK);
     assert!(
         checklist["body"]["checklist_items"]
@@ -440,11 +430,8 @@ async fn integration_notes_fixture_endpoints() {
         "expected checklist items"
     );
 
-    let (status, smart) = response_json(
-        app,
-        &format!("/v1/note-folders/{SEED_PROJECTS_FOLDER_ID}"),
-    )
-    .await;
+    let (status, smart) =
+        response_json(app, &format!("/v1/note-folders/{SEED_PROJECTS_FOLDER_ID}")).await;
     assert_eq!(status, StatusCode::OK);
     assert_eq!(smart["kind"], "smart");
 }
