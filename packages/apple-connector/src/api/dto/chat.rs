@@ -5,10 +5,11 @@ use super::{
     common::{HandleDto, TransportDto},
     pagination::PageMetaDto,
 };
+use crate::apple_types::ChatId;
 
 #[derive(Debug, Clone, Serialize, ToSchema)]
 pub struct ChatSummaryDto {
-    pub id: i64,
+    pub id: ChatId,
     pub guid: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub display_name: Option<String>,
@@ -20,7 +21,7 @@ pub struct ChatSummaryDto {
 
 #[derive(Debug, Clone, Serialize, ToSchema)]
 pub struct ChatDetailDto {
-    pub id: i64,
+    pub id: ChatId,
     pub guid: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub identifier: Option<String>,

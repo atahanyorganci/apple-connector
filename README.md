@@ -111,6 +111,25 @@ Unknown routes return JSON `404`; unsupported methods return JSON `405`. All
 responses include `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`,
 `Referrer-Policy: no-referrer`, and `Cache-Control: no-store`.
 
+## Response data types
+
+Identifiers and timestamps use centralized value types (the `apple_types`
+module) shared across the OpenAPI contract:
+
+- **Timestamps** (`sent_at`, `read_at`, `due.at`, `last_modified_at`, …) are
+  `UnixTimestamp`: whole **seconds since the Unix epoch (UTC)**, serialized as
+  JSON integers.
+- **Identifiers** (`MessageId`, `AttachmentId`, `ReminderId`, `ReminderListId`,
+  `SectionId`, `ReminderAttachmentId`, and the integer-backed `ChatId`) are
+  typed wrappers that serialize transparently as their underlying string (or
+  integer).
+
+> **Breaking change:** response timestamps were previously emitted as RFC 3339
+> strings (for example `"2024-01-15T12:00:00Z"`). They are now Unix-seconds
+> integers (for example `1705320000`). Clients that parsed the string form must
+> be updated. Query-parameter bounds (`before`, `after`, `due_before`,
+> `due_after`) still accept ISO-8601 / RFC 3339 input.
+
 ## Pagination and cursors
 
 List endpoints use **keyset pagination only** (no offsets):

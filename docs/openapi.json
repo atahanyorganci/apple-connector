@@ -1989,7 +1989,7 @@
             ]
           },
           "guid": {
-            "type": "string"
+            "$ref": "#/components/schemas/AttachmentId"
           },
           "hide_attachment": {
             "type": "boolean"
@@ -2008,7 +2008,7 @@
             ]
           },
           "original_guid": {
-            "type": "string"
+            "$ref": "#/components/schemas/AttachmentId"
           },
           "present_on_disk": {
             "type": "boolean"
@@ -2046,6 +2046,11 @@
             "description": "Attachment GUID."
           }
         }
+      },
+      "AttachmentId": {
+        "type": "string",
+        "description": "Stable identifier for an attachment (its GUID).",
+        "example": "at_0_1234567890ABCDEF"
       },
       "AttachmentKindDto": {
         "oneOf": [
@@ -2120,7 +2125,7 @@
             "example": "/v1/attachments/at_0_1234567890ABCDEF/content"
           },
           "guid": {
-            "type": "string"
+            "$ref": "#/components/schemas/AttachmentId"
           },
           "hide_attachment": {
             "type": "boolean"
@@ -2140,7 +2145,7 @@
             ]
           },
           "original_guid": {
-            "type": "string"
+            "$ref": "#/components/schemas/AttachmentId"
           },
           "present_on_disk": {
             "type": "boolean"
@@ -2213,8 +2218,7 @@
             "type": "string"
           },
           "id": {
-            "type": "integer",
-            "format": "int64"
+            "$ref": "#/components/schemas/ChatId"
           },
           "identifier": {
             "type": [
@@ -2241,6 +2245,12 @@
             "$ref": "#/components/schemas/TransportDto"
           }
         }
+      },
+      "ChatId": {
+        "type": "integer",
+        "format": "int64",
+        "description": "Internal chat row identifier.\n\nSerialized as a JSON integer, matching the `chat.ROWID` primary key exposed\nby the Messages routes.",
+        "example": 42
       },
       "ChatIdPath": {
         "type": "object",
@@ -2293,8 +2303,7 @@
             "type": "string"
           },
           "id": {
-            "type": "integer",
-            "format": "int64"
+            "$ref": "#/components/schemas/ChatId"
           },
           "is_group": {
             "type": "boolean"
@@ -2368,7 +2377,7 @@
             "type": "boolean"
           },
           "at": {
-            "type": "string"
+            "$ref": "#/components/schemas/UnixTimestamp"
           }
         }
       },
@@ -2732,8 +2741,7 @@
           "chat_ids": {
             "type": "array",
             "items": {
-              "type": "integer",
-              "format": "int64"
+              "$ref": "#/components/schemas/ChatId"
             }
           },
           "content": {
@@ -2743,36 +2751,47 @@
             "$ref": "#/components/schemas/DirectionDto"
           },
           "edited_at": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "format": "date-time",
-            "example": "2024-01-15T12:10:00Z"
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/UnixTimestamp"
+              }
+            ]
           },
           "guid": {
-            "type": "string"
+            "$ref": "#/components/schemas/MessageId"
           },
           "read_at": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "format": "date-time",
-            "example": "2024-01-15T12:05:00Z"
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/UnixTimestamp"
+              }
+            ]
           },
           "reply_to_guid": {
-            "type": [
-              "string",
-              "null"
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/MessageId"
+              }
             ]
           },
           "retracted_at": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "format": "date-time"
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/UnixTimestamp"
+              }
+            ]
           },
           "sender": {
             "oneOf": [
@@ -2785,17 +2804,23 @@
             ]
           },
           "sent_at": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "format": "date-time",
-            "example": "2024-01-15T12:00:00Z"
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/UnixTimestamp"
+              }
+            ]
           },
           "thread_originator_guid": {
-            "type": [
-              "string",
-              "null"
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/MessageId"
+              }
             ]
           },
           "transport": {
@@ -2814,6 +2839,11 @@
             "description": "Message GUID."
           }
         }
+      },
+      "MessageId": {
+        "type": "string",
+        "description": "Stable identifier for a message (its GUID).",
+        "example": "A1B2C3D4-E5F6-7890-ABCD-EF1234567890"
       },
       "MessageListParams": {
         "type": "object",
@@ -2946,7 +2976,7 @@
             "$ref": "#/components/schemas/DirectionDto"
           },
           "guid": {
-            "type": "string"
+            "$ref": "#/components/schemas/MessageId"
           },
           "sender": {
             "oneOf": [
@@ -2959,12 +2989,14 @@
             ]
           },
           "sent_at": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "format": "date-time",
-            "example": "2024-01-15T12:00:00Z"
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/UnixTimestamp"
+              }
+            ]
           },
           "transport": {
             "$ref": "#/components/schemas/TransportDto"
@@ -3122,9 +3154,13 @@
             "$ref": "#/components/schemas/ReactionKindDto"
           },
           "target_guid": {
-            "type": [
-              "string",
-              "null"
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/MessageId"
+              }
             ]
           }
         }
@@ -3234,19 +3270,23 @@
             ]
           },
           "id": {
-            "type": "string"
+            "$ref": "#/components/schemas/ReminderAttachmentId"
           },
           "kind": {
             "$ref": "#/components/schemas/ReminderAttachmentKindDto"
           },
           "modified_at": {
-            "type": [
-              "string",
-              "null"
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/UnixTimestamp"
+              }
             ]
           },
           "reminder_id": {
-            "type": "string"
+            "$ref": "#/components/schemas/ReminderId"
           },
           "row_id": {
             "type": "integer",
@@ -3265,6 +3305,11 @@
             ]
           }
         }
+      },
+      "ReminderAttachmentId": {
+        "type": "string",
+        "description": "Stable identifier for a reminder attachment (its UUID).",
+        "example": "dddddddd-dddd-dddd-dddd-dddddddddddd"
       },
       "ReminderAttachmentIdPath": {
         "type": "object",
@@ -3301,7 +3346,7 @@
             ]
           },
           "id": {
-            "type": "string"
+            "$ref": "#/components/schemas/ReminderAttachmentId"
           },
           "kind": {
             "$ref": "#/components/schemas/ReminderAttachmentKindDto"
@@ -3358,15 +3403,23 @@
             "type": "boolean"
           },
           "completion_at": {
-            "type": [
-              "string",
-              "null"
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/UnixTimestamp"
+              }
             ]
           },
           "created_at": {
-            "type": [
-              "string",
-              "null"
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/UnixTimestamp"
+              }
             ]
           },
           "due": {
@@ -3383,16 +3436,20 @@
             "type": "boolean"
           },
           "id": {
-            "type": "string"
+            "$ref": "#/components/schemas/ReminderId"
           },
           "last_modified_at": {
-            "type": [
-              "string",
-              "null"
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/UnixTimestamp"
+              }
             ]
           },
           "list_id": {
-            "type": "string"
+            "$ref": "#/components/schemas/ReminderListId"
           },
           "list_name": {
             "type": "string"
@@ -3408,9 +3465,13 @@
             ]
           },
           "parent_id": {
-            "type": [
-              "string",
-              "null"
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/ReminderId"
+              }
             ]
           },
           "priority": {
@@ -3432,9 +3493,13 @@
             "format": "int64"
           },
           "section_id": {
-            "type": [
-              "string",
-              "null"
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/SectionId"
+              }
             ]
           },
           "subtasks": {
@@ -3453,6 +3518,11 @@
             "type": "string"
           }
         }
+      },
+      "ReminderId": {
+        "type": "string",
+        "description": "Stable identifier for a reminder (its UUID).",
+        "example": "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"
       },
       "ReminderIdPath": {
         "type": "object",
@@ -3480,7 +3550,7 @@
             "$ref": "#/components/schemas/SmartFilterDto"
           },
           "id": {
-            "type": "string"
+            "$ref": "#/components/schemas/ReminderListId"
           },
           "kind": {
             "$ref": "#/components/schemas/ReminderListKindDto"
@@ -3524,6 +3594,11 @@
             ]
           }
         }
+      },
+      "ReminderListId": {
+        "type": "string",
+        "description": "Stable identifier for a reminder list (its UUID).",
+        "example": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"
       },
       "ReminderListIdPath": {
         "type": "object",
@@ -3669,7 +3744,7 @@
         ],
         "properties": {
           "id": {
-            "type": "string"
+            "$ref": "#/components/schemas/ReminderListId"
           },
           "kind": {
             "$ref": "#/components/schemas/ReminderListKindDto"
@@ -3738,16 +3813,20 @@
             "type": "boolean"
           },
           "id": {
-            "type": "string"
+            "$ref": "#/components/schemas/ReminderId"
           },
           "last_modified_at": {
-            "type": [
-              "string",
-              "null"
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/UnixTimestamp"
+              }
             ]
           },
           "list_id": {
-            "type": "string"
+            "$ref": "#/components/schemas/ReminderListId"
           },
           "list_name": {
             "type": "string"
@@ -3757,9 +3836,13 @@
             "format": "int64"
           },
           "parent_id": {
-            "type": [
-              "string",
-              "null"
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/ReminderId"
+              }
             ]
           },
           "priority": {
@@ -3771,9 +3854,13 @@
             "format": "int64"
           },
           "section_id": {
-            "type": [
-              "string",
-              "null"
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/SectionId"
+              }
             ]
           },
           "tags": {
@@ -3786,6 +3873,11 @@
             "type": "string"
           }
         }
+      },
+      "SectionId": {
+        "type": "string",
+        "description": "Stable identifier for a reminder section (its UUID).",
+        "example": "cccccccc-cccc-cccc-cccc-cccccccccccc"
       },
       "SectionSummaryDto": {
         "type": "object",
@@ -3804,7 +3896,7 @@
             "type": "string"
           },
           "id": {
-            "type": "string"
+            "$ref": "#/components/schemas/SectionId"
           }
         }
       },
@@ -3930,6 +4022,12 @@
           "rcs",
           "unknown"
         ]
+      },
+      "UnixTimestamp": {
+        "type": "integer",
+        "format": "int64",
+        "description": "Whole seconds since the Unix epoch (`1970-01-01T00:00:00Z`), in UTC.\n\nSerialized as a JSON integer. This replaces the RFC 3339 timestamp strings\nemitted by earlier revisions of the API (see the `apple_types` breaking\nchange in the README).",
+        "example": 1705320000
       },
       "UnknownContentDto": {
         "type": "object",

@@ -1,7 +1,10 @@
 use serde::Serialize;
 use utoipa::ToSchema;
 
-use super::{common::timestamp_to_rfc3339, pagination::PageMetaDto};
+use super::{common::timestamp_to_unix, pagination::PageMetaDto};
+use crate::apple_types::{
+    ReminderAttachmentId, ReminderId, ReminderListId, SectionId, UnixTimestamp,
+};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, ToSchema)]
 #[serde(rename_all = "snake_case")]
@@ -12,13 +15,13 @@ pub enum ReminderListKindDto {
 
 #[derive(Debug, Clone, Serialize, ToSchema)]
 pub struct DueDto {
-    pub at: String,
+    pub at: UnixTimestamp,
     pub all_day: bool,
 }
 
 #[derive(Debug, Clone, Serialize, ToSchema)]
 pub struct SectionSummaryDto {
-    pub id: String,
+    pub id: SectionId,
     pub display_name: String,
     pub canonical_name: Option<String>,
 }
@@ -32,7 +35,7 @@ pub struct SmartFilterDto {
 
 #[derive(Debug, Clone, Serialize, ToSchema)]
 pub struct ReminderListSummaryDto {
-    pub id: String,
+    pub id: ReminderListId,
     pub row_id: i64,
     pub name: String,
     pub kind: ReminderListKindDto,
@@ -42,7 +45,7 @@ pub struct ReminderListSummaryDto {
 
 #[derive(Debug, Clone, Serialize, ToSchema)]
 pub struct ReminderListDetailDto {
-    pub id: String,
+    pub id: ReminderListId,
     pub row_id: i64,
     pub name: String,
     pub kind: ReminderListKindDto,
@@ -60,23 +63,23 @@ pub struct ReminderListDetailDto {
 
 #[derive(Debug, Clone, Serialize, ToSchema)]
 pub struct ReminderSummaryDto {
-    pub id: String,
+    pub id: ReminderId,
     pub row_id: i64,
     pub title: String,
     pub completed: bool,
     pub flagged: bool,
     pub priority: i64,
-    pub list_id: String,
+    pub list_id: ReminderListId,
     pub list_row_id: i64,
     pub list_name: String,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub parent_id: Option<String>,
+    pub parent_id: Option<ReminderId>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub section_id: Option<String>,
+    pub section_id: Option<SectionId>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub due: Option<DueDto>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub last_modified_at: Option<String>,
+    pub last_modified_at: Option<UnixTimestamp>,
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub tags: Vec<String>,
 }
@@ -128,7 +131,7 @@ pub enum ReminderAttachmentKindDto {
 
 #[derive(Debug, Clone, Serialize, ToSchema)]
 pub struct ReminderAttachmentSummaryDto {
-    pub id: String,
+    pub id: ReminderAttachmentId,
     pub row_id: i64,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub filename: Option<String>,
@@ -141,7 +144,7 @@ pub struct ReminderAttachmentSummaryDto {
 
 #[derive(Debug, Clone, Serialize, ToSchema)]
 pub struct ReminderDetailDto {
-    pub id: String,
+    pub id: ReminderId,
     pub row_id: i64,
     pub title: String,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -149,21 +152,21 @@ pub struct ReminderDetailDto {
     pub completed: bool,
     pub flagged: bool,
     pub priority: i64,
-    pub list_id: String,
+    pub list_id: ReminderListId,
     pub list_row_id: i64,
     pub list_name: String,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub parent_id: Option<String>,
+    pub parent_id: Option<ReminderId>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub section_id: Option<String>,
+    pub section_id: Option<SectionId>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub due: Option<DueDto>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub completion_at: Option<String>,
+    pub completion_at: Option<UnixTimestamp>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub created_at: Option<String>,
+    pub created_at: Option<UnixTimestamp>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub last_modified_at: Option<String>,
+    pub last_modified_at: Option<UnixTimestamp>,
     pub subtasks: Vec<ReminderSummaryDto>,
     pub tags: Vec<String>,
     pub alarms: Vec<AlarmDto>,
@@ -186,7 +189,7 @@ pub struct ReminderPageDto {
 
 #[derive(Debug, Clone, Serialize, ToSchema)]
 pub struct ReminderAttachmentDetailDto {
-    pub id: String,
+    pub id: ReminderAttachmentId,
     pub row_id: i64,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub filename: Option<String>,
@@ -195,14 +198,14 @@ pub struct ReminderAttachmentDetailDto {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub sha512: Option<String>,
     pub kind: ReminderAttachmentKindDto,
-    pub reminder_id: String,
+    pub reminder_id: ReminderId,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub modified_at: Option<String>,
+    pub modified_at: Option<UnixTimestamp>,
 }
 
 pub fn due_to_dto(due: &crate::reminders::Due) -> DueDto {
     DueDto {
-        at: timestamp_to_rfc3339(due.at),
+        at: timestamp_to_unix(due.at),
         all_day: due.all_day,
     }
 }

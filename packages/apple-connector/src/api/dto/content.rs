@@ -2,6 +2,7 @@ use serde::Serialize;
 use utoipa::ToSchema;
 
 use super::attachment::AttachmentSummaryDto;
+use crate::apple_types::MessageId;
 
 #[derive(Debug, Clone, Serialize, ToSchema)]
 pub struct OpaquePayloadDto {
@@ -64,7 +65,7 @@ pub struct AttachmentContentDto {
 #[derive(Debug, Clone, Serialize, ToSchema)]
 pub struct ReactionContentDto {
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub target_guid: Option<String>,
+    pub target_guid: Option<MessageId>,
     pub kind: ReactionKindDto,
 }
 

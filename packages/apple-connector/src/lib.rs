@@ -1,4 +1,5 @@
 mod api;
+pub mod apple_types;
 mod cli;
 mod db;
 pub mod fixtures;

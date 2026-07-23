@@ -1,6 +1,8 @@
 use serde::Serialize;
 use utoipa::ToSchema;
 
+use crate::apple_types::AttachmentId;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, ToSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum AttachmentKindDto {
@@ -14,8 +16,8 @@ pub enum AttachmentKindDto {
 
 #[derive(Debug, Clone, Serialize, ToSchema)]
 pub struct AttachmentSummaryDto {
-    pub guid: String,
-    pub original_guid: String,
+    pub guid: AttachmentId,
+    pub original_guid: AttachmentId,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub mime_type: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -38,8 +40,8 @@ pub struct AttachmentSummaryDto {
 
 #[derive(Debug, Clone, Serialize, ToSchema)]
 pub struct AttachmentDetailDto {
-    pub guid: String,
-    pub original_guid: String,
+    pub guid: AttachmentId,
+    pub original_guid: AttachmentId,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub mime_type: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]

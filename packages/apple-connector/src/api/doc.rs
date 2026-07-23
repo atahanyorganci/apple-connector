@@ -31,6 +31,10 @@ use super::{
         TransportFilterDto,
     },
 };
+use crate::apple_types::{
+    AttachmentId, ChatId, MessageId, ReminderAttachmentId, ReminderId, ReminderListId, SectionId,
+    UnixTimestamp,
+};
 
 struct SecurityAddon;
 
@@ -83,6 +87,14 @@ impl Modify for SecurityAddon {
         (name = "meta", description = "API metadata and contract export")
     ),
     components(schemas(
+        AttachmentId,
+        ChatId,
+        MessageId,
+        ReminderAttachmentId,
+        ReminderId,
+        ReminderListId,
+        SectionId,
+        UnixTimestamp,
         AlarmDto,
         AlarmKindDto,
         DueDto,

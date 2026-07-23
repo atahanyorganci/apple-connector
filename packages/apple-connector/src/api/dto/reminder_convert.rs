@@ -1,4 +1,5 @@
 use super::{
+    common::timestamp_to_unix,
     pagination::PageMetaDto,
     reminder::{
         AlarmDto, AlarmKindDto, RecurrenceDto, ReminderAttachmentDetailDto,
@@ -7,9 +8,12 @@ use super::{
         ReminderPageDto, ReminderSummaryDto, SectionSummaryDto, SmartFilterDto, due_to_dto,
     },
 };
-use crate::reminders::{
-    Alarm, AlarmKind, AttachmentKind, ListKind, Reminder, ReminderAttachment, ReminderList,
-    ReminderSummary, Section, SmartFilter,
+use crate::{
+    apple_types::{ReminderAttachmentId, ReminderId, ReminderListId, SectionId},
+    reminders::{
+        Alarm, AlarmKind, AttachmentKind, ListKind, Reminder, ReminderAttachment, ReminderList,
+        ReminderSummary, Section, SmartFilter,
+    },
 };
 
 pub fn reminder_list_page_to_dto(
@@ -46,7 +50,7 @@ pub fn reminder_page_to_dto(
 
 pub fn reminder_list_summary_to_dto(list: &ReminderList) -> ReminderListSummaryDto {
     ReminderListSummaryDto {
-        id: list.id.clone(),
+        id: ReminderListId::new(list.id.clone()),
         row_id: list.row_id,
         name: list.name.clone(),
         kind: list_kind_to_dto(list.kind.clone()),
@@ -56,7 +60,7 @@ pub fn reminder_list_summary_to_dto(list: &ReminderList) -> ReminderListSummaryD
 
 pub fn reminder_list_detail_to_dto(list: &ReminderList) -> ReminderListDetailDto {
     ReminderListDetailDto {
-        id: list.id.clone(),
+        id: ReminderListId::new(list.id.clone()),
         row_id: list.row_id,
         name: list.name.clone(),
         kind: list_kind_to_dto(list.kind.clone()),
@@ -73,47 +77,41 @@ pub fn reminder_list_detail_to_dto(list: &ReminderList) -> ReminderListDetailDto
 
 pub fn reminder_summary_to_dto(reminder: &ReminderSummary) -> ReminderSummaryDto {
     ReminderSummaryDto {
-        id: reminder.id.clone(),
+        id: ReminderId::new(reminder.id.clone()),
         row_id: reminder.row_id,
         title: reminder.title.clone(),
         completed: reminder.completed,
         flagged: reminder.flagged,
         priority: priority_to_raw(&reminder.priority),
-        list_id: reminder.list_id.clone(),
+        list_id: ReminderListId::new(reminder.list_id.clone()),
         list_row_id: reminder.list_row_id,
         list_name: reminder.list_name.clone(),
-        parent_id: reminder.parent_id.clone(),
-        section_id: reminder.section_id.clone(),
+        parent_id: reminder.parent_id.clone().map(ReminderId::new),
+        section_id: reminder.section_id.clone().map(SectionId::new),
         due: reminder.due.as_ref().map(due_to_dto),
-        last_modified_at: reminder
-            .last_modified_at
-            .map(super::common::timestamp_to_rfc3339),
+        last_modified_at: reminder.last_modified_at.map(timestamp_to_unix),
         tags: reminder.tags.clone(),
     }
 }
 
 pub fn reminder_detail_to_dto(reminder: &Reminder) -> ReminderDetailDto {
     ReminderDetailDto {
-        id: reminder.id.clone(),
+        id: ReminderId::new(reminder.id.clone()),
         row_id: reminder.row_id,
         title: reminder.title.clone(),
         notes: reminder.notes.clone(),
         completed: reminder.completed,
         flagged: reminder.flagged,
         priority: priority_to_raw(&reminder.priority),
-        list_id: reminder.list_id.clone(),
+        list_id: ReminderListId::new(reminder.list_id.clone()),
         list_row_id: reminder.list_row_id,
         list_name: reminder.list_name.clone(),
-        parent_id: reminder.parent_id.clone(),
-        section_id: reminder.section_id.clone(),
+        parent_id: reminder.parent_id.clone().map(ReminderId::new),
+        section_id: reminder.section_id.clone().map(SectionId::new),
         due: reminder.due.as_ref().map(due_to_dto),
-        completion_at: reminder
-            .completion_at
-            .map(super::common::timestamp_to_rfc3339),
-        created_at: reminder.created_at.map(super::common::timestamp_to_rfc3339),
-        last_modified_at: reminder
-            .last_modified_at
-            .map(super::common::timestamp_to_rfc3339),
+        completion_at: reminder.completion_at.map(timestamp_to_unix),
+        created_at: reminder.created_at.map(timestamp_to_unix),
+        last_modified_at: reminder.last_modified_at.map(timestamp_to_unix),
         subtasks: reminder
             .subtasks
             .iter()
@@ -135,22 +133,20 @@ pub fn reminder_attachment_detail_to_dto(
     reminder_id: String,
 ) -> ReminderAttachmentDetailDto {
     ReminderAttachmentDetailDto {
-        id: attachment.id.clone(),
+        id: ReminderAttachmentId::new(attachment.id.clone()),
         row_id: attachment.row_id,
         filename: attachment.filename.clone(),
         uti: attachment.uti.clone(),
         sha512: attachment.sha512.clone(),
         kind: attachment_kind_to_dto(&attachment.kind),
-        reminder_id,
-        modified_at: attachment
-            .modified_at
-            .map(super::common::timestamp_to_rfc3339),
+        reminder_id: ReminderId::new(reminder_id),
+        modified_at: attachment.modified_at.map(timestamp_to_unix),
     }
 }
 
 fn section_to_dto(section: &Section) -> SectionSummaryDto {
     SectionSummaryDto {
-        id: section.id.clone(),
+        id: SectionId::new(section.id.clone()),
         display_name: section.display_name.clone(),
         canonical_name: section.canonical_name.clone(),
     }
@@ -213,7 +209,7 @@ fn reminder_attachment_summary_to_dto(
     attachment: &ReminderAttachment,
 ) -> ReminderAttachmentSummaryDto {
     ReminderAttachmentSummaryDto {
-        id: attachment.id.clone(),
+        id: ReminderAttachmentId::new(attachment.id.clone()),
         row_id: attachment.row_id,
         filename: attachment.filename.clone(),
         uti: attachment.uti.clone(),

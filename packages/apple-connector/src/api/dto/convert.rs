@@ -1,7 +1,7 @@
 use super::{
     attachment::{AttachmentDetailDto, AttachmentKindDto, AttachmentSummaryDto},
     chat::{ChatDetailDto, ChatSummaryDto},
-    common::{direction_to_dto, handle_to_dto, timestamp_to_rfc3339, transport_to_dto},
+    common::{direction_to_dto, handle_to_dto, timestamp_to_unix, transport_to_dto},
     content::{
         AppBalloonContentDto, AppBalloonKindDto, AttachmentContentDto, AttributedBodyErrorDto,
         AudioContentDto, GroupActionKindDto, GroupEventContentDto, MessageBodyDto,
@@ -12,16 +12,19 @@ use super::{
     },
     message::{MessageDetailDto, MessageSummaryDto},
 };
-use crate::messages::{
-    AppBalloon, AppBalloonKind, Attachment, AttachmentKind, AttributedBodyDecodeError, Chat,
-    GroupActionKind, GroupEvent, Message, MessageBody, MessageContent, Reaction, ReactionAction,
-    ReactionKind, ShareMyLocationMessage, ShareMyLocationStatus, SharePlayMessage, SystemMessage,
-    Tapback, TextMessage, UnknownMessage,
+use crate::{
+    apple_types::{AttachmentId, ChatId, MessageId},
+    messages::{
+        AppBalloon, AppBalloonKind, Attachment, AttachmentKind, AttributedBodyDecodeError, Chat,
+        GroupActionKind, GroupEvent, Message, MessageBody, MessageContent, Reaction,
+        ReactionAction, ReactionKind, ShareMyLocationMessage, ShareMyLocationStatus,
+        SharePlayMessage, SystemMessage, Tapback, TextMessage, UnknownMessage,
+    },
 };
 
 pub fn chat_summary_to_dto(chat: &Chat) -> ChatSummaryDto {
     ChatSummaryDto {
-        id: chat.row_id,
+        id: ChatId::new(chat.row_id),
         guid: chat.guid.clone(),
         display_name: chat.display_name.clone(),
         is_group: chat.is_group,
@@ -32,7 +35,7 @@ pub fn chat_summary_to_dto(chat: &Chat) -> ChatSummaryDto {
 
 pub fn chat_detail_to_dto(chat: &Chat) -> ChatDetailDto {
     ChatDetailDto {
-        id: chat.row_id,
+        id: ChatId::new(chat.row_id),
         guid: chat.guid.clone(),
         identifier: chat.identifier.clone(),
         display_name: chat.display_name.clone(),
@@ -45,10 +48,10 @@ pub fn chat_detail_to_dto(chat: &Chat) -> ChatDetailDto {
 
 pub fn message_summary_to_dto(message: &Message) -> MessageSummaryDto {
     MessageSummaryDto {
-        guid: message.envelope.guid.clone(),
+        guid: MessageId::new(message.envelope.guid.clone()),
         direction: direction_to_dto(message.envelope.direction),
         transport: transport_to_dto(&message.envelope.transport),
-        sent_at: message.envelope.sent_at.map(timestamp_to_rfc3339),
+        sent_at: message.envelope.sent_at.map(timestamp_to_unix),
         sender: message.envelope.sender.as_ref().map(handle_to_dto),
         content: content_to_dto(&message.content),
     }
@@ -56,25 +59,34 @@ pub fn message_summary_to_dto(message: &Message) -> MessageSummaryDto {
 
 pub fn message_detail_to_dto(message: &Message) -> MessageDetailDto {
     MessageDetailDto {
-        guid: message.envelope.guid.clone(),
+        guid: MessageId::new(message.envelope.guid.clone()),
         direction: direction_to_dto(message.envelope.direction),
         transport: transport_to_dto(&message.envelope.transport),
-        sent_at: message.envelope.sent_at.map(timestamp_to_rfc3339),
-        read_at: message.envelope.read_at.map(timestamp_to_rfc3339),
-        edited_at: message.envelope.edited_at.map(timestamp_to_rfc3339),
-        retracted_at: message.envelope.retracted_at.map(timestamp_to_rfc3339),
+        sent_at: message.envelope.sent_at.map(timestamp_to_unix),
+        read_at: message.envelope.read_at.map(timestamp_to_unix),
+        edited_at: message.envelope.edited_at.map(timestamp_to_unix),
+        retracted_at: message.envelope.retracted_at.map(timestamp_to_unix),
         sender: message.envelope.sender.as_ref().map(handle_to_dto),
-        reply_to_guid: message.envelope.reply_to_guid.clone(),
-        thread_originator_guid: message.envelope.thread_originator_guid.clone(),
-        chat_ids: message.envelope.chat_ids.clone(),
+        reply_to_guid: message.envelope.reply_to_guid.clone().map(MessageId::new),
+        thread_originator_guid: message
+            .envelope
+            .thread_originator_guid
+            .clone()
+            .map(MessageId::new),
+        chat_ids: message
+            .envelope
+            .chat_ids
+            .iter()
+            .map(|id| ChatId::new(*id))
+            .collect(),
         content: content_to_dto(&message.content),
     }
 }
 
 pub fn attachment_summary_to_dto(attachment: &Attachment) -> AttachmentSummaryDto {
     AttachmentSummaryDto {
-        guid: attachment.guid.clone(),
-        original_guid: attachment.original_guid.clone(),
+        guid: AttachmentId::new(attachment.guid.clone()),
+        original_guid: AttachmentId::new(attachment.original_guid.clone()),
         mime_type: attachment.mime_type.clone(),
         uti: attachment.uti.clone(),
         transfer_name: attachment.transfer_name.clone(),
@@ -90,8 +102,8 @@ pub fn attachment_summary_to_dto(attachment: &Attachment) -> AttachmentSummaryDt
 
 pub fn attachment_detail_to_dto(attachment: &Attachment) -> AttachmentDetailDto {
     AttachmentDetailDto {
-        guid: attachment.guid.clone(),
-        original_guid: attachment.original_guid.clone(),
+        guid: AttachmentId::new(attachment.guid.clone()),
+        original_guid: AttachmentId::new(attachment.original_guid.clone()),
         mime_type: attachment.mime_type.clone(),
         uti: attachment.uti.clone(),
         transfer_name: attachment.transfer_name.clone(),
@@ -172,7 +184,7 @@ fn text_to_dto(text: &TextMessage) -> TextContentDto {
 
 fn reaction_to_dto(reaction: &Reaction) -> ReactionContentDto {
     ReactionContentDto {
-        target_guid: reaction.target_guid.clone(),
+        target_guid: reaction.target_guid.clone().map(MessageId::new),
         kind: match &reaction.kind {
             ReactionKind::Tapback(tapback, action) => ReactionKindDto::Tapback {
                 tapback: tapback_to_dto(*tapback),

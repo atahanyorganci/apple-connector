@@ -1,7 +1,10 @@
 use serde::Serialize;
 use utoipa::ToSchema;
 
-use crate::messages::{Direction, Handle, Transport};
+use crate::{
+    apple_types::UnixTimestamp,
+    messages::{Direction, Handle, Transport},
+};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, ToSchema)]
 #[serde(rename_all = "snake_case")]
@@ -61,6 +64,6 @@ pub fn handle_to_dto(handle: &Handle) -> HandleDto {
     }
 }
 
-pub fn timestamp_to_rfc3339(timestamp: chrono::DateTime<chrono::Utc>) -> String {
-    timestamp.to_rfc3339()
+pub fn timestamp_to_unix(timestamp: chrono::DateTime<chrono::Utc>) -> UnixTimestamp {
+    UnixTimestamp::from(timestamp)
 }
