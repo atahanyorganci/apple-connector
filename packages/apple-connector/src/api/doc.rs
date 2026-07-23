@@ -59,7 +59,7 @@ impl Modify for SecurityAddon {
             external reverse proxy or firewall. This service does not implement authentication or TLS."
     ),
     servers(
-        (url = "http://127.0.0.1:3000", description = "Default local development binding")
+        (url = "/", description = "Same origin as this service (use the host you opened in the browser, e.g. http://127.0.0.1:3000 or http://localhost:3000)")
     ),
     security(
         ("reverse_proxy" = [])
