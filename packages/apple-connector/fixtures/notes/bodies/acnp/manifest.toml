@@ -1,0 +1,90 @@
+# Assertions for apple_cloud_notes_parser exported_blobs fixtures.
+# Expected values mirror spec/base_classes/apple_note.rb (and table specs for
+# ignored entries). status: "active" | "ignored"
+
+[[fixture]]
+file = "simple_note_protobuf_gzipped.bin"
+status = "active"
+text_equals = "Title"
+
+[[fixture]]
+file = "color_formatting_gzipped.bin"
+status = "active"
+text_contains = [
+  "Red",
+  "Blue",
+  "Checklist, unchecked, red in the middle",
+  "bold red",
+]
+
+[[fixture]]
+file = "wide_characters_gzipped.bin"
+status = "active"
+text_contains = ["但他還是希望", "體驗看法覺得很大"]
+
+[[fixture]]
+file = "html_gzipped.bin"
+status = "active"
+text_contains = ["<HTML>"]
+
+[[fixture]]
+file = "emoji_formatting_1_gzipped.bin"
+status = "active"
+text_contains = ["🚀", "🧑‍💻"]
+
+[[fixture]]
+file = "emoji_formatting_2_gzipped.bin"
+status = "active"
+text_contains = ["projects", "Graphic Designer"]
+
+[[fixture]]
+file = "emoji_formatting_3_gzipped.bin"
+status = "active"
+text_contains = ["bold", "italic", "underlined", "🖤"]
+
+[[fixture]]
+file = "url_gzipped.bin"
+status = "active"
+text_contains = ["Jim Nettles", "his older brother"]
+min_link_runs = 1
+
+[[fixture]]
+file = "text_decorations_gzipped.bin"
+status = "active"
+text_contains = [
+  "Bold body",
+  "Italic body",
+  "Bold italic body",
+  "Underlined body",
+  "Strikethrough body",
+]
+
+[[fixture]]
+file = "block_quotes_gzipped.bin"
+status = "active"
+text_contains = [
+  "This is a block quote",
+  "This is monostyled",
+  "This is a monostyled block quote",
+]
+
+[[fixture]]
+file = "list_indents_gzipped.bin"
+status = "ignored"
+ignore_reason = "Upstream Ruby test is pending (xit); nested list indent markers"
+text_contains = ["Dotted list second indent", "Dashed list indent 2"]
+
+[[fixture]]
+file = "table_gzipped.bin"
+status = "ignored"
+ignore_reason = "Embedded table protobuf not yet decoded by apple-notes-protobuf"
+
+[[fixture]]
+file = "table_formats_gzipped.bin"
+status = "ignored"
+ignore_reason = "Embedded table protobuf not yet decoded by apple-notes-protobuf"
+
+[[fixture]]
+file = "right_to_left_table_gzipped.bin"
+status = "ignored"
+ignore_reason = "Embedded table protobuf not yet decoded by apple-notes-protobuf"

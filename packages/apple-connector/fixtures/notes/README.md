@@ -8,6 +8,7 @@ Group Containers SQLite store for local development and tests.
 | `notes.schema.sql` | Full schema: tables, indexes |
 | `seed.sql` | Deterministic seed rows for tests |
 | `bodies/` | Canonical gzip-compressed note body blobs referenced by `seed.sql` |
+| `bodies/acnp/` | Vendored note-body blobs from apple_cloud_notes_parser (MIT); see that directory's README |
 | `notes.db` | Generated locally from schema (gitignored) |
 | `dump-schema.sh` | Refresh schema from `~/Library/Group Containers/group.com.apple.notes/NoteStore.sqlite` |
 | `create-empty-db.sh` | Recreate `notes.db` from `notes.schema.sql` |
@@ -40,3 +41,4 @@ sqlite3 packages/apple-connector/fixtures/notes/notes.db < packages/apple-connec
 - Note and folder UUIDs are plain text in `ZIDENTIFIER` (dashed uppercase in the live store; fixture seed uses lowercase).
 - Timestamps use the Core Data epoch (seconds since 2001-01-01; Unix offset `978307200`).
 - `seed.sql` embeds body blobs as hex sourced from `bodies/plain-text.bin` and `bodies/checklist.bin`.
+- `bodies/acnp/` holds third-party fixtures used by `cargo test -p apple-notes-protobuf --test acnp_fixtures`. Refresh instructions are in [`bodies/acnp/README.md`](bodies/acnp/README.md).
