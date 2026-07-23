@@ -4,6 +4,7 @@ use axum::{Router, middleware::from_fn};
 use sqlx::SqlitePool;
 use utoipa::{OpenApi, openapi::OpenApi as OpenApiSpec};
 use utoipa_axum::{router::OpenApiRouter, routes};
+use utoipa_swagger_ui::{Config, SwaggerUi};
 
 use super::{
     doc::ApiDoc,
@@ -44,7 +45,8 @@ pub fn build_openapi_spec() -> OpenApiSpec {
 
 pub fn router(state: AppState) -> Router {
     let api: Router = openapi_router().with_state(state).into();
-    api.fallback(not_found)
+    api.merge(SwaggerUi::new("/swagger-ui").config(Config::from("/openapi.json")))
+        .fallback(not_found)
         .method_not_allowed_fallback(method_not_allowed)
         .layer(from_fn(request_timeout))
         .layer(from_fn(security_headers))
@@ -156,5 +158,23 @@ mod tests {
             .expect("response");
 
         assert_eq!(response.status(), StatusCode::METHOD_NOT_ALLOWED);
+    }
+
+    #[tokio::test]
+    async fn swagger_ui_is_served_at_swagger_ui() {
+        let app = router(AppState::new(None));
+
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .uri("/swagger-ui/")
+                    .body(Body::empty())
+                    .expect("request"),
+            )
+            .await
+            .expect("response");
+
+        assert_eq!(response.status(), StatusCode::OK);
+        assert_eq!(response.headers().get("content-type").unwrap(), "text/html");
     }
 }
