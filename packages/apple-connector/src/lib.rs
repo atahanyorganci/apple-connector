@@ -21,6 +21,7 @@ pub use messages::{
     SharePlayMessage, SystemMessage, Tapback, TextMessage, Transport, UnknownMessage, UrlBalloon,
     load_all, load_chats,
 };
+pub use reminders::{load_inventory, ReminderInventory};
 use tracing::{info, warn};
 
 pub async fn run(cli: Cli) -> Result<(), Box<dyn Error>> {

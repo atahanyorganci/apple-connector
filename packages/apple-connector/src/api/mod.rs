@@ -4,7 +4,7 @@ mod dto;
 mod error;
 mod handlers;
 mod middleware;
-mod params;
+pub(crate) mod params;
 mod router;
 
 pub use router::{AppState, build_openapi_spec, router};

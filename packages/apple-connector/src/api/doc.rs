@@ -15,11 +15,19 @@ use super::{
         },
         message::{MessageDetailDto, MessagePageDto, MessageSummaryDto},
         pagination::PageMetaDto,
+        reminder::{
+            AlarmDto, AlarmKindDto, DueDto, RecurrenceDto, ReminderAttachmentDetailDto,
+            ReminderAttachmentKindDto, ReminderAttachmentSummaryDto, ReminderDetailDto,
+            ReminderListDetailDto, ReminderListKindDto, ReminderListPageDto,
+            ReminderListSummaryDto, ReminderPageDto, ReminderSummaryDto, SectionSummaryDto,
+            SmartFilterDto,
+        },
     },
     error::{ErrorBody, ErrorCode, ErrorResponse},
     params::{
         AttachmentGuidPath, ChatIdPath, ConditionalRequestHeaders, ContentTypeFilterDto,
         DirectionFilterDto, MessageGuidPath, MessageListParams, PageParams, RangeRequestHeader,
+        ReminderAttachmentIdPath, ReminderIdPath, ReminderListIdPath, ReminderListParams,
         TransportFilterDto,
     },
 };
@@ -52,7 +60,7 @@ impl Modify for SecurityAddon {
     info(
         title = "Apple Connector API",
         version = "1.0.0",
-        description = "Read-only HTTP API for Messages.app data backed by a live `chat.db` connection.\n\n\
+        description = "Read-only HTTP API for Messages.app and Reminders.app data backed by live SQLite connections.\n\n\
             Pagination uses keyset cursors only (default limit 50, maximum 200, newest first). \
             Offsets are not supported.\n\n\
             Authentication, TLS, and network exposure controls are expected to be enforced by an \
@@ -69,9 +77,16 @@ impl Modify for SecurityAddon {
         (name = "chats", description = "Chat listing and chat-scoped messages"),
         (name = "messages", description = "Global message listing and lookup"),
         (name = "attachments", description = "Attachment metadata and byte streaming"),
+        (name = "reminder-lists", description = "Reminder list listing and list-scoped reminders"),
+        (name = "reminders", description = "Global reminder listing and lookup"),
+        (name = "reminder-attachments", description = "Reminder attachment metadata and byte streaming"),
         (name = "meta", description = "API metadata and contract export")
     ),
     components(schemas(
+        AlarmDto,
+        AlarmKindDto,
+        DueDto,
+        RecurrenceDto,
         AttachmentDetailDto,
         AttachmentGuidPath,
         AttachmentKindDto,
@@ -114,9 +129,25 @@ impl Modify for SecurityAddon {
         ReactionActionDto,
         ReactionContentDto,
         ReactionKindDto,
+        ReminderAttachmentDetailDto,
+        ReminderAttachmentIdPath,
+        ReminderAttachmentKindDto,
+        ReminderAttachmentSummaryDto,
+        ReminderDetailDto,
+        ReminderIdPath,
+        ReminderListDetailDto,
+        ReminderListIdPath,
+        ReminderListKindDto,
+        ReminderListPageDto,
+        ReminderListParams,
+        ReminderListSummaryDto,
+        ReminderPageDto,
+        ReminderSummaryDto,
+        SectionSummaryDto,
         ShareMyLocationContentDto,
         ShareMyLocationStatusDto,
         SharePlayContentDto,
+        SmartFilterDto,
         SystemContentDto,
         TapbackDto,
         TextContentDto,
@@ -156,6 +187,26 @@ mod tests {
             "head",
             "/v1/attachments/{guid}/content",
             "headAttachmentContent",
+        ),
+        ("get", "/v1/reminder-lists", "listReminderLists"),
+        ("get", "/v1/reminder-lists/{list_id}", "getReminderList"),
+        (
+            "get",
+            "/v1/reminder-lists/{list_id}/reminders",
+            "listReminderListReminders",
+        ),
+        ("get", "/v1/reminders", "listReminders"),
+        ("get", "/v1/reminders/{reminder_id}", "getReminder"),
+        ("get", "/v1/reminder-attachments/{id}", "getReminderAttachment"),
+        (
+            "get",
+            "/v1/reminder-attachments/{id}/content",
+            "getReminderAttachmentContent",
+        ),
+        (
+            "head",
+            "/v1/reminder-attachments/{id}/content",
+            "headReminderAttachmentContent",
         ),
         ("get", "/openapi.json", "getOpenApiSpec"),
     ];

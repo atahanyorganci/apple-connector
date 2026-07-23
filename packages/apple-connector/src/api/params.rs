@@ -396,3 +396,182 @@ pub struct RangeRequestHeader {
     #[param(rename = "Range", example = "bytes=0-1023")]
     pub range: Option<String>,
 }
+
+#[derive(Debug, Clone)]
+pub enum ReminderListKey {
+    Row(i64),
+    Id(String),
+}
+
+impl ReminderListKey {
+    pub fn parse(raw: &str) -> Result<Self, ApiError> {
+        if let Ok(row_id) = raw.parse::<i64>() {
+            if row_id <= 0 {
+                return Err(ApiError::validation_with_details(
+                    "list_id must be a positive integer or UUID",
+                    serde_json::json!({ "field": "list_id" }),
+                ));
+            }
+            return Ok(Self::Row(row_id));
+        }
+        if is_uuid(raw) {
+            return Ok(Self::Id(raw.to_lowercase()));
+        }
+        Err(ApiError::validation_with_details(
+            "list_id must be a positive integer or UUID",
+            serde_json::json!({ "field": "list_id" }),
+        ))
+    }
+}
+
+#[derive(Debug, Clone, Deserialize, IntoParams, ToSchema)]
+#[into_params(parameter_in = Path)]
+pub struct ReminderListIdPath {
+    pub list_id: String,
+}
+
+#[derive(Debug, Clone, Deserialize, IntoParams, ToSchema)]
+#[into_params(parameter_in = Path)]
+pub struct ReminderIdPath {
+    pub reminder_id: String,
+}
+
+#[derive(Debug, Clone, Deserialize, IntoParams, ToSchema)]
+#[into_params(parameter_in = Path)]
+pub struct ReminderAttachmentIdPath {
+    pub id: String,
+}
+
+#[derive(Debug, Clone, Deserialize, IntoParams, ToSchema)]
+#[into_params(parameter_in = Query, style = Form)]
+pub struct ReminderListParams {
+    #[param(minimum = 1, maximum = 200, default = 50, example = 50)]
+    pub limit: Option<u32>,
+    #[param(example = "v1.eyJyb3dfaWQiOjF9")]
+    pub cursor: Option<String>,
+    pub completed: Option<bool>,
+    pub flagged: Option<bool>,
+    pub has_due_date: Option<bool>,
+    #[param(format = "date-time", example = "2026-01-15T12:00:00Z")]
+    pub due_before: Option<String>,
+    #[param(format = "date-time", example = "2026-01-01T00:00:00Z")]
+    pub due_after: Option<String>,
+    pub priority_min: Option<i32>,
+    pub has_notes: Option<bool>,
+    pub top_level_only: Option<bool>,
+    pub include_subtasks: Option<bool>,
+    pub include_tags: Option<bool>,
+    pub section_id: Option<String>,
+    #[param(max_length = 256, example = "groceries")]
+    pub q: Option<String>,
+    pub list_id: Option<String>,
+}
+
+impl ReminderListParams {
+    pub fn validated_limit(&self) -> Result<u32, ApiError> {
+        let limit = self.limit.unwrap_or(DEFAULT_PAGE_LIMIT);
+        if !(1..=MAX_PAGE_LIMIT).contains(&limit) {
+            return Err(ApiError::validation_with_details(
+                format!("limit must be between 1 and {MAX_PAGE_LIMIT}"),
+                serde_json::json!({
+                    "field": "limit",
+                    "minimum": 1,
+                    "maximum": MAX_PAGE_LIMIT,
+                    "default": DEFAULT_PAGE_LIMIT,
+                }),
+            ));
+        }
+        Ok(limit)
+    }
+
+    pub fn validated_cursor(&self) -> Result<Option<&str>, ApiError> {
+        match &self.cursor {
+            None => Ok(None),
+            Some(cursor) if cursor.starts_with(&format!("{CURSOR_VERSION}.")) => Ok(Some(cursor)),
+            Some(_) => Err(ApiError::validation_with_details(
+                format!("cursor must start with `{CURSOR_VERSION}.`"),
+                serde_json::json!({
+                    "field": "cursor",
+                    "expected_prefix": format!("{CURSOR_VERSION}."),
+                }),
+            )),
+        }
+    }
+
+    pub fn validated_filters(&self) -> Result<crate::reminders::ReminderFilters, ApiError> {
+        let q = match self.q.as_deref().map(str::trim) {
+            None | Some("") => None,
+            Some(query) if query.len() > MAX_SEARCH_QUERY_LEN => {
+                return Err(ApiError::validation_with_details(
+                    format!("q must be at most {MAX_SEARCH_QUERY_LEN} characters"),
+                    serde_json::json!({
+                        "field": "q",
+                        "maximum": MAX_SEARCH_QUERY_LEN,
+                    }),
+                ));
+            }
+            Some(query) => Some(query.to_owned()),
+        };
+
+        let list_id = match self.list_id.as_deref().map(str::trim) {
+            None | Some("") => None,
+            Some(value) if value.parse::<i64>().is_ok() => {
+                Some(crate::reminders::ListIdFilter::RowId(value.parse().expect("parsed")))
+            }
+            Some(value) if is_uuid(value) => {
+                Some(crate::reminders::ListIdFilter::Uuid(value.to_lowercase()))
+            }
+            Some(_) => {
+                return Err(ApiError::validation_with_details(
+                    "list_id must be a positive integer or UUID",
+                    serde_json::json!({ "field": "list_id" }),
+                ));
+            }
+        };
+
+        let due_before = self
+            .due_before
+            .as_deref()
+            .map(|value| parse_rfc3339_to_core_data_secs(value, "due_before"))
+            .transpose()?;
+        let due_after = self
+            .due_after
+            .as_deref()
+            .map(|value| parse_rfc3339_to_core_data_secs(value, "due_after"))
+            .transpose()?;
+
+        Ok(crate::reminders::ReminderFilters {
+            q,
+            completed: self.completed,
+            flagged: self.flagged,
+            list_id,
+            section_id: self.section_id.clone(),
+            has_due_date: self.has_due_date,
+            due_before,
+            due_after,
+            priority_min: self.priority_min,
+            has_notes: self.has_notes,
+            top_level_only: self.top_level_only,
+        })
+    }
+}
+
+fn is_uuid(value: &str) -> bool {
+    value.len() == 36
+        && value
+            .chars()
+            .all(|ch| ch.is_ascii_hexdigit() || ch == '-')
+}
+
+fn parse_rfc3339_to_core_data_secs(value: &str, field: &str) -> Result<i64, ApiError> {
+    if let Ok(unix) = value.parse::<i64>() {
+        return Ok(unix - 978_307_200);
+    }
+    let parsed = chrono::DateTime::parse_from_rfc3339(value).map_err(|_| {
+        ApiError::validation_with_details(
+            "timestamp must be RFC 3339 or Unix seconds",
+            serde_json::json!({ "field": field }),
+        )
+    })?;
+    Ok(parsed.timestamp() - 978_307_200)
+}

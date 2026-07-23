@@ -79,6 +79,16 @@ fn openapi_router() -> OpenApiRouter<AppState> {
             crate::api::handlers::attachments::get_attachment_content,
             crate::api::handlers::attachments::head_attachment_content,
         ))
+        .routes(routes!(crate::api::handlers::reminder_lists::list_reminder_lists))
+        .routes(routes!(crate::api::handlers::reminder_lists::get_reminder_list))
+        .routes(routes!(crate::api::handlers::reminder_lists::list_reminder_list_reminders))
+        .routes(routes!(crate::api::handlers::reminders::list_reminders))
+        .routes(routes!(crate::api::handlers::reminders::get_reminder))
+        .routes(routes!(crate::api::handlers::reminder_attachments::get_reminder_attachment))
+        .routes(routes!(
+            crate::api::handlers::reminder_attachments::get_reminder_attachment_content,
+            crate::api::handlers::reminder_attachments::head_reminder_attachment_content,
+        ))
         .routes(routes!(crate::api::handlers::openapi::get_openapi_spec))
 }
 
@@ -100,6 +110,14 @@ mod tests {
         ("GET", "/v1/attachments/test-guid"),
         ("GET", "/v1/attachments/test-guid/content"),
         ("HEAD", "/v1/attachments/test-guid/content"),
+        ("GET", "/v1/reminder-lists"),
+        ("GET", "/v1/reminder-lists/1"),
+        ("GET", "/v1/reminder-lists/1/reminders"),
+        ("GET", "/v1/reminders"),
+        ("GET", "/v1/reminders/test-id"),
+        ("GET", "/v1/reminder-attachments/test-id"),
+        ("GET", "/v1/reminder-attachments/test-id/content"),
+        ("HEAD", "/v1/reminder-attachments/test-id/content"),
         ("GET", "/openapi.json"),
     ];
 

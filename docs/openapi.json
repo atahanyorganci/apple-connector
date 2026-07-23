@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Apple Connector API",
-    "description": "Read-only HTTP API for Messages.app data backed by a live `chat.db` connection.\n\nPagination uses keyset cursors only (default limit 50, maximum 200, newest first). Offsets are not supported.\n\nAuthentication, TLS, and network exposure controls are expected to be enforced by an external reverse proxy or firewall. This service does not implement authentication or TLS.",
+    "description": "Read-only HTTP API for Messages.app and Reminders.app data backed by live SQLite connections.\n\nPagination uses keyset cursors only (default limit 50, maximum 200, newest first). Offsets are not supported.\n\nAuthentication, TLS, and network exposure controls are expected to be enforced by an external reverse proxy or firewall. This service does not implement authentication or TLS.",
     "license": {
       "name": "MIT",
       "identifier": "MIT"
@@ -993,10 +993,839 @@
           }
         }
       }
+    },
+    "/v1/reminder-attachments/{id}": {
+      "get": {
+        "tags": [
+          "reminder-attachments"
+        ],
+        "summary": "Get reminder attachment metadata",
+        "operationId": "getReminderAttachment",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Reminder attachment metadata",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReminderAttachmentDetailDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Attachment not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Reminders database is unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/reminder-attachments/{id}/content": {
+      "get": {
+        "tags": [
+          "reminder-attachments"
+        ],
+        "summary": "Download reminder attachment content",
+        "operationId": "getReminderAttachmentContent",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Range",
+            "in": "header",
+            "description": "Byte range for partial content requests.",
+            "required": false,
+            "schema": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "example": "bytes=0-1023"
+          },
+          {
+            "name": "If-None-Match",
+            "in": "header",
+            "description": "Validator for conditional GET/HEAD requests.",
+            "required": false,
+            "schema": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "example": "\"abc123\""
+          },
+          {
+            "name": "If-Modified-Since",
+            "in": "header",
+            "description": "Timestamp validator for conditional GET/HEAD requests.",
+            "required": false,
+            "schema": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "example": "Mon, 01 Jan 2024 12:00:00 GMT"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Attachment bytes",
+            "content": {
+              "application/octet-stream": {}
+            }
+          },
+          "404": {
+            "description": "Attachment not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Reminders database is unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "head": {
+        "tags": [
+          "reminder-attachments"
+        ],
+        "summary": "Head reminder attachment content",
+        "operationId": "headReminderAttachmentContent",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Range",
+            "in": "header",
+            "description": "Byte range for partial content requests.",
+            "required": false,
+            "schema": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "example": "bytes=0-1023"
+          },
+          {
+            "name": "If-None-Match",
+            "in": "header",
+            "description": "Validator for conditional GET/HEAD requests.",
+            "required": false,
+            "schema": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "example": "\"abc123\""
+          },
+          {
+            "name": "If-Modified-Since",
+            "in": "header",
+            "description": "Timestamp validator for conditional GET/HEAD requests.",
+            "required": false,
+            "schema": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "example": "Mon, 01 Jan 2024 12:00:00 GMT"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Attachment metadata headers"
+          },
+          "404": {
+            "description": "Attachment not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/reminder-lists": {
+      "get": {
+        "tags": [
+          "reminder-lists"
+        ],
+        "summary": "List reminder lists",
+        "operationId": "listReminderLists",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "Maximum number of items to return. Defaults to 50. Keyset pagination only; no offsets.",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 50,
+              "maximum": 200,
+              "minimum": 1
+            },
+            "style": "form",
+            "example": 50
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "description": "URL-safe versioned cursor for the next page. Results are ordered newest first.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "style": "form",
+            "example": "v1.eyJkYXRlIjoxNzA0MDk2MDAwfQ"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Paginated reminder list summaries",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReminderListPageDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid pagination parameters",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Reminders database is unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/reminder-lists/{list_id}": {
+      "get": {
+        "tags": [
+          "reminder-lists"
+        ],
+        "summary": "Get a reminder list",
+        "operationId": "getReminderList",
+        "parameters": [
+          {
+            "name": "list_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Reminder list detail",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReminderListDetailDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "List not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Reminders database is unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/reminder-lists/{list_id}/reminders": {
+      "get": {
+        "tags": [
+          "reminder-lists"
+        ],
+        "summary": "List reminders in a reminder list",
+        "operationId": "listReminderListReminders",
+        "parameters": [
+          {
+            "name": "list_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 50,
+              "maximum": 200,
+              "minimum": 1
+            },
+            "style": "form",
+            "example": 50
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "style": "form",
+            "example": "v1.eyJyb3dfaWQiOjF9"
+          },
+          {
+            "name": "completed",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            },
+            "style": "form"
+          },
+          {
+            "name": "flagged",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            },
+            "style": "form"
+          },
+          {
+            "name": "has_due_date",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            },
+            "style": "form"
+          },
+          {
+            "name": "due_before",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "style": "form",
+            "example": "2026-01-15T12:00:00Z"
+          },
+          {
+            "name": "due_after",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "style": "form",
+            "example": "2026-01-01T00:00:00Z"
+          },
+          {
+            "name": "priority_min",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            },
+            "style": "form"
+          },
+          {
+            "name": "has_notes",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            },
+            "style": "form"
+          },
+          {
+            "name": "top_level_only",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            },
+            "style": "form"
+          },
+          {
+            "name": "include_subtasks",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            },
+            "style": "form"
+          },
+          {
+            "name": "include_tags",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            },
+            "style": "form"
+          },
+          {
+            "name": "section_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "style": "form"
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 256
+            },
+            "style": "form",
+            "example": "groceries"
+          },
+          {
+            "name": "list_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "style": "form"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Paginated reminders in list",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReminderPageDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "List not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Reminders database is unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/reminders": {
+      "get": {
+        "tags": [
+          "reminders"
+        ],
+        "summary": "List reminders globally",
+        "operationId": "listReminders",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 50,
+              "maximum": 200,
+              "minimum": 1
+            },
+            "style": "form",
+            "example": 50
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "style": "form",
+            "example": "v1.eyJyb3dfaWQiOjF9"
+          },
+          {
+            "name": "completed",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            },
+            "style": "form"
+          },
+          {
+            "name": "flagged",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            },
+            "style": "form"
+          },
+          {
+            "name": "has_due_date",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            },
+            "style": "form"
+          },
+          {
+            "name": "due_before",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "style": "form",
+            "example": "2026-01-15T12:00:00Z"
+          },
+          {
+            "name": "due_after",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "style": "form",
+            "example": "2026-01-01T00:00:00Z"
+          },
+          {
+            "name": "priority_min",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            },
+            "style": "form"
+          },
+          {
+            "name": "has_notes",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            },
+            "style": "form"
+          },
+          {
+            "name": "top_level_only",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            },
+            "style": "form"
+          },
+          {
+            "name": "include_subtasks",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            },
+            "style": "form"
+          },
+          {
+            "name": "include_tags",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            },
+            "style": "form"
+          },
+          {
+            "name": "section_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "style": "form"
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 256
+            },
+            "style": "form",
+            "example": "groceries"
+          },
+          {
+            "name": "list_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "style": "form"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Paginated reminders",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReminderPageDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid query parameters",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Reminders database is unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/reminders/{reminder_id}": {
+      "get": {
+        "tags": [
+          "reminders"
+        ],
+        "summary": "Get a reminder",
+        "operationId": "getReminder",
+        "parameters": [
+          {
+            "name": "reminder_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Reminder detail",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReminderDetailDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Reminder not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Reminders database is unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
     "schemas": {
+      "AlarmDto": {
+        "type": "object",
+        "required": [
+          "kind"
+        ],
+        "properties": {
+          "decode_error": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "kind": {
+            "$ref": "#/components/schemas/AlarmKindDto"
+          },
+          "latitude": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "format": "double"
+          },
+          "longitude": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "format": "double"
+          },
+          "radius": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "format": "double"
+          },
+          "time_interval": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "format": "double"
+          },
+          "title": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "AlarmKindDto": {
+        "type": "string",
+        "enum": [
+          "absolute",
+          "relative",
+          "location",
+          "unknown"
+        ]
+      },
       "AppBalloonContentDto": {
         "type": "object",
         "required": [
@@ -1527,6 +2356,21 @@
           "sent",
           "received"
         ]
+      },
+      "DueDto": {
+        "type": "object",
+        "required": [
+          "at",
+          "all_day"
+        ],
+        "properties": {
+          "all_day": {
+            "type": "boolean"
+          },
+          "at": {
+            "type": "string"
+          }
+        }
       },
       "ErrorBody": {
         "type": "object",
@@ -2344,6 +3188,626 @@
           }
         ]
       },
+      "RecurrenceDto": {
+        "type": "object",
+        "required": [
+          "frequency",
+          "interval"
+        ],
+        "properties": {
+          "decode_error": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "frequency": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "interval": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "occurrence_count": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64"
+          }
+        }
+      },
+      "ReminderAttachmentDetailDto": {
+        "type": "object",
+        "required": [
+          "id",
+          "row_id",
+          "kind",
+          "reminder_id"
+        ],
+        "properties": {
+          "filename": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "id": {
+            "type": "string"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/ReminderAttachmentKindDto"
+          },
+          "modified_at": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "reminder_id": {
+            "type": "string"
+          },
+          "row_id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "sha512": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "uti": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "ReminderAttachmentIdPath": {
+        "type": "object",
+        "required": [
+          "id"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          }
+        }
+      },
+      "ReminderAttachmentKindDto": {
+        "type": "string",
+        "enum": [
+          "file",
+          "image",
+          "audio",
+          "unknown"
+        ]
+      },
+      "ReminderAttachmentSummaryDto": {
+        "type": "object",
+        "required": [
+          "id",
+          "row_id",
+          "kind"
+        ],
+        "properties": {
+          "filename": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "id": {
+            "type": "string"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/ReminderAttachmentKindDto"
+          },
+          "row_id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "sha512": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "uti": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "ReminderDetailDto": {
+        "type": "object",
+        "required": [
+          "id",
+          "row_id",
+          "title",
+          "completed",
+          "flagged",
+          "priority",
+          "list_id",
+          "list_row_id",
+          "list_name",
+          "subtasks",
+          "tags",
+          "alarms",
+          "attachments"
+        ],
+        "properties": {
+          "alarms": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AlarmDto"
+            }
+          },
+          "attachments": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ReminderAttachmentSummaryDto"
+            }
+          },
+          "completed": {
+            "type": "boolean"
+          },
+          "completion_at": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "created_at": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "due": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/DueDto"
+              }
+            ]
+          },
+          "flagged": {
+            "type": "boolean"
+          },
+          "id": {
+            "type": "string"
+          },
+          "last_modified_at": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "list_id": {
+            "type": "string"
+          },
+          "list_name": {
+            "type": "string"
+          },
+          "list_row_id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "notes": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "parent_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "priority": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "recurrence": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/RecurrenceDto"
+              }
+            ]
+          },
+          "row_id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "section_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "subtasks": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ReminderSummaryDto"
+            }
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "title": {
+            "type": "string"
+          }
+        }
+      },
+      "ReminderIdPath": {
+        "type": "object",
+        "required": [
+          "reminder_id"
+        ],
+        "properties": {
+          "reminder_id": {
+            "type": "string"
+          }
+        }
+      },
+      "ReminderListDetailDto": {
+        "type": "object",
+        "required": [
+          "id",
+          "row_id",
+          "name",
+          "kind",
+          "filter",
+          "sections"
+        ],
+        "properties": {
+          "filter": {
+            "$ref": "#/components/schemas/SmartFilterDto"
+          },
+          "id": {
+            "type": "string"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/ReminderListKindDto"
+          },
+          "name": {
+            "type": "string"
+          },
+          "row_id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "sections": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SectionSummaryDto"
+            }
+          },
+          "shared_owner_address": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "shared_owner_name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "sharing_status": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64"
+          },
+          "smart_list_type": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "ReminderListIdPath": {
+        "type": "object",
+        "required": [
+          "list_id"
+        ],
+        "properties": {
+          "list_id": {
+            "type": "string"
+          }
+        }
+      },
+      "ReminderListKindDto": {
+        "type": "string",
+        "enum": [
+          "standard",
+          "smart"
+        ]
+      },
+      "ReminderListPageDto": {
+        "type": "object",
+        "required": [
+          "items",
+          "page"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ReminderListSummaryDto"
+            }
+          },
+          "page": {
+            "$ref": "#/components/schemas/PageMetaDto"
+          }
+        }
+      },
+      "ReminderListParams": {
+        "type": "object",
+        "properties": {
+          "completed": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "cursor": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "due_after": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "due_before": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "flagged": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "has_due_date": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "has_notes": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "include_subtasks": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "include_tags": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "limit": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "minimum": 0
+          },
+          "list_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "priority_min": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32"
+          },
+          "q": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "section_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "top_level_only": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          }
+        }
+      },
+      "ReminderListSummaryDto": {
+        "type": "object",
+        "required": [
+          "id",
+          "row_id",
+          "name",
+          "kind"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/ReminderListKindDto"
+          },
+          "name": {
+            "type": "string"
+          },
+          "row_id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "smart_list_type": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "ReminderPageDto": {
+        "type": "object",
+        "required": [
+          "items",
+          "page"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ReminderSummaryDto"
+            }
+          },
+          "page": {
+            "$ref": "#/components/schemas/PageMetaDto"
+          }
+        }
+      },
+      "ReminderSummaryDto": {
+        "type": "object",
+        "required": [
+          "id",
+          "row_id",
+          "title",
+          "completed",
+          "flagged",
+          "priority",
+          "list_id",
+          "list_row_id",
+          "list_name"
+        ],
+        "properties": {
+          "completed": {
+            "type": "boolean"
+          },
+          "due": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/DueDto"
+              }
+            ]
+          },
+          "flagged": {
+            "type": "boolean"
+          },
+          "id": {
+            "type": "string"
+          },
+          "last_modified_at": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "list_id": {
+            "type": "string"
+          },
+          "list_name": {
+            "type": "string"
+          },
+          "list_row_id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "parent_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "priority": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "row_id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "section_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "title": {
+            "type": "string"
+          }
+        }
+      },
+      "SectionSummaryDto": {
+        "type": "object",
+        "required": [
+          "id",
+          "display_name"
+        ],
+        "properties": {
+          "canonical_name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "display_name": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          }
+        }
+      },
       "ShareMyLocationContentDto": {
         "type": "object",
         "required": [
@@ -2383,6 +3847,18 @@
               "null"
             ]
           }
+        }
+      },
+      "SmartFilterDto": {
+        "type": "object",
+        "required": [
+          "decoded"
+        ],
+        "properties": {
+          "decoded": {
+            "type": "boolean"
+          },
+          "raw": {}
         }
       },
       "SystemContentDto": {
@@ -2539,6 +4015,18 @@
     {
       "name": "attachments",
       "description": "Attachment metadata and byte streaming"
+    },
+    {
+      "name": "reminder-lists",
+      "description": "Reminder list listing and list-scoped reminders"
+    },
+    {
+      "name": "reminders",
+      "description": "Global reminder listing and lookup"
+    },
+    {
+      "name": "reminder-attachments",
+      "description": "Reminder attachment metadata and byte streaming"
     },
     {
       "name": "meta",

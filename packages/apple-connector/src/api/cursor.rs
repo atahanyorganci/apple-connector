@@ -3,6 +3,31 @@ use serde::{Deserialize, Serialize};
 
 use super::{error::ApiError, params::CURSOR_VERSION};
 use crate::messages::search::MessageFiltersSnapshot;
+use crate::reminders::ReminderFiltersSnapshot;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ListCursor {
+    pub row_id: i64,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+pub struct GlobalReminderCursor {
+    pub modified_at: f64,
+    pub row_id: i64,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+pub struct ListReminderCursor {
+    pub modified_at: f64,
+    pub row_id: i64,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ReminderSearchCursor {
+    pub modified_at: f64,
+    pub row_id: i64,
+    pub filters: ReminderFiltersSnapshot,
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct GlobalMessageCursor {
@@ -108,6 +133,20 @@ pub fn decode_global_or_reject_for_filters(cursor: &str) -> Result<GlobalMessage
     }
 
     decode::<GlobalMessageCursor>(cursor)
+}
+
+pub fn decode_reminder_search_cursor(
+    cursor: &str,
+    expected_filters: &ReminderFiltersSnapshot,
+) -> Result<ReminderSearchCursor, ApiError> {
+    let decoded = decode::<ReminderSearchCursor>(cursor)?;
+    if decoded.filters != *expected_filters {
+        return Err(ApiError::validation_with_details(
+            "cursor does not match the active filters",
+            serde_json::json!({ "field": "cursor" }),
+        ));
+    }
+    Ok(decoded)
 }
 
 #[cfg(test)]
