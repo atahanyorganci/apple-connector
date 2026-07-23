@@ -97,6 +97,13 @@ Press **Ctrl-C** to shut down. In-flight requests are drained before exit.
 | `GET` | `/v1/messages/{guid}` | Single message with classified content. |
 | `GET` | `/v1/attachments/{guid}` | Attachment metadata (no local paths). |
 | `GET`, `HEAD` | `/v1/attachments/{guid}/content` | Attachment bytes with range/conditional support. |
+| `GET` | `/v1/reminder-lists` | Paginated reminder lists (newest modified first). |
+| `GET` | `/v1/reminder-lists/{list_id}` | Single list with sections and smart-list metadata. |
+| `GET` | `/v1/reminder-lists/{list_id}/reminders` | Paginated reminders scoped to one list. |
+| `GET` | `/v1/reminders` | Global reminder list with optional search/filters. |
+| `GET` | `/v1/reminders/{reminder_id}` | Single reminder with subtasks, tags, alarms, and attachments. |
+| `GET`, `HEAD` | `/v1/reminder-attachments/{id}/content` | Reminder attachment bytes with range/conditional support. |
+| `GET` | `/v1/reminder-attachments/{id}` | Reminder attachment metadata (no local paths). |
 | `GET` | `/openapi.json` | OpenAPI 3.1 contract (same document as `docs/openapi.json`). |
 | `GET` | `/docs` | Scalar API reference (embedded OpenAPI 3.1 contract). |
 
@@ -137,6 +144,23 @@ Text search uses a resumable search cursor when filters are active. New rows
 written to `chat.db` by Messages.app are visible on the next request without
 restarting the server.
 
+## Reminders search and filters
+
+`GET /v1/reminders` and `GET /v1/reminder-lists/{list_id}/reminders` support:
+
+| Parameter | Description |
+| --- | --- |
+| `q` | Case-insensitive text search (max 256 chars) on title and notes. |
+| `completed`, `flagged` | Boolean completion/flag filters. |
+| `has_due_date`, `due_before`, `due_after` | Due-date presence and bounds. |
+| `priority_min` | Minimum Reminders priority value. |
+| `has_notes`, `top_level_only` | Notes presence and parent-only listing. |
+| `section_id` | Restrict to one section UUID. |
+| `include_subtasks`, `include_tags` | Expand nested subtasks and hashtag tags. |
+
+Filtered requests bind cursors to the active filter set. Reusing a cursor with
+different filters returns `400 validation_error`.
+
 ## Privacy and logging
 
 - API DTOs omit local filesystem paths, raw balloon payloads, and opaque binary
@@ -156,8 +180,12 @@ An empty Messages schema lives in
 [`packages/apple-connector/fixtures/messages/`](packages/apple-connector/fixtures/messages/).
 Use it for local development without reading your real `chat.db`.
 
+A matching Reminders schema and seeded fixture live in
+[`packages/apple-connector/fixtures/reminders/`](packages/apple-connector/fixtures/reminders/).
+
 ```bash
 ./packages/apple-connector/fixtures/messages/create-empty-db.sh
+./packages/apple-connector/fixtures/reminders/create-empty-db.sh
 cp packages/apple-connector/.env.example packages/apple-connector/.env
 cargo install sqlx-cli --version 0.9.0 --no-default-features --features sqlite
 cargo sqlx prepare -p apple-connector

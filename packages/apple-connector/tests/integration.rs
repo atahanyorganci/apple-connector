@@ -303,3 +303,58 @@ async fn smoke_real_database_and_attachment_range() {
         other => panic!("unexpected attachment content status {other}"),
     }
 }
+
+#[tokio::test]
+async fn integration_reminders_fixture_endpoints() {
+    let fixture = RemindersFixtureDb::seeded().await.expect("fixture");
+    let pool = connect_pool(fixture.path()).await.expect("pool");
+    let app = router(AppState::new(None, Some(pool)));
+
+    let (status, lists) = response_json(app.clone(), "/v1/reminder-lists?limit=10").await;
+    assert_eq!(status, StatusCode::OK);
+    assert!(
+        lists["items"].as_array().is_some_and(|items| !items.is_empty()),
+        "expected seeded reminder lists"
+    );
+
+    let (status, reminders) = response_json(
+        app.clone(),
+        "/v1/reminder-lists/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa/reminders?limit=10",
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert!(
+        reminders["items"]
+            .as_array()
+            .is_some_and(|items| !items.is_empty()),
+        "expected seeded reminders in list"
+    );
+
+    let (status, _) =
+        response_json(app, "/v1/reminders/bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb").await;
+    assert_eq!(status, StatusCode::OK);
+}
+
+#[tokio::test]
+#[ignore = "requires APPLE_CONNECTOR_REMINDERS_DATABASE pointing at a read-only Reminders store copy"]
+async fn smoke_reminders_real_database() {
+    let database = std::env::var("APPLE_CONNECTOR_REMINDERS_DATABASE")
+        .expect("APPLE_CONNECTOR_REMINDERS_DATABASE must be set for smoke test");
+    let pool = connect_pool(std::path::Path::new(&database))
+        .await
+        .expect("connect real database");
+    let app = router(AppState::new(None, Some(pool)));
+
+    let (status, payload) = response_json(app.clone(), "/healthz").await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(payload["reminders"], "ok");
+
+    let (status, lists) = response_json(app.clone(), "/v1/reminder-lists?limit=1").await;
+    assert_eq!(status, StatusCode::OK);
+    assert!(
+        lists["items"]
+            .as_array()
+            .is_some_and(|items| !items.is_empty()),
+        "expected at least one reminder list in the real database"
+    );
+}
