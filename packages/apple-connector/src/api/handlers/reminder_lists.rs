@@ -46,10 +46,12 @@ pub async fn list_reminder_lists(
         .transpose()?;
 
     let page = run_timed_query(|| async {
-        ReminderRepository::new(pool).list_lists(limit, cursor).await
+        ReminderRepository::new(pool)
+            .list_lists(limit, cursor)
+            .await
     })
-        .await
-        .map_err(|error| ApiError::internal(error.to_string()))?;
+    .await
+    .map_err(|error| ApiError::internal(error.to_string()))?;
 
     Ok(Json(reminder_list_page_to_dto(
         page.items,
@@ -78,12 +80,11 @@ pub async fn get_reminder_list(
 ) -> Result<Json<ReminderListDetailDto>, ApiError> {
     let pool = require_reminders_db(&state.reminders_db)?;
     let key = ReminderListKey::parse(&list_id)?;
-    let list = run_timed_query(|| async {
-        ReminderRepository::new(pool).get_list_by_key(&key).await
-    })
-        .await
-        .map_err(|error| ApiError::internal(error.to_string()))?
-        .ok_or_else(|| ApiError::not_found(format!("reminder list {list_id} not found")))?;
+    let list =
+        run_timed_query(|| async { ReminderRepository::new(pool).get_list_by_key(&key).await })
+            .await
+            .map_err(|error| ApiError::internal(error.to_string()))?
+            .ok_or_else(|| ApiError::not_found(format!("reminder list {list_id} not found")))?;
 
     Ok(Json(reminder_list_detail_to_dto(&list)))
 }
@@ -130,9 +131,11 @@ pub async fn list_reminder_list_reminders(
     let cursor = match params.cursor.as_deref() {
         None => None,
         Some(value) if filters.is_active() => Some(
-            decode_reminder_search_cursor(value, &filter_snapshot).map(|cursor| ListReminderCursor {
-                modified_at: cursor.modified_at,
-                row_id: cursor.row_id,
+            decode_reminder_search_cursor(value, &filter_snapshot).map(|cursor| {
+                ListReminderCursor {
+                    modified_at: cursor.modified_at,
+                    row_id: cursor.row_id,
+                }
             })?,
         ),
         Some(value) => Some(decode::<ListReminderCursor>(value)?),
@@ -160,8 +163,8 @@ pub async fn list_reminder_list_reminders(
             page.next_cursor,
             limit,
         ))),
-        Err(ListLookupError::NotFound) => {
-            Err(ApiError::not_found(format!("reminder list {list_id} not found")))
-        }
+        Err(ListLookupError::NotFound) => Err(ApiError::not_found(format!(
+            "reminder list {list_id} not found"
+        ))),
     }
 }

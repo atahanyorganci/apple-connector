@@ -149,11 +149,22 @@ pub fn format_uuid_blob(blob: &[u8]) -> Option<String> {
     }
     Some(format!(
         "{:02x}{:02x}{:02x}{:02x}-{:02x}{:02x}-{:02x}{:02x}-{:02x}{:02x}-{:02x}{:02x}{:02x}{:02x}{:02x}{:02x}",
-        blob[0], blob[1], blob[2], blob[3],
-        blob[4], blob[5],
-        blob[6], blob[7],
-        blob[8], blob[9],
-        blob[10], blob[11], blob[12], blob[13], blob[14], blob[15],
+        blob[0],
+        blob[1],
+        blob[2],
+        blob[3],
+        blob[4],
+        blob[5],
+        blob[6],
+        blob[7],
+        blob[8],
+        blob[9],
+        blob[10],
+        blob[11],
+        blob[12],
+        blob[13],
+        blob[14],
+        blob[15],
     ))
 }
 

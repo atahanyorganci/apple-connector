@@ -12,17 +12,15 @@ pub struct ReminderInventory {
 }
 
 pub async fn load_inventory(pool: &SqlitePool) -> Result<ReminderInventory, sqlx::Error> {
-    let lists: (i64,) = sqlx::query_as(
-        "SELECT COUNT(*) FROM ZREMCDBASELIST WHERE ZMARKEDFORDELETION = 0",
-    )
-    .fetch_one(pool)
-    .await?;
+    let lists: (i64,) =
+        sqlx::query_as("SELECT COUNT(*) FROM ZREMCDBASELIST WHERE ZMARKEDFORDELETION = 0")
+            .fetch_one(pool)
+            .await?;
 
-    let reminders: (i64,) = sqlx::query_as(
-        "SELECT COUNT(*) FROM ZREMCDREMINDER WHERE ZMARKEDFORDELETION = 0",
-    )
-    .fetch_one(pool)
-    .await?;
+    let reminders: (i64,) =
+        sqlx::query_as("SELECT COUNT(*) FROM ZREMCDREMINDER WHERE ZMARKEDFORDELETION = 0")
+            .fetch_one(pool)
+            .await?;
 
     let completed: (i64,) = sqlx::query_as(
         "SELECT COUNT(*) FROM ZREMCDREMINDER WHERE ZMARKEDFORDELETION = 0 AND ZCOMPLETED = 1",
@@ -42,17 +40,15 @@ pub async fn load_inventory(pool: &SqlitePool) -> Result<ReminderInventory, sqlx
     .fetch_one(pool)
     .await?;
 
-    let with_sections: (i64,) = sqlx::query_as(
-        "SELECT COUNT(*) FROM ZREMCDBASESECTION WHERE ZMARKEDFORDELETION = 0",
-    )
-    .fetch_one(pool)
-    .await?;
+    let with_sections: (i64,) =
+        sqlx::query_as("SELECT COUNT(*) FROM ZREMCDBASESECTION WHERE ZMARKEDFORDELETION = 0")
+            .fetch_one(pool)
+            .await?;
 
-    let with_attachments: (i64,) = sqlx::query_as(
-        "SELECT COUNT(*) FROM ZREMCDSAVEDATTACHMENT WHERE ZMARKEDFORDELETION = 0",
-    )
-    .fetch_one(pool)
-    .await?;
+    let with_attachments: (i64,) =
+        sqlx::query_as("SELECT COUNT(*) FROM ZREMCDSAVEDATTACHMENT WHERE ZMARKEDFORDELETION = 0")
+            .fetch_one(pool)
+            .await?;
 
     Ok(ReminderInventory {
         lists: lists.0 as u64,
@@ -67,9 +63,8 @@ pub async fn load_inventory(pool: &SqlitePool) -> Result<ReminderInventory, sqlx
 
 #[cfg(test)]
 mod tests {
-    use crate::{connect_pool, fixtures::RemindersFixtureDb};
-
     use super::load_inventory;
+    use crate::{connect_pool, fixtures::RemindersFixtureDb};
 
     #[tokio::test]
     async fn inventory_counts_seeded_fixture() {

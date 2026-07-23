@@ -173,9 +173,7 @@ async fn apply_reminders_schema(path: &Path, seed: bool) -> io::Result<()> {
 mod tests {
     use sqlx::{Row, sqlite::SqliteConnectOptions};
 
-    use super::{
-        FixtureDb, RemindersFixtureDb, SEED_CHAT_GUID, SEED_HANDLE_ID, SEED_MESSAGE_GUID,
-    };
+    use super::{FixtureDb, RemindersFixtureDb, SEED_CHAT_GUID, SEED_HANDLE_ID, SEED_MESSAGE_GUID};
 
     #[tokio::test]
     async fn empty_fixture_is_deterministic() {
@@ -226,7 +224,9 @@ mod tests {
 
     #[tokio::test]
     async fn empty_reminders_fixture_loads_schema() {
-        let fixture = RemindersFixtureDb::empty().await.expect("empty reminders fixture");
+        let fixture = RemindersFixtureDb::empty()
+            .await
+            .expect("empty reminders fixture");
         let options = SqliteConnectOptions::new()
             .filename(fixture.path())
             .read_only(true);
@@ -247,7 +247,9 @@ mod tests {
 
     #[tokio::test]
     async fn seeded_reminders_fixture_contains_expected_rows() {
-        let fixture = RemindersFixtureDb::seeded().await.expect("seeded reminders fixture");
+        let fixture = RemindersFixtureDb::seeded()
+            .await
+            .expect("seeded reminders fixture");
         let options = SqliteConnectOptions::new()
             .filename(fixture.path())
             .read_only(true);

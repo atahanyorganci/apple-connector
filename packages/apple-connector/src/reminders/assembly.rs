@@ -10,7 +10,11 @@ use super::{
     sections::{decode_smart_filter, parse_section_memberships},
 };
 
-pub fn list_kind_from_ent(ent: i64, smart_list_type: Option<&str>, smart_list_ent: i64) -> ListKind {
+pub fn list_kind_from_ent(
+    ent: i64,
+    smart_list_type: Option<&str>,
+    smart_list_ent: i64,
+) -> ListKind {
     if ent == smart_list_ent || smart_list_type.is_some() {
         ListKind::Smart
     } else {
@@ -168,9 +172,7 @@ pub fn recurrence_from_object(row: &ObjectRow, recurrence_ent: i64) -> Option<Re
     })
 }
 
-pub fn build_section_map(
-    membership_data: Option<&[u8]>,
-) -> HashMap<String, String> {
+pub fn build_section_map(membership_data: Option<&[u8]>) -> HashMap<String, String> {
     parse_section_memberships(membership_data)
 }
 

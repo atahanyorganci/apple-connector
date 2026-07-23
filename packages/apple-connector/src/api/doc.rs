@@ -197,7 +197,11 @@ mod tests {
         ),
         ("get", "/v1/reminders", "listReminders"),
         ("get", "/v1/reminders/{reminder_id}", "getReminder"),
-        ("get", "/v1/reminder-attachments/{id}", "getReminderAttachment"),
+        (
+            "get",
+            "/v1/reminder-attachments/{id}",
+            "getReminderAttachment",
+        ),
         (
             "get",
             "/v1/reminder-attachments/{id}/content",

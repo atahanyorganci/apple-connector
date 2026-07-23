@@ -65,7 +65,10 @@ pub async fn healthz(
 ) -> Result<(StatusCode, Json<HealthStatusDto>), (StatusCode, Json<HealthStatusDto>)> {
     let messages = messages_status(&state.messages_db).await;
     let reminders = reminders_status(&state.reminders_db).await;
-    let body = HealthStatusDto { messages, reminders };
+    let body = HealthStatusDto {
+        messages,
+        reminders,
+    };
     let all_ok = messages == HealthStatus::Ok && reminders == HealthStatus::Ok;
 
     if all_ok {
@@ -94,7 +97,9 @@ mod tests {
     #[tokio::test]
     async fn healthz_reports_ok_when_both_databases_are_healthy() {
         let messages_fixture = FixtureDb::empty().await.expect("messages fixture");
-        let reminders_fixture = RemindersFixtureDb::empty().await.expect("reminders fixture");
+        let reminders_fixture = RemindersFixtureDb::empty()
+            .await
+            .expect("reminders fixture");
         let messages_pool = connect_pool(messages_fixture.path())
             .await
             .expect("messages pool");

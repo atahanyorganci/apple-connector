@@ -25,7 +25,8 @@ pub fn validate_attachment_path(
     root: &Path,
     filename: &str,
 ) -> Result<ValidatedAttachmentPath, AttachmentPathError> {
-    let resolved = resolve_attachment_path(root, filename).ok_or(AttachmentPathError::MissingFilename)?;
+    let resolved =
+        resolve_attachment_path(root, filename).ok_or(AttachmentPathError::MissingFilename)?;
 
     let canonical_root =
         std::fs::canonicalize(root).map_err(|_| AttachmentPathError::UnresolvablePath)?;
@@ -65,7 +66,7 @@ fn validated_file_in_root(
 mod tests {
     use std::fs;
 
-    use super::{validate_attachment_path, AttachmentPathError};
+    use super::{AttachmentPathError, validate_attachment_path};
 
     #[test]
     fn rejects_path_traversal() {

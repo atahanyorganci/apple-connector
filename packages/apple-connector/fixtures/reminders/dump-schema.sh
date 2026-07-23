@@ -18,7 +18,7 @@ for db in "${stores_dir}"/Data-*.sqlite; do
   [[ -f ${db} ]] || continue
   count="$(sqlite3 "${db}" "SELECT COUNT(*) FROM ZREMCDREMINDER WHERE ZMARKEDFORDELETION = 0;" 2>/dev/null || echo 0)"
   mtime="$(stat -f '%m' "${db}" 2>/dev/null || stat -c '%Y' "${db}")"
-  if (( count > best_count )) || { (( count == best_count )) && (( mtime > best_mtime )); }; then
+  if ((count > best_count)) || { ((count == best_count)) && ((mtime > best_mtime)); }; then
     best_db="${db}"
     best_count="${count}"
     best_mtime="${mtime}"

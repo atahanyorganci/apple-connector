@@ -10,7 +10,7 @@ pub mod search;
 pub mod sections;
 pub mod sql;
 
-pub use inventory::{load_inventory, ReminderInventory};
+pub use inventory::{ReminderInventory, load_inventory};
 pub use model::{
     Alarm, AlarmKind, AttachmentKind, Due, ListKind, Priority, RecurrenceRule, Reminder,
     ReminderAttachment, ReminderList, ReminderSummary, Section, SmartFilter,

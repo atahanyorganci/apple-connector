@@ -8,9 +8,9 @@ mod reminders;
 use std::{error::Error, io::Error as IoError, net::SocketAddr, path::PathBuf};
 
 pub use api::{AppState, build_openapi_spec, router};
-pub use cli::{Cli, default_messages_database_path};
 #[allow(deprecated)]
 pub use cli::default_database_path;
+pub use cli::{Cli, default_messages_database_path};
 pub use db::{DatabaseError, connect_pool, database_open_failure, ensure_database_exists};
 pub use messages::{
     AppBalloon, AppBalloonKind, Attachment, AttachmentBodyRef, AttachmentKind, AttachmentMessage,
@@ -21,7 +21,7 @@ pub use messages::{
     SharePlayMessage, SystemMessage, Tapback, TextMessage, Transport, UnknownMessage, UrlBalloon,
     load_all, load_chats,
 };
-pub use reminders::{load_inventory, ReminderInventory};
+pub use reminders::{ReminderInventory, load_inventory};
 use tracing::{info, warn};
 
 pub async fn run(cli: Cli) -> Result<(), Box<dyn Error>> {

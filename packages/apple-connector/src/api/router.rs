@@ -39,8 +39,8 @@ impl AppState {
     ) -> Self {
         let attachment_root =
             canonicalize_attachment_root(&attachment_root).unwrap_or(attachment_root);
-        let reminders_attachment_root =
-            canonicalize_attachment_root(&reminders_attachment_root).unwrap_or(reminders_attachment_root);
+        let reminders_attachment_root = canonicalize_attachment_root(&reminders_attachment_root)
+            .unwrap_or(reminders_attachment_root);
         let openapi = Arc::new(build_openapi_spec());
         Self {
             messages_db,
@@ -79,12 +79,20 @@ fn openapi_router() -> OpenApiRouter<AppState> {
             crate::api::handlers::attachments::get_attachment_content,
             crate::api::handlers::attachments::head_attachment_content,
         ))
-        .routes(routes!(crate::api::handlers::reminder_lists::list_reminder_lists))
-        .routes(routes!(crate::api::handlers::reminder_lists::get_reminder_list))
-        .routes(routes!(crate::api::handlers::reminder_lists::list_reminder_list_reminders))
+        .routes(routes!(
+            crate::api::handlers::reminder_lists::list_reminder_lists
+        ))
+        .routes(routes!(
+            crate::api::handlers::reminder_lists::get_reminder_list
+        ))
+        .routes(routes!(
+            crate::api::handlers::reminder_lists::list_reminder_list_reminders
+        ))
         .routes(routes!(crate::api::handlers::reminders::list_reminders))
         .routes(routes!(crate::api::handlers::reminders::get_reminder))
-        .routes(routes!(crate::api::handlers::reminder_attachments::get_reminder_attachment))
+        .routes(routes!(
+            crate::api::handlers::reminder_attachments::get_reminder_attachment
+        ))
         .routes(routes!(
             crate::api::handlers::reminder_attachments::get_reminder_attachment_content,
             crate::api::handlers::reminder_attachments::head_reminder_attachment_content,

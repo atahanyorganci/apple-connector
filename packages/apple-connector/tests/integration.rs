@@ -2,7 +2,11 @@
 
 use std::time::Duration;
 
-use apple_connector::{AppState, connect_pool, fixtures::{FixtureDb, RemindersFixtureDb}, router};
+use apple_connector::{
+    AppState, connect_pool,
+    fixtures::{FixtureDb, RemindersFixtureDb},
+    router,
+};
 use axum::{Router, body::Body, routing::get};
 use http::{Method, Request, StatusCode};
 use http_body_util::BodyExt;
@@ -75,7 +79,9 @@ async fn response_json(app: Router, uri: &str) -> (StatusCode, serde_json::Value
 #[tokio::test]
 async fn integration_health_and_unavailable_errors() {
     let messages_fixture = FixtureDb::empty().await.expect("fixture");
-    let reminders_fixture = RemindersFixtureDb::empty().await.expect("reminders fixture");
+    let reminders_fixture = RemindersFixtureDb::empty()
+        .await
+        .expect("reminders fixture");
     let messages_pool = connect_pool(messages_fixture.path()).await.expect("pool");
     let reminders_pool = connect_pool(reminders_fixture.path()).await.expect("pool");
     let healthy_app = router(AppState::new(Some(messages_pool), Some(reminders_pool)));
@@ -313,7 +319,9 @@ async fn integration_reminders_fixture_endpoints() {
     let (status, lists) = response_json(app.clone(), "/v1/reminder-lists?limit=10").await;
     assert_eq!(status, StatusCode::OK);
     assert!(
-        lists["items"].as_array().is_some_and(|items| !items.is_empty()),
+        lists["items"]
+            .as_array()
+            .is_some_and(|items| !items.is_empty()),
         "expected seeded reminder lists"
     );
 

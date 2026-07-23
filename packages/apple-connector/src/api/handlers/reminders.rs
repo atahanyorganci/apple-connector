@@ -1,4 +1,7 @@
-use axum::{Json, extract::{Query, State}};
+use axum::{
+    Json,
+    extract::{Query, State},
+};
 
 use super::health::require_reminders_db;
 use crate::{
@@ -109,11 +112,13 @@ pub async fn get_reminder(
 ) -> Result<Json<ReminderDetailDto>, ApiError> {
     let pool = require_reminders_db(&state.reminders_db)?;
     let reminder = run_timed_query(|| async {
-        ReminderRepository::new(pool).get_reminder(&reminder_id).await
+        ReminderRepository::new(pool)
+            .get_reminder(&reminder_id)
+            .await
     })
-        .await
-        .map_err(|error| ApiError::internal(error.to_string()))?
-        .ok_or_else(|| ApiError::not_found(format!("reminder {reminder_id} not found")))?;
+    .await
+    .map_err(|error| ApiError::internal(error.to_string()))?
+    .ok_or_else(|| ApiError::not_found(format!("reminder {reminder_id} not found")))?;
 
     Ok(Json(reminder_detail_to_dto(&reminder)))
 }

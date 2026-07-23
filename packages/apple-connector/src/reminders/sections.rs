@@ -43,7 +43,12 @@ pub fn parse_section_memberships(data: Option<&[u8]>) -> HashMap<String, String>
     document
         .memberships
         .into_iter()
-        .map(|entry| (entry.member_id.to_lowercase(), entry.group_id.to_lowercase()))
+        .map(|entry| {
+            (
+                entry.member_id.to_lowercase(),
+                entry.group_id.to_lowercase(),
+            )
+        })
         .collect()
 }
 

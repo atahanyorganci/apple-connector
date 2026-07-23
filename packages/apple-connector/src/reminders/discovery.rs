@@ -26,9 +26,8 @@ impl DiscoveryError {
 pub fn default_reminders_stores_dir() -> Result<PathBuf, IoError> {
     let home = std::env::var_os("HOME")
         .ok_or_else(|| IoError::new(ErrorKind::NotFound, "HOME is not set"))?;
-    Ok(PathBuf::from(home).join(
-        "Library/Group Containers/group.com.apple.reminders/Container_v1/Stores",
-    ))
+    Ok(PathBuf::from(home)
+        .join("Library/Group Containers/group.com.apple.reminders/Container_v1/Stores"))
 }
 
 pub fn default_reminders_attachment_root(store_path: &Path) -> PathBuf {
@@ -129,12 +128,11 @@ async fn count_active_reminders(path: &Path) -> Result<i64, DiscoveryError> {
         .await
         .map_err(|error| DiscoveryError::Connect(error.to_string()))?;
 
-    let count: (i64,) = sqlx::query_as(
-        "SELECT COUNT(*) FROM ZREMCDREMINDER WHERE ZMARKEDFORDELETION = 0",
-    )
-    .fetch_one(&mut connection)
-    .await
-    .map_err(|error| DiscoveryError::Connect(error.to_string()))?;
+    let count: (i64,) =
+        sqlx::query_as("SELECT COUNT(*) FROM ZREMCDREMINDER WHERE ZMARKEDFORDELETION = 0")
+            .fetch_one(&mut connection)
+            .await
+            .map_err(|error| DiscoveryError::Connect(error.to_string()))?;
 
     connection.close().await.ok();
     Ok(count.0)
@@ -150,12 +148,11 @@ async fn max_reminder_primary_key(path: &Path) -> Result<i64, DiscoveryError> {
         .await
         .map_err(|error| DiscoveryError::Connect(error.to_string()))?;
 
-    let max: Option<(Option<i64>,)> = sqlx::query_as(
-        "SELECT Z_MAX FROM Z_PRIMARYKEY WHERE Z_NAME = 'REMCDReminder'",
-    )
-    .fetch_optional(&mut connection)
-    .await
-    .map_err(|error| DiscoveryError::Connect(error.to_string()))?;
+    let max: Option<(Option<i64>,)> =
+        sqlx::query_as("SELECT Z_MAX FROM Z_PRIMARYKEY WHERE Z_NAME = 'REMCDReminder'")
+            .fetch_optional(&mut connection)
+            .await
+            .map_err(|error| DiscoveryError::Connect(error.to_string()))?;
 
     connection.close().await.ok();
     Ok(max.and_then(|row| row.0).unwrap_or(0))
@@ -173,15 +170,12 @@ mod tests {
 
     #[test]
     fn attachment_root_derives_support_directory_from_store_name() {
-        let store = std::path::Path::new(
-            "/Stores/Data-C4B33194-D5FB-428C-BD59-84C67F54B563.sqlite",
-        );
+        let store =
+            std::path::Path::new("/Stores/Data-C4B33194-D5FB-428C-BD59-84C67F54B563.sqlite");
         let root = default_reminders_attachment_root(store);
         assert_eq!(
             root,
-            std::path::PathBuf::from(
-                "/Stores/.Data-C4B33194-D5FB-428C-BD59-84C67F54B563_SUPPORT"
-            )
+            std::path::PathBuf::from("/Stores/.Data-C4B33194-D5FB-428C-BD59-84C67F54B563_SUPPORT")
         );
     }
 }

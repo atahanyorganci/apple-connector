@@ -2,8 +2,7 @@ use base64::{Engine, engine::general_purpose::URL_SAFE_NO_PAD};
 use serde::{Deserialize, Serialize};
 
 use super::{error::ApiError, params::CURSOR_VERSION};
-use crate::messages::search::MessageFiltersSnapshot;
-use crate::reminders::ReminderFiltersSnapshot;
+use crate::{messages::search::MessageFiltersSnapshot, reminders::ReminderFiltersSnapshot};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ListCursor {

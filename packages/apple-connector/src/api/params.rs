@@ -515,9 +515,9 @@ impl ReminderListParams {
 
         let list_id = match self.list_id.as_deref().map(str::trim) {
             None | Some("") => None,
-            Some(value) if value.parse::<i64>().is_ok() => {
-                Some(crate::reminders::ListIdFilter::RowId(value.parse().expect("parsed")))
-            }
+            Some(value) if value.parse::<i64>().is_ok() => Some(
+                crate::reminders::ListIdFilter::RowId(value.parse().expect("parsed")),
+            ),
             Some(value) if is_uuid(value) => {
                 Some(crate::reminders::ListIdFilter::Uuid(value.to_lowercase()))
             }
@@ -557,10 +557,7 @@ impl ReminderListParams {
 }
 
 fn is_uuid(value: &str) -> bool {
-    value.len() == 36
-        && value
-            .chars()
-            .all(|ch| ch.is_ascii_hexdigit() || ch == '-')
+    value.len() == 36 && value.chars().all(|ch| ch.is_ascii_hexdigit() || ch == '-')
 }
 
 fn parse_rfc3339_to_core_data_secs(value: &str, field: &str) -> Result<i64, ApiError> {

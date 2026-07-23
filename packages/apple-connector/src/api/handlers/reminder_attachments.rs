@@ -11,19 +11,18 @@ use tower_http::services::ServeFile;
 use super::health::require_reminders_db;
 use crate::{
     api::{
-        dto::{
-            ReminderAttachmentDetailDto,
-            reminder_convert::reminder_attachment_detail_to_dto,
-        },
+        dto::{ReminderAttachmentDetailDto, reminder_convert::reminder_attachment_detail_to_dto},
         error::{ApiError, ErrorResponse},
-        params::{ConditionalRequestHeaders, ReminderAttachmentIdPath, RangeRequestHeader},
+        params::{ConditionalRequestHeaders, RangeRequestHeader, ReminderAttachmentIdPath},
         router::AppState,
     },
     db::run_timed_query,
     messages::attachment_path::{
         content_disposition, file_validators, resolve_content_type, sanitize_download_filename,
     },
-    reminders::{ReminderAttachment, ReminderRepository, attachment_path::validate_attachment_path},
+    reminders::{
+        ReminderAttachment, ReminderRepository, attachment_path::validate_attachment_path,
+    },
 };
 
 /// Get reminder attachment metadata
@@ -41,7 +40,9 @@ use crate::{
 )]
 pub async fn get_reminder_attachment(
     State(state): State<AppState>,
-    axum::extract::Path(ReminderAttachmentIdPath { id }): axum::extract::Path<ReminderAttachmentIdPath>,
+    axum::extract::Path(ReminderAttachmentIdPath { id }): axum::extract::Path<
+        ReminderAttachmentIdPath,
+    >,
 ) -> Result<Json<ReminderAttachmentDetailDto>, ApiError> {
     let (attachment, reminder_id) = resolve_attachment(&state, &id).await?;
     Ok(Json(reminder_attachment_detail_to_dto(
@@ -65,7 +66,9 @@ pub async fn get_reminder_attachment(
 )]
 pub async fn get_reminder_attachment_content(
     State(state): State<AppState>,
-    axum::extract::Path(ReminderAttachmentIdPath { id }): axum::extract::Path<ReminderAttachmentIdPath>,
+    axum::extract::Path(ReminderAttachmentIdPath { id }): axum::extract::Path<
+        ReminderAttachmentIdPath,
+    >,
     headers: axum::http::HeaderMap,
 ) -> Result<Response, ApiError> {
     let (_, path) = resolve_attachment_path(&state, &id).await?;
@@ -86,7 +89,9 @@ pub async fn get_reminder_attachment_content(
 )]
 pub async fn head_reminder_attachment_content(
     State(state): State<AppState>,
-    axum::extract::Path(ReminderAttachmentIdPath { id }): axum::extract::Path<ReminderAttachmentIdPath>,
+    axum::extract::Path(ReminderAttachmentIdPath { id }): axum::extract::Path<
+        ReminderAttachmentIdPath,
+    >,
     headers: axum::http::HeaderMap,
 ) -> Result<Response, ApiError> {
     let (_, path) = resolve_attachment_path(&state, &id).await?;
@@ -98,12 +103,11 @@ async fn resolve_attachment(
     id: &str,
 ) -> Result<(ReminderAttachment, String), ApiError> {
     let pool = require_reminders_db(&state.reminders_db)?;
-    let attachment = run_timed_query(|| async {
-        ReminderRepository::new(pool).get_attachment_by_id(id).await
-    })
-        .await
-        .map_err(|error| ApiError::internal(error.to_string()))?
-        .ok_or_else(|| ApiError::not_found(format!("reminder attachment {id} not found")))?;
+    let attachment =
+        run_timed_query(|| async { ReminderRepository::new(pool).get_attachment_by_id(id).await })
+            .await
+            .map_err(|error| ApiError::internal(error.to_string()))?
+            .ok_or_else(|| ApiError::not_found(format!("reminder attachment {id} not found")))?;
 
     let reminder_id = run_timed_query(|| async {
         ReminderRepository::new(pool)
@@ -122,12 +126,11 @@ async fn resolve_attachment_path(
     id: &str,
 ) -> Result<(ReminderAttachment, std::path::PathBuf), ApiError> {
     let pool = require_reminders_db(&state.reminders_db)?;
-    let attachment = run_timed_query(|| async {
-        ReminderRepository::new(pool).get_attachment_by_id(id).await
-    })
-        .await
-        .map_err(|error| ApiError::internal(error.to_string()))?
-        .ok_or_else(|| ApiError::not_found(format!("reminder attachment {id} not found")))?;
+    let attachment =
+        run_timed_query(|| async { ReminderRepository::new(pool).get_attachment_by_id(id).await })
+            .await
+            .map_err(|error| ApiError::internal(error.to_string()))?
+            .ok_or_else(|| ApiError::not_found(format!("reminder attachment {id} not found")))?;
 
     let filename = attachment
         .filename
@@ -145,7 +148,11 @@ async fn serve_bytes(
     headers: axum::http::HeaderMap,
     method: Method,
 ) -> Result<Response, ApiError> {
-    let mut request = Request::builder().method(method).uri("/").body(Body::empty()).expect("request");
+    let mut request = Request::builder()
+        .method(method)
+        .uri("/")
+        .body(Body::empty())
+        .expect("request");
     if let Some(range) = headers.get(header::RANGE) {
         request.headers_mut().insert(header::RANGE, range.clone());
     }
