@@ -3,7 +3,7 @@ use axum::{
     extract::{Query, State},
 };
 
-use super::health::{require_db, validate_page};
+use super::health::{require_messages_db, validate_page};
 use crate::{
     api::{
         cursor::{ChatListCursor, ChatMessageCursor, decode},
@@ -38,7 +38,7 @@ pub async fn list_chats(
     State(state): State<AppState>,
     Query(page): Query<PageParams>,
 ) -> Result<Json<ChatPageDto>, ApiError> {
-    let pool = require_db(&state.db)?;
+    let pool = require_messages_db(&state.messages_db)?;
     let limit = validate_page(&page)?;
     let cursor = page
         .validated_cursor()?
@@ -80,7 +80,7 @@ pub async fn get_chat(
     State(state): State<AppState>,
     axum::extract::Path(ChatIdPath { chat_id }): axum::extract::Path<ChatIdPath>,
 ) -> Result<Json<ChatDetailDto>, ApiError> {
-    let pool = require_db(&state.db)?;
+    let pool = require_messages_db(&state.messages_db)?;
     let chat = MessageRepository::new(pool)
         .get_chat(chat_id)
         .await
@@ -115,7 +115,7 @@ pub async fn list_chat_messages(
     axum::extract::Path(ChatIdPath { chat_id }): axum::extract::Path<ChatIdPath>,
     Query(page): Query<PageParams>,
 ) -> Result<Json<MessagePageDto>, ApiError> {
-    let pool = require_db(&state.db)?;
+    let pool = require_messages_db(&state.messages_db)?;
     let limit = validate_page(&page)?;
     let cursor = page
         .validated_cursor()?
@@ -166,7 +166,7 @@ mod tests {
     async fn list_chats_returns_seeded_chat() {
         let fixture = FixtureDb::seeded().await.expect("seeded fixture");
         let pool = connect_pool(fixture.path()).await.expect("connect pool");
-        let app = router(AppState::new(Some(pool)));
+        let app = router(AppState::new(Some(pool), None));
 
         let response = app
             .oneshot(

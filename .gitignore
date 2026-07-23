@@ -5,3 +5,5 @@ result*
 packages/apple-connector/.sqlx/
 packages/apple-connector/fixtures/messages/chat.db
 packages/apple-connector/fixtures/messages/chat.db-*
+packages/apple-connector/fixtures/reminders/reminders.db
+packages/apple-connector/fixtures/reminders/reminders.db-*

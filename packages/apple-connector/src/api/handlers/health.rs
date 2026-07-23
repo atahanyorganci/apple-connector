@@ -2,15 +2,28 @@ use axum::{Json, extract::State, http::StatusCode};
 use sqlx::SqlitePool;
 
 use crate::{
-    api::{dto::common::HealthStatusDto, params::PageParams, router::AppState},
+    api::{
+        dto::common::{HealthStatus, HealthStatusDto},
+        params::PageParams,
+        router::AppState,
+    },
     db::is_pool_healthy,
 };
 
-pub(crate) fn require_db(
+pub(crate) fn require_messages_db(
     pool: &Option<SqlitePool>,
 ) -> Result<&SqlitePool, crate::api::error::ApiError> {
     pool.as_ref().ok_or_else(|| {
         crate::api::error::ApiError::service_unavailable("Messages database is unavailable")
+    })
+}
+
+#[allow(dead_code)]
+pub(crate) fn require_reminders_db(
+    pool: &Option<SqlitePool>,
+) -> Result<&SqlitePool, crate::api::error::ApiError> {
+    pool.as_ref().ok_or_else(|| {
+        crate::api::error::ApiError::service_unavailable("Reminders database is unavailable")
     })
 }
 
@@ -20,41 +33,45 @@ pub(crate) fn validate_page(page: &PageParams) -> Result<u32, crate::api::error:
     page.validated_limit()
 }
 
+async fn messages_status(pool: &Option<SqlitePool>) -> HealthStatus {
+    match pool {
+        Some(pool) if is_pool_healthy(pool).await => HealthStatus::Ok,
+        _ => HealthStatus::Unavailable,
+    }
+}
+
+async fn reminders_status(pool: &Option<SqlitePool>) -> HealthStatus {
+    match pool {
+        Some(pool) if is_pool_healthy(pool).await => HealthStatus::Ok,
+        _ => HealthStatus::Unavailable,
+    }
+}
+
 /// Health check
 ///
-/// Reports whether the read-only Messages database pool is healthy.
+/// Reports whether the read-only Messages and Reminders database pools are healthy.
 #[utoipa::path(
     get,
     path = "/healthz",
     operation_id = "getHealth",
     tag = "health",
     responses(
-        (status = 200, description = "Database pool is healthy", body = HealthStatusDto),
-        (status = 503, description = "Database pool is unavailable", body = HealthStatusDto),
+        (status = 200, description = "Both database pools are healthy", body = HealthStatusDto),
+        (status = 503, description = "One or both database pools are unavailable", body = HealthStatusDto),
     )
 )]
 pub async fn healthz(
     State(state): State<AppState>,
 ) -> Result<(StatusCode, Json<HealthStatusDto>), (StatusCode, Json<HealthStatusDto>)> {
-    let healthy = match &state.db {
-        Some(pool) => is_pool_healthy(pool).await,
-        None => false,
-    };
+    let messages = messages_status(&state.messages_db).await;
+    let reminders = reminders_status(&state.reminders_db).await;
+    let body = HealthStatusDto { messages, reminders };
+    let all_ok = messages == HealthStatus::Ok && reminders == HealthStatus::Ok;
 
-    if healthy {
-        Ok((
-            StatusCode::OK,
-            Json(HealthStatusDto {
-                status: "ok".to_owned(),
-            }),
-        ))
+    if all_ok {
+        Ok((StatusCode::OK, Json(body)))
     } else {
-        Err((
-            StatusCode::SERVICE_UNAVAILABLE,
-            Json(HealthStatusDto {
-                status: "unavailable".to_owned(),
-            }),
-        ))
+        Err((StatusCode::SERVICE_UNAVAILABLE, Json(body)))
     }
 }
 
@@ -66,18 +83,25 @@ mod tests {
     use tower::ServiceExt;
 
     use crate::{
-        api::router::{AppState, router},
+        api::{
+            dto::common::HealthStatus,
+            router::{AppState, router},
+        },
         db::connect_pool,
-        fixtures::FixtureDb,
+        fixtures::{FixtureDb, RemindersFixtureDb},
     };
 
     #[tokio::test]
-    async fn healthz_reports_ok_for_healthy_database() {
-        let fixture = FixtureDb::empty().await.expect("fixture database");
-        let pool = connect_pool(fixture.path())
+    async fn healthz_reports_ok_when_both_databases_are_healthy() {
+        let messages_fixture = FixtureDb::empty().await.expect("messages fixture");
+        let reminders_fixture = RemindersFixtureDb::empty().await.expect("reminders fixture");
+        let messages_pool = connect_pool(messages_fixture.path())
             .await
-            .expect("connect read-only pool");
-        let app = router(AppState::new(Some(pool)));
+            .expect("messages pool");
+        let reminders_pool = connect_pool(reminders_fixture.path())
+            .await
+            .expect("reminders pool");
+        let app = router(AppState::new(Some(messages_pool), Some(reminders_pool)));
 
         let response = app
             .oneshot(
@@ -99,13 +123,13 @@ mod tests {
             .to_bytes();
         assert_eq!(
             serde_json::from_slice::<serde_json::Value>(&body).expect("json"),
-            serde_json::json!({ "status": "ok" })
+            serde_json::json!({ "messages": "ok", "reminders": "ok" })
         );
     }
 
     #[tokio::test]
     async fn healthz_reports_unavailable_without_leaking_paths() {
-        let app = router(AppState::new(None));
+        let app = router(AppState::new(None, None));
 
         let response = app
             .oneshot(
@@ -128,9 +152,18 @@ mod tests {
         let payload = String::from_utf8(body.to_vec()).expect("utf-8");
         assert_eq!(
             serde_json::from_str::<serde_json::Value>(&payload).expect("json"),
-            serde_json::json!({ "status": "unavailable" })
+            serde_json::json!({ "messages": "unavailable", "reminders": "unavailable" })
         );
         assert!(!payload.contains("chat.db"));
         assert!(!payload.contains("Library/Messages"));
+        assert!(!payload.contains("Group Containers"));
+    }
+
+    #[test]
+    fn health_status_serializes_as_snake_case() {
+        assert_eq!(
+            serde_json::to_string(&HealthStatus::Ok).expect("serialize"),
+            "\"ok\""
+        );
     }
 }

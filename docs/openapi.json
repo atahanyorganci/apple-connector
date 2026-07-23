@@ -22,11 +22,11 @@
           "health"
         ],
         "summary": "Health check",
-        "description": "Reports whether the read-only Messages database pool is healthy.",
+        "description": "Reports whether the read-only Messages and Reminders database pools are healthy.",
         "operationId": "getHealth",
         "responses": {
           "200": {
-            "description": "Database pool is healthy",
+            "description": "Both database pools are healthy",
             "content": {
               "application/json": {
                 "schema": {
@@ -36,7 +36,7 @@
             }
           },
           "503": {
-            "description": "Database pool is unavailable",
+            "description": "One or both database pools are unavailable",
             "content": {
               "application/json": {
                 "schema": {
@@ -1618,15 +1618,25 @@
           }
         }
       },
+      "HealthStatus": {
+        "type": "string",
+        "enum": [
+          "ok",
+          "unavailable"
+        ]
+      },
       "HealthStatusDto": {
         "type": "object",
         "required": [
-          "status"
+          "messages",
+          "reminders"
         ],
         "properties": {
-          "status": {
-            "type": "string",
-            "example": "ok"
+          "messages": {
+            "$ref": "#/components/schemas/HealthStatus"
+          },
+          "reminders": {
+            "$ref": "#/components/schemas/HealthStatus"
           }
         }
       },

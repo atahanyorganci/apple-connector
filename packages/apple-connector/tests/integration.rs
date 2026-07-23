@@ -2,7 +2,7 @@
 
 use std::time::Duration;
 
-use apple_connector::{AppState, connect_pool, fixtures::FixtureDb, router};
+use apple_connector::{AppState, connect_pool, fixtures::{FixtureDb, RemindersFixtureDb}, router};
 use axum::{Router, body::Body, routing::get};
 use http::{Method, Request, StatusCode};
 use http_body_util::BodyExt;
@@ -74,18 +74,22 @@ async fn response_json(app: Router, uri: &str) -> (StatusCode, serde_json::Value
 
 #[tokio::test]
 async fn integration_health_and_unavailable_errors() {
-    let healthy_fixture = FixtureDb::empty().await.expect("fixture");
-    let pool = connect_pool(healthy_fixture.path()).await.expect("pool");
-    let healthy_app = router(AppState::new(Some(pool)));
+    let messages_fixture = FixtureDb::empty().await.expect("fixture");
+    let reminders_fixture = RemindersFixtureDb::empty().await.expect("reminders fixture");
+    let messages_pool = connect_pool(messages_fixture.path()).await.expect("pool");
+    let reminders_pool = connect_pool(reminders_fixture.path()).await.expect("pool");
+    let healthy_app = router(AppState::new(Some(messages_pool), Some(reminders_pool)));
 
     let (status, payload) = response_json(healthy_app, "/healthz").await;
     assert_eq!(status, StatusCode::OK);
-    assert_eq!(payload["status"], "ok");
+    assert_eq!(payload["messages"], "ok");
+    assert_eq!(payload["reminders"], "ok");
 
-    let unavailable_app = router(AppState::new(None));
+    let unavailable_app = router(AppState::new(None, None));
     let (status, payload) = response_json(unavailable_app.clone(), "/healthz").await;
     assert_eq!(status, StatusCode::SERVICE_UNAVAILABLE);
-    assert_eq!(payload["status"], "unavailable");
+    assert_eq!(payload["messages"], "unavailable");
+    assert_eq!(payload["reminders"], "unavailable");
 
     let (status, payload) = response_json(unavailable_app, "/v1/messages").await;
     assert_eq!(status, StatusCode::SERVICE_UNAVAILABLE);
@@ -96,7 +100,7 @@ async fn integration_health_and_unavailable_errors() {
 async fn integration_pagination_search_and_live_updates() {
     let fixture = seeded_search_fixture().await;
     let pool = connect_pool(fixture.path()).await.expect("pool");
-    let app = router(AppState::new(Some(pool)));
+    let app = router(AppState::new(Some(pool), None));
 
     let (status, first_page) = response_json(app.clone(), "/v1/messages?limit=2").await;
     assert_eq!(status, StatusCode::OK);
@@ -141,7 +145,7 @@ async fn integration_pagination_search_and_live_updates() {
 async fn integration_media_metadata_is_structured_without_paths() {
     let fixture = FixtureDb::empty().await.expect("fixture");
     let pool = connect_pool(fixture.path()).await.expect("pool");
-    let app = router(AppState::new(Some(pool)));
+    let app = router(AppState::new(Some(pool), None));
 
     let response = app
         .oneshot(
@@ -170,7 +174,7 @@ async fn integration_media_metadata_is_structured_without_paths() {
 async fn integration_wrong_method_returns_json_405() {
     let fixture = FixtureDb::empty().await.expect("fixture");
     let pool = connect_pool(fixture.path()).await.expect("pool");
-    let app = router(AppState::new(Some(pool)));
+    let app = router(AppState::new(Some(pool), None));
 
     let response = app
         .oneshot(
@@ -234,18 +238,24 @@ async fn graceful_shutdown_drains_in_flight_requests() {
 }
 
 #[tokio::test]
-#[ignore = "requires APPLE_CONNECTOR_DATABASE pointing at a read-only chat.db copy"]
+#[ignore = "requires APPLE_CONNECTOR_MESSAGES_DATABASE pointing at a read-only chat.db copy"]
 async fn smoke_real_database_and_attachment_range() {
-    let database = std::env::var("APPLE_CONNECTOR_DATABASE")
-        .expect("APPLE_CONNECTOR_DATABASE must be set for smoke test");
+    let database = std::env::var("APPLE_CONNECTOR_MESSAGES_DATABASE")
+        .or_else(|_| {
+            eprintln!(
+                "warning: APPLE_CONNECTOR_DATABASE is deprecated; use APPLE_CONNECTOR_MESSAGES_DATABASE"
+            );
+            std::env::var("APPLE_CONNECTOR_DATABASE")
+        })
+        .expect("APPLE_CONNECTOR_MESSAGES_DATABASE must be set for smoke test");
     let pool = connect_pool(std::path::Path::new(&database))
         .await
         .expect("connect real database");
-    let app = router(AppState::new(Some(pool)));
+    let app = router(AppState::new(Some(pool), None));
 
     let (status, payload) = response_json(app.clone(), "/healthz").await;
     assert_eq!(status, StatusCode::OK);
-    assert_eq!(payload["status"], "ok");
+    assert_eq!(payload["messages"], "ok");
 
     let (status, messages) = response_json(app.clone(), "/v1/messages?limit=1").await;
     assert_eq!(status, StatusCode::OK);

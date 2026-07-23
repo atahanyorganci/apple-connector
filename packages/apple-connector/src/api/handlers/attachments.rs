@@ -8,7 +8,7 @@ use axum::{
 use tower::ServiceExt;
 use tower_http::services::ServeFile;
 
-use super::health::require_db;
+use super::health::require_messages_db;
 use crate::{
     api::{
         dto::{AttachmentDetailDto, convert::attachment_detail_to_dto},
@@ -47,7 +47,7 @@ pub async fn get_attachment(
     State(state): State<AppState>,
     axum::extract::Path(AttachmentGuidPath { guid }): axum::extract::Path<AttachmentGuidPath>,
 ) -> Result<Json<AttachmentDetailDto>, ApiError> {
-    let pool = require_db(&state.db)?;
+    let pool = require_messages_db(&state.messages_db)?;
     let attachment_root = state.attachment_root.as_ref();
     let attachment = run_timed_query(|| async {
         MessageRepository::new(pool)
@@ -172,7 +172,7 @@ async fn resolve_content_attachment(
     state: &AppState,
     guid: &str,
 ) -> Result<(Attachment, std::path::PathBuf), ApiError> {
-    let pool = require_db(&state.db)?;
+    let pool = require_messages_db(&state.messages_db)?;
     let attachment_root = state.attachment_root.as_ref();
     let attachment = run_timed_query(|| async {
         MessageRepository::new(pool)
@@ -362,7 +362,12 @@ mod tests {
 
         fn app(&self, pool: sqlx::SqlitePool) -> axum::Router {
             let root = canonicalize_attachment_root(&self.root).expect("canonical root");
-            router(AppState::with_attachment_root(Some(pool), root))
+            router(AppState::with_attachment_roots(
+                Some(pool),
+                None,
+                root,
+                PathBuf::from("/var/empty/reminders-attachments"),
+            ))
         }
 
         async fn seed_attachment(

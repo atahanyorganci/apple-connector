@@ -25,10 +25,17 @@ pub struct HandleDto {
     pub service: String,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, ToSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum HealthStatus {
+    Ok,
+    Unavailable,
+}
+
 #[derive(Debug, Clone, Serialize, ToSchema)]
 pub struct HealthStatusDto {
-    #[schema(example = "ok")]
-    pub status: String,
+    pub messages: HealthStatus,
+    pub reminders: HealthStatus,
 }
 
 pub fn direction_to_dto(direction: Direction) -> DirectionDto {

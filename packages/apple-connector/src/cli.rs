@@ -22,11 +22,23 @@ pub struct Cli {
 
     /// Path to the read-only Messages `chat.db` database.
     #[arg(long, value_name = "PATH")]
-    pub database: Option<PathBuf>,
+    pub messages_database: Option<PathBuf>,
+
+    /// Path to the read-only Reminders SQLite store. Auto-discovered when omitted.
+    #[arg(long, value_name = "PATH")]
+    pub reminders_database: Option<PathBuf>,
+
+    /// Directory to scan for Reminders store files when auto-discovering.
+    #[arg(long, value_name = "PATH")]
+    pub reminders_stores_dir: Option<PathBuf>,
 
     /// Path to the Messages attachment directory. Defaults to `Attachments` next to `chat.db`.
     #[arg(long, value_name = "PATH")]
     pub attachment_root: Option<PathBuf>,
+
+    /// Path to the Reminders attachment support directory.
+    #[arg(long, value_name = "PATH")]
+    pub reminders_attachment_root: Option<PathBuf>,
 }
 
 impl Cli {
@@ -34,10 +46,26 @@ impl Cli {
         format!("{}:{}", self.address, self.port)
     }
 
-    pub fn database_path(&self) -> Result<PathBuf, IoError> {
-        match &self.database {
+    pub fn messages_database_path(&self) -> Result<PathBuf, IoError> {
+        if let Some(path) = &self.messages_database {
+            return Ok(path.clone());
+        }
+        if let Ok(path) = std::env::var("APPLE_CONNECTOR_MESSAGES_DATABASE") {
+            return Ok(PathBuf::from(path));
+        }
+        if let Ok(path) = std::env::var("APPLE_CONNECTOR_DATABASE") {
+            eprintln!(
+                "warning: APPLE_CONNECTOR_DATABASE is deprecated; use APPLE_CONNECTOR_MESSAGES_DATABASE"
+            );
+            return Ok(PathBuf::from(path));
+        }
+        default_messages_database_path()
+    }
+
+    pub fn reminders_stores_dir_path(&self) -> Result<PathBuf, IoError> {
+        match &self.reminders_stores_dir {
             Some(path) => Ok(path.clone()),
-            None => default_database_path(),
+            None => crate::reminders::discovery::default_reminders_stores_dir(),
         }
     }
 
@@ -47,7 +75,7 @@ impl Cli {
         }
 
         Ok(crate::messages::attachment_path::default_attachment_root(
-            &self.database_path()?,
+            &self.messages_database_path()?,
         ))
     }
 
@@ -56,10 +84,15 @@ impl Cli {
     }
 }
 
-pub fn default_database_path() -> Result<PathBuf, IoError> {
+pub fn default_messages_database_path() -> Result<PathBuf, IoError> {
     let home = std::env::var_os("HOME")
         .ok_or_else(|| IoError::new(ErrorKind::NotFound, "HOME is not set"))?;
     Ok(PathBuf::from(home).join("Library/Messages/chat.db"))
+}
+
+#[deprecated(note = "use default_messages_database_path instead")]
+pub fn default_database_path() -> Result<PathBuf, IoError> {
+    default_messages_database_path()
 }
 
 fn parse_address(value: &str) -> Result<IpAddr, String> {
@@ -99,7 +132,7 @@ mod tests {
 
     use clap::Parser;
 
-    use super::{Cli, default_database_path};
+    use super::{Cli, default_messages_database_path};
 
     #[test]
     fn defaults_to_loopback_port_and_home_database() {
@@ -108,8 +141,8 @@ mod tests {
         assert_eq!(cli.address, IpAddr::V4(Ipv4Addr::LOCALHOST));
         assert_eq!(cli.port, 3000);
         assert_eq!(
-            cli.database_path().expect("database path"),
-            default_database_path().expect("default database path")
+            cli.messages_database_path().expect("database path"),
+            default_messages_database_path().expect("default database path")
         );
     }
 
@@ -121,7 +154,7 @@ mod tests {
             "127.0.0.2",
             "--port",
             "8080",
-            "--database",
+            "--messages-database",
             "/tmp/chat.db",
         ])
         .expect("parse overrides");
@@ -129,7 +162,7 @@ mod tests {
         assert_eq!(cli.address, IpAddr::V4(Ipv4Addr::new(127, 0, 0, 2)));
         assert_eq!(cli.port, 8080);
         assert_eq!(
-            cli.database_path().expect("database path"),
+            cli.messages_database_path().expect("database path"),
             PathBuf::from("/tmp/chat.db")
         );
     }

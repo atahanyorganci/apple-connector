@@ -10,6 +10,8 @@ use sqlx::{
 use tempfile::TempDir;
 
 const CHAT_SCHEMA: &str = include_str!("../fixtures/messages/chat.schema.sql");
+const REMINDERS_SCHEMA: &str = include_str!("../fixtures/reminders/reminders.schema.sql");
+const REMINDERS_SEED: &str = include_str!("../fixtures/reminders/seed.sql");
 
 const SEED_HANDLE_ID: &str = "+15551234567";
 const SEED_CHAT_GUID: &str = "fixture-chat-guid";
@@ -113,11 +115,67 @@ async fn seed_data(connection: &mut SqliteConnection) -> sqlx::Result<()> {
     Ok(())
 }
 
+pub struct RemindersFixtureDb {
+    _temp_dir: TempDir,
+    path: PathBuf,
+}
+
+impl RemindersFixtureDb {
+    pub async fn empty() -> io::Result<Self> {
+        Self::with_seed(false).await
+    }
+
+    pub async fn seeded() -> io::Result<Self> {
+        Self::with_seed(true).await
+    }
+
+    pub fn path(&self) -> &Path {
+        &self.path
+    }
+
+    async fn with_seed(seed: bool) -> io::Result<Self> {
+        let temp_dir = TempDir::new()?;
+        let path = temp_dir.path().join("reminders.db");
+        apply_reminders_schema(&path, seed).await?;
+        Ok(Self {
+            _temp_dir: temp_dir,
+            path,
+        })
+    }
+}
+
+async fn apply_reminders_schema(path: &Path, seed: bool) -> io::Result<()> {
+    let options = SqliteConnectOptions::new()
+        .filename(path)
+        .create_if_missing(true);
+
+    let mut connection = SqliteConnection::connect_with(&options)
+        .await
+        .map_err(io::Error::other)?;
+
+    sqlx::raw_sql(REMINDERS_SCHEMA)
+        .execute(&mut connection)
+        .await
+        .map_err(io::Error::other)?;
+
+    if seed {
+        sqlx::raw_sql(REMINDERS_SEED)
+            .execute(&mut connection)
+            .await
+            .map_err(io::Error::other)?;
+    }
+
+    connection.close().await.ok();
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use sqlx::{Row, sqlite::SqliteConnectOptions};
 
-    use super::{FixtureDb, SEED_CHAT_GUID, SEED_HANDLE_ID, SEED_MESSAGE_GUID};
+    use super::{
+        FixtureDb, RemindersFixtureDb, SEED_CHAT_GUID, SEED_HANDLE_ID, SEED_MESSAGE_GUID,
+    };
 
     #[tokio::test]
     async fn empty_fixture_is_deterministic() {
@@ -164,5 +222,47 @@ mod tests {
         assert_eq!(handle_count, 1);
         assert_eq!(chat_count, 1);
         assert_eq!(message_count, 1);
+    }
+
+    #[tokio::test]
+    async fn empty_reminders_fixture_loads_schema() {
+        let fixture = RemindersFixtureDb::empty().await.expect("empty reminders fixture");
+        let options = SqliteConnectOptions::new()
+            .filename(fixture.path())
+            .read_only(true);
+        let pool = sqlx::SqlitePool::connect_with(options)
+            .await
+            .expect("connect read-only pool");
+
+        let table_count: i64 = sqlx::query(
+            "SELECT COUNT(*) AS count FROM sqlite_master WHERE name = 'ZREMCDREMINDER'",
+        )
+        .fetch_one(&pool)
+        .await
+        .expect("table count")
+        .get("count");
+
+        assert_eq!(table_count, 1);
+    }
+
+    #[tokio::test]
+    async fn seeded_reminders_fixture_contains_expected_rows() {
+        let fixture = RemindersFixtureDb::seeded().await.expect("seeded reminders fixture");
+        let options = SqliteConnectOptions::new()
+            .filename(fixture.path())
+            .read_only(true);
+        let pool = sqlx::SqlitePool::connect_with(options)
+            .await
+            .expect("connect read-only pool");
+
+        let reminder_count: i64 = sqlx::query(
+            "SELECT COUNT(*) AS count FROM ZREMCDREMINDER WHERE ZMARKEDFORDELETION = 0",
+        )
+        .fetch_one(&pool)
+        .await
+        .expect("reminder count")
+        .get("count");
+
+        assert!(reminder_count >= 2);
     }
 }

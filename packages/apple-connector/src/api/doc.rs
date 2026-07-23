@@ -4,7 +4,7 @@ use super::{
     dto::{
         attachment::{AttachmentDetailDto, AttachmentKindDto, AttachmentSummaryDto},
         chat::{ChatDetailDto, ChatPageDto, ChatSummaryDto},
-        common::{DirectionDto, HandleDto, HealthStatusDto, TransportDto},
+        common::{DirectionDto, HandleDto, HealthStatus, HealthStatusDto, TransportDto},
         content::{
             AppBalloonContentDto, AppBalloonKindDto, AttachmentContentDto, AttributedBodyErrorDto,
             AudioContentDto, GroupActionKindDto, GroupEventContentDto, MessageBodyDto,
@@ -95,6 +95,7 @@ impl Modify for SecurityAddon {
         GroupActionKindDto,
         GroupEventContentDto,
         HandleDto,
+        HealthStatus,
         HealthStatusDto,
         MessageBodyDto,
         MessageContentDto,
