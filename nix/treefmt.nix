@@ -7,7 +7,8 @@
     projectRoot = ../.;
     rustToolchain = pkgs.rust-bin.selectLatestNightlyWith (toolchain: toolchain.default);
     wrappedRustfmt = pkgs.writeShellScriptBin "rustfmt" ''
-      export DYLD_LIBRARY_PATH="${rustToolchain}/lib:$DYLD_LIBRARY_PATH"
+      export LD_LIBRARY_PATH="${rustToolchain}/lib''${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+      export DYLD_LIBRARY_PATH="${rustToolchain}/lib''${DYLD_LIBRARY_PATH:+:$DYLD_LIBRARY_PATH}"
       exec ${rustToolchain}/bin/rustfmt "$@"
     '';
   in {
