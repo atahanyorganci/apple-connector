@@ -1,36 +1,39 @@
 # apple-connector
 
-Rust monorepo that exposes a **read-only HTTP API** over Apple Messages and Reminders data on macOS. It reads live SQLite databases (`~/Library/Messages/chat.db` and the Reminders Group Containers store) and serves JSON plus attachment bytes.
+Rust monorepo that exposes a **read-only HTTP API** over Apple Messages, Reminders, and Notes data on macOS. It reads live SQLite databases (`~/Library/Messages/chat.db`, the Reminders Group Containers store, and `~/Library/Group Containers/group.com.apple.notes/NoteStore.sqlite`) and serves JSON plus attachment bytes.
 
 ## Crates
 
-| Crate               | Path                          | Role                                                               |
-| ------------------- | ----------------------------- | ------------------------------------------------------------------ |
-| `apple-connector`   | `packages/apple-connector/`   | Axum HTTP server, SQLx queries, OpenAPI (`/docs`, `/openapi.json`) |
-| `apple-typedstream` | `packages/apple-typedstream/` | Parser for Apple typedstream / attributed message bodies           |
+| Crate                   | Path                            | Role                                                               |
+| ----------------------- | ------------------------------- | ------------------------------------------------------------------ |
+| `apple-connector`       | `packages/apple-connector/`     | Axum HTTP server, SQLx queries, OpenAPI (`/docs`, `/openapi.json`) |
+| `apple-notes-protobuf`  | `packages/apple-notes-protobuf/`| Gzip + protobuf decoder for Apple Notes body blobs                 |
+| `apple-typedstream`     | `packages/apple-typedstream/`   | Parser for Apple typedstream / attributed message bodies           |
 
 ## Layout
 
 - `packages/apple-connector/src/api/` — routes, DTOs, handlers
 - `packages/apple-connector/src/messages/` — Messages DB access, classification, attachments
 - `packages/apple-connector/src/reminders/` — Reminders DB access and assembly
+- `packages/apple-connector/src/notes/` — Notes DB access, body decoding, attachments
 - `packages/apple-connector/src/apple_types/` — shared ID and timestamp types
-- `packages/apple-connector/fixtures/` — empty Messages/Reminders schemas for offline SQLx
+- `packages/apple-connector/fixtures/` — empty Messages/Reminders/Notes schemas for offline SQLx
 - `docs/openapi.json` — committed OpenAPI contract (regenerate after API changes)
 
 ## Run & test
 
 ```bash
 nix develop
-cargo run -p apple-connector          # http://127.0.0.1:3000
+cargo run -p apple-connector # http://127.0.0.1:3000
 cargo test -p apple-connector
+cargo test -p apple-notes-protobuf
 cargo fmt --all && cargo clippy -p apple-connector --all-targets -- -D warnings
 nix flake check
 ```
 
 Requires **Apple Silicon macOS**, **Full Disk Access**, and Nix with flakes. The API is unauthenticated and defaults to loopback only.
 
-## Planning
+## Planning
 
 Primary sources of truth is issues. While creating a multiphase plan that spans multiple issues, create a new issue for each phase. The parent issue should only have a description with child issues as subtasks.
 

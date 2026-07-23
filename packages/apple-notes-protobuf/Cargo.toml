@@ -1,0 +1,11 @@
+[package]
+name = "apple-notes-protobuf"
+version = "0.1.0"
+edition = "2024"
+license = "MIT"
+description = "Decode Apple Notes gzip+protobuf note bodies"
+
+[dependencies]
+flate2 = "1.1"
+plist = "1.7"
+uuid = { version = "1", features = ["v4"] }

@@ -2,17 +2,17 @@
 
 Monorepo for reading Apple platform data on macOS. The
 [`packages/apple-connector`](packages/apple-connector/) crate exposes a
-read-only HTTP API over Messages.app and Reminders.app data backed by live
-SQLite connections to `~/Library/Messages/chat.db` and the Reminders Group
-Containers store.
+read-only HTTP API over Messages.app, Reminders.app, and Notes.app data backed by live
+SQLite connections to `~/Library/Messages/chat.db`, the Reminders Group
+Containers store, and `~/Library/Group Containers/group.com.apple.notes/NoteStore.sqlite`.
 
 ## Requirements
 
 - Apple Silicon Mac (`aarch64-darwin`)
 - Messages.app signed in
 - Nix with flakes enabled
-- Full Disk Access for the terminal that runs the server (Messages **and**
-  Reminders Group Containers)
+- Full Disk Access for the terminal that runs the server (Messages, Reminders,
+  and Notes Group Containers)
 
 Grant access in **System Settings → Privacy & Security → Full Disk Access**, then
 restart the terminal. If macOS still denies access when running the compiled
@@ -26,7 +26,8 @@ cargo run -p apple-connector
 ```
 
 By default the server binds to `127.0.0.1:3000`, opens
-`$HOME/Library/Messages/chat.db` and auto-discovers the Reminders store
+`$HOME/Library/Messages/chat.db`, auto-discovers the Reminders store, and opens
+`$HOME/Library/Group Containers/group.com.apple.notes/NoteStore.sqlite`
 read-only, and serves the API documented at `/openapi.json`. Browse and try
 endpoints interactively at `/docs`.
 
@@ -47,6 +48,8 @@ curl -s http://127.0.0.1:3000/openapi.json | jq .info.title
 | `--reminders-stores-dir <PATH>` | Group Containers `Stores/` | Directory scanned when auto-discovering the Reminders store. |
 | `--attachment-root <PATH>` | `<messages-database-dir>/Attachments` | Messages attachment directory (canonicalized and confined at runtime). |
 | `--reminders-attachment-root <PATH>` | `.Data-{UUID}_SUPPORT` next to store | Reminders attachment support directory. |
+| `--notes-database <PATH>` | `$HOME/Library/Group Containers/group.com.apple.notes/NoteStore.sqlite` | Read-only path to the Notes SQLite store. |
+| `--notes-attachment-root <PATH>` | `Accounts/` under Notes Group Container | Notes attachment directory (canonicalized and confined at runtime). |
 | `--help` | — | Print usage and exit. |
 | `--version` | — | Print crate version and exit. |
 
@@ -79,9 +82,10 @@ Press **Ctrl-C** to shut down. In-flight requests are drained before exit.
 
 ## Permissions
 
-- **Full Disk Access** is required to open `chat.db`, Reminders Group Containers
-  stores, and attachment files under `~/Library/Messages/Attachments/`.
-- If either database cannot be opened, `/healthz` returns `503` with per-service
+- **Full Disk Access** is required to open `chat.db`, Reminders and Notes Group
+  Containers stores, and attachment files under `~/Library/Messages/Attachments/`
+  and `~/Library/Group Containers/group.com.apple.notes/Accounts/`.
+- If any database cannot be opened, `/healthz` returns `503` with per-service
   status and data endpoints return structured `service_unavailable` errors.
   Startup logs do **not** include filesystem paths.
 
@@ -89,7 +93,7 @@ Press **Ctrl-C** to shut down. In-flight requests are drained before exit.
 
 | Method | Path | Description |
 | --- | --- | --- |
-| `GET` | `/healthz` | Composite database pool health (`messages` / `reminders`: `ok` / `unavailable`). Returns `200` only when both are `ok`. |
+| `GET` | `/healthz` | Composite database pool health (`messages` / `reminders` / `notes`: `ok` / `unavailable`). Returns `200` only when all three are `ok`. |
 | `GET` | `/v1/chats` | Paginated chat list (newest activity first). |
 | `GET` | `/v1/chats/{chat_id}` | Single chat metadata and participants. |
 | `GET` | `/v1/chats/{chat_id}/messages` | Paginated messages for one chat. |
@@ -104,6 +108,13 @@ Press **Ctrl-C** to shut down. In-flight requests are drained before exit.
 | `GET` | `/v1/reminders/{reminder_id}` | Single reminder with subtasks, tags, alarms, and attachments. |
 | `GET`, `HEAD` | `/v1/reminder-attachments/{id}/content` | Reminder attachment bytes with range/conditional support. |
 | `GET` | `/v1/reminder-attachments/{id}` | Reminder attachment metadata (no local paths). |
+| `GET` | `/v1/note-folders` | Paginated note folders (excludes Recently Deleted by default). |
+| `GET` | `/v1/note-folders/{folder_id}` | Single folder with parent/account metadata. |
+| `GET` | `/v1/note-folders/{folder_id}/notes` | Paginated notes in folder (newest modified first). |
+| `GET` | `/v1/notes` | Global note list with optional search/filters. |
+| `GET` | `/v1/notes/{note_id}` | Single note with decoded body, checklist items, and attachments. |
+| `GET`, `HEAD` | `/v1/note-attachments/{id}/content` | Note attachment bytes with range/conditional support. |
+| `GET` | `/v1/note-attachments/{id}` | Note attachment metadata (no local paths). |
 | `GET` | `/openapi.json` | OpenAPI 3.1 contract (same document as `docs/openapi.json`). |
 | `GET` | `/docs` | Scalar API reference (embedded OpenAPI 3.1 contract). |
 
@@ -120,9 +131,9 @@ module) shared across the OpenAPI contract:
   `UnixTimestamp`: whole **seconds since the Unix epoch (UTC)**, serialized as
   JSON integers.
 - **Identifiers** (`MessageId`, `AttachmentId`, `ReminderId`, `ReminderListId`,
-  `SectionId`, `ReminderAttachmentId`, and the integer-backed `ChatId`) are
-  typed wrappers that serialize transparently as their underlying string (or
-  integer).
+  `SectionId`, `ReminderAttachmentId`, `NoteId`, `NoteFolderId`,
+  `NoteAttachmentId`, and the integer-backed `ChatId`) are typed wrappers that
+  serialize transparently as their underlying string (or integer).
 
 > **Breaking change:** response timestamps were previously emitted as RFC 3339
 > strings (for example `"2024-01-15T12:00:00Z"`). They are now Unix-seconds
@@ -180,10 +191,28 @@ restarting the server.
 Filtered requests bind cursors to the active filter set. Reusing a cursor with
 different filters returns `400 validation_error`.
 
+## Notes search and filters
+
+`GET /v1/notes` and `GET /v1/note-folders/{folder_id}/notes` support:
+
+| Parameter | Description |
+| --- | --- |
+| `q` | Case-insensitive text search (max 256 chars) on title, snippet, and decoded body. |
+| `folder_id` | Restrict to one folder (row id or UUID). |
+| `is_pinned`, `is_locked`, `has_checklist`, `has_attachments` | Boolean metadata filters. |
+| `include_deleted` | Include Recently Deleted notes. |
+| `modified_before`, `modified_after` | ISO-8601 UTC bounds on modification time. |
+
+Filtered requests bind cursors to the active filter set. Reusing a cursor with
+different filters returns `400 validation_error`.
+
 ## Privacy and logging
 
 - API DTOs omit local filesystem paths, raw balloon payloads, and opaque binary
   fields.
+- **Locked notes** (`is_locked: true`) never return decoded body text or
+  ciphertext; the snippet may still be present. The server does not attempt
+  password cracking.
 - Structured request logs include **route template**, **HTTP status**, and
   **latency** only. They never include query strings, handles, message bodies,
   attachment payloads, or request paths with identifiers.
@@ -202,9 +231,13 @@ Use it for local development without reading your real `chat.db`.
 A matching Reminders schema and seeded fixture live in
 [`packages/apple-connector/fixtures/reminders/`](packages/apple-connector/fixtures/reminders/).
 
+A matching Notes schema and seeded fixture live in
+[`packages/apple-connector/fixtures/notes/`](packages/apple-connector/fixtures/notes/).
+
 ```bash
 ./packages/apple-connector/fixtures/messages/create-empty-db.sh
 ./packages/apple-connector/fixtures/reminders/create-empty-db.sh
+./packages/apple-connector/fixtures/notes/create-empty-db.sh
 cp packages/apple-connector/.env.example packages/apple-connector/.env
 cargo install sqlx-cli --version 0.9.0 --no-default-features --features sqlite
 cargo sqlx prepare -p apple-connector
@@ -249,6 +282,9 @@ database):
 ```bash
 export APPLE_CONNECTOR_DATABASE=/path/to/chat.db
 cargo test -p apple-connector --test integration smoke_real_database_and_attachment_range -- --ignored
+
+export APPLE_CONNECTOR_NOTES_DATABASE=/path/to/NoteStore.sqlite
+cargo test -p apple-connector --test integration smoke_notes_real_database -- --ignored
 ```
 
 ## License

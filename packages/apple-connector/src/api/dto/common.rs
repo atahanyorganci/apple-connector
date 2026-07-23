@@ -39,6 +39,7 @@ pub enum HealthStatus {
 pub struct HealthStatusDto {
     pub messages: HealthStatus,
     pub reminders: HealthStatus,
+    pub notes: HealthStatus,
 }
 
 pub fn direction_to_dto(direction: Direction) -> DirectionDto {

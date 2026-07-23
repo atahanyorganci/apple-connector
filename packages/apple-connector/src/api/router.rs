@@ -16,37 +16,51 @@ use crate::messages::attachment_path::canonicalize_attachment_root;
 pub struct AppState {
     pub messages_db: Option<SqlitePool>,
     pub reminders_db: Option<SqlitePool>,
+    pub notes_db: Option<SqlitePool>,
     pub attachment_root: Arc<PathBuf>,
     pub reminders_attachment_root: Arc<PathBuf>,
+    pub notes_attachment_root: Arc<PathBuf>,
     pub openapi: Arc<OpenApiSpec>,
 }
 
 impl AppState {
-    pub fn new(messages_db: Option<SqlitePool>, reminders_db: Option<SqlitePool>) -> Self {
+    pub fn new(
+        messages_db: Option<SqlitePool>,
+        reminders_db: Option<SqlitePool>,
+        notes_db: Option<SqlitePool>,
+    ) -> Self {
         Self::with_attachment_roots(
             messages_db,
             reminders_db,
+            notes_db,
             PathBuf::from("/var/empty/apple-connector-attachments-unconfigured"),
             PathBuf::from("/var/empty/apple-connector-reminders-attachments-unconfigured"),
+            PathBuf::from("/var/empty/apple-connector-notes-attachments-unconfigured"),
         )
     }
 
     pub fn with_attachment_roots(
         messages_db: Option<SqlitePool>,
         reminders_db: Option<SqlitePool>,
+        notes_db: Option<SqlitePool>,
         attachment_root: PathBuf,
         reminders_attachment_root: PathBuf,
+        notes_attachment_root: PathBuf,
     ) -> Self {
         let attachment_root =
             canonicalize_attachment_root(&attachment_root).unwrap_or(attachment_root);
         let reminders_attachment_root = canonicalize_attachment_root(&reminders_attachment_root)
             .unwrap_or(reminders_attachment_root);
+        let notes_attachment_root =
+            canonicalize_attachment_root(&notes_attachment_root).unwrap_or(notes_attachment_root);
         let openapi = Arc::new(build_openapi_spec());
         Self {
             messages_db,
             reminders_db,
+            notes_db,
             attachment_root: Arc::new(attachment_root),
             reminders_attachment_root: Arc::new(reminders_attachment_root),
+            notes_attachment_root: Arc::new(notes_attachment_root),
             openapi,
         }
     }
@@ -97,6 +111,18 @@ fn openapi_router() -> OpenApiRouter<AppState> {
             crate::api::handlers::reminder_attachments::get_reminder_attachment_content,
             crate::api::handlers::reminder_attachments::head_reminder_attachment_content,
         ))
+        .routes(routes!(crate::api::handlers::note_folders::list_note_folders))
+        .routes(routes!(crate::api::handlers::note_folders::get_note_folder))
+        .routes(routes!(crate::api::handlers::note_folders::list_folder_notes))
+        .routes(routes!(crate::api::handlers::notes::list_notes))
+        .routes(routes!(crate::api::handlers::notes::get_note))
+        .routes(routes!(
+            crate::api::handlers::note_attachments::get_note_attachment
+        ))
+        .routes(routes!(
+            crate::api::handlers::note_attachments::get_note_attachment_content,
+            crate::api::handlers::note_attachments::head_note_attachment_content,
+        ))
         .routes(routes!(crate::api::handlers::openapi::get_openapi_spec))
 }
 
@@ -126,12 +152,20 @@ mod tests {
         ("GET", "/v1/reminder-attachments/test-id"),
         ("GET", "/v1/reminder-attachments/test-id/content"),
         ("HEAD", "/v1/reminder-attachments/test-id/content"),
+        ("GET", "/v1/note-folders"),
+        ("GET", "/v1/note-folders/1"),
+        ("GET", "/v1/note-folders/1/notes"),
+        ("GET", "/v1/notes"),
+        ("GET", "/v1/notes/test-id"),
+        ("GET", "/v1/note-attachments/test-id"),
+        ("GET", "/v1/note-attachments/test-id/content"),
+        ("HEAD", "/v1/note-attachments/test-id/content"),
         ("GET", "/openapi.json"),
     ];
 
     #[tokio::test]
     async fn router_registers_every_contract_route() {
-        let app = router(AppState::new(None, None));
+        let app = router(AppState::new(None, None, None));
 
         for (method, path) in ROUTES {
             let response = app
@@ -156,7 +190,7 @@ mod tests {
 
     #[tokio::test]
     async fn unknown_route_returns_json_404_with_security_headers() {
-        let app = router(AppState::new(None, None));
+        let app = router(AppState::new(None, None, None));
 
         let response = app
             .oneshot(
@@ -183,7 +217,7 @@ mod tests {
 
     #[tokio::test]
     async fn unsupported_method_returns_json_405() {
-        let app = router(AppState::new(None, None));
+        let app = router(AppState::new(None, None, None));
 
         let response = app
             .oneshot(
@@ -201,7 +235,7 @@ mod tests {
 
     #[tokio::test]
     async fn api_docs_are_served_at_docs() {
-        let app = router(AppState::new(None, None));
+        let app = router(AppState::new(None, None, None));
 
         let response = app
             .oneshot(

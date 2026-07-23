@@ -5,6 +5,7 @@ edition = "2024"
 license = "MIT"
 
 [dependencies]
+apple-notes-protobuf = { path = "../apple-notes-protobuf" }
 apple-typedstream = { path = "../apple-typedstream" }
 axum = "0.8"
 base64 = "0.22"

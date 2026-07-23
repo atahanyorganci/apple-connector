@@ -572,3 +572,181 @@ fn parse_rfc3339_to_core_data_secs(value: &str, field: &str) -> Result<i64, ApiE
     })?;
     Ok(parsed.timestamp() - 978_307_200)
 }
+
+fn parse_rfc3339_to_core_data_timestamp(value: &str, field: &str) -> Result<f64, ApiError> {
+    if let Ok(unix) = value.parse::<i64>() {
+        return Ok((unix - 978_307_200) as f64);
+    }
+    let parsed = chrono::DateTime::parse_from_rfc3339(value).map_err(|_| {
+        ApiError::validation_with_details(
+            "timestamp must be RFC 3339 or Unix seconds",
+            serde_json::json!({ "field": field }),
+        )
+    })?;
+    Ok((parsed.timestamp() - 978_307_200) as f64)
+}
+
+#[derive(Debug, Clone)]
+pub enum NoteFolderKey {
+    Row(i64),
+    Id(String),
+}
+
+impl NoteFolderKey {
+    pub fn parse(raw: &str) -> Result<Self, ApiError> {
+        if let Ok(row_id) = raw.parse::<i64>() {
+            if row_id <= 0 {
+                return Err(ApiError::validation_with_details(
+                    "folder_id must be a positive integer or UUID",
+                    serde_json::json!({ "field": "folder_id" }),
+                ));
+            }
+            return Ok(Self::Row(row_id));
+        }
+        if is_uuid(raw) {
+            return Ok(Self::Id(raw.to_lowercase()));
+        }
+        Err(ApiError::validation_with_details(
+            "folder_id must be a positive integer or UUID",
+            serde_json::json!({ "field": "folder_id" }),
+        ))
+    }
+}
+
+#[derive(Debug, Clone, Deserialize, IntoParams, ToSchema)]
+#[into_params(parameter_in = Path)]
+pub struct NoteFolderIdPath {
+    pub folder_id: String,
+}
+
+#[derive(Debug, Clone, Deserialize, IntoParams, ToSchema)]
+#[into_params(parameter_in = Path)]
+pub struct NoteIdPath {
+    pub note_id: String,
+}
+
+#[derive(Debug, Clone, Deserialize, IntoParams, ToSchema)]
+#[into_params(parameter_in = Path)]
+pub struct NoteAttachmentIdPath {
+    pub id: String,
+}
+
+#[derive(Debug, Clone, Deserialize, IntoParams, ToSchema)]
+#[into_params(parameter_in = Query, style = Form)]
+pub struct NoteListParams {
+    #[param(minimum = 1, maximum = 200, default = 50, example = 50)]
+    pub limit: Option<u32>,
+    #[param(example = "v1.eyJtb2RpZmllZF9hdCI6MTAwfQ")]
+    pub cursor: Option<String>,
+    #[param(max_length = 256, example = "groceries")]
+    pub q: Option<String>,
+    pub folder_id: Option<String>,
+    pub is_pinned: Option<bool>,
+    pub is_locked: Option<bool>,
+    pub has_checklist: Option<bool>,
+    pub has_attachments: Option<bool>,
+    pub include_deleted: Option<bool>,
+    #[param(format = "date-time", example = "2026-01-15T12:00:00Z")]
+    pub modified_before: Option<String>,
+    #[param(format = "date-time", example = "2026-01-01T00:00:00Z")]
+    pub modified_after: Option<String>,
+}
+
+impl NoteListParams {
+    pub fn validated_limit(&self) -> Result<u32, ApiError> {
+        let limit = self.limit.unwrap_or(DEFAULT_PAGE_LIMIT);
+        if !(1..=MAX_PAGE_LIMIT).contains(&limit) {
+            return Err(ApiError::validation_with_details(
+                format!("limit must be between 1 and {MAX_PAGE_LIMIT}"),
+                serde_json::json!({
+                    "field": "limit",
+                    "minimum": 1,
+                    "maximum": MAX_PAGE_LIMIT,
+                    "default": DEFAULT_PAGE_LIMIT,
+                }),
+            ));
+        }
+        Ok(limit)
+    }
+
+    pub fn validated_cursor(&self) -> Result<Option<&str>, ApiError> {
+        match &self.cursor {
+            None => Ok(None),
+            Some(cursor) if cursor.starts_with(&format!("{CURSOR_VERSION}.")) => Ok(Some(cursor)),
+            Some(_) => Err(ApiError::validation_with_details(
+                format!("cursor must start with `{CURSOR_VERSION}.`"),
+                serde_json::json!({
+                    "field": "cursor",
+                    "expected_prefix": format!("{CURSOR_VERSION}."),
+                }),
+            )),
+        }
+    }
+
+    pub fn validated_filters(&self) -> Result<crate::notes::NoteFilters, ApiError> {
+        let q = match self.q.as_deref().map(str::trim) {
+            None | Some("") => None,
+            Some(query) if query.len() > MAX_SEARCH_QUERY_LEN => {
+                return Err(ApiError::validation_with_details(
+                    format!("q must be at most {MAX_SEARCH_QUERY_LEN} characters"),
+                    serde_json::json!({
+                        "field": "q",
+                        "maximum": MAX_SEARCH_QUERY_LEN,
+                    }),
+                ));
+            }
+            Some(query) => Some(query.to_owned()),
+        };
+
+        let folder_id = match self.folder_id.as_deref().map(str::trim) {
+            None | Some("") => None,
+            Some(value) if value.parse::<i64>().is_ok() => Some(crate::notes::FolderIdFilter::RowId(
+                value.parse().expect("parsed"),
+            )),
+            Some(value) if is_uuid(value) => {
+                Some(crate::notes::FolderIdFilter::Uuid(value.to_lowercase()))
+            }
+            Some(_) => {
+                return Err(ApiError::validation_with_details(
+                    "folder_id must be a positive integer or UUID",
+                    serde_json::json!({ "field": "folder_id" }),
+                ));
+            }
+        };
+
+        let modified_before = self
+            .modified_before
+            .as_deref()
+            .map(|value| parse_rfc3339_to_core_data_timestamp(value, "modified_before"))
+            .transpose()?;
+        let modified_after = self
+            .modified_after
+            .as_deref()
+            .map(|value| parse_rfc3339_to_core_data_timestamp(value, "modified_after"))
+            .transpose()?;
+
+        if let (Some(before), Some(after)) = (modified_before, modified_after)
+            && before <= after
+        {
+            return Err(ApiError::validation_with_details(
+                "modified_before must be later than modified_after",
+                serde_json::json!({
+                    "field": "modified_before",
+                    "related_field": "modified_after",
+                }),
+            ));
+        }
+
+        Ok(crate::notes::NoteFilters {
+            q,
+            folder_id,
+            is_pinned: self.is_pinned,
+            is_locked: self.is_locked,
+            has_checklist: self.has_checklist,
+            has_attachments: self.has_attachments,
+            include_deleted: self.include_deleted,
+            modified_before,
+            modified_after,
+        })
+    }
+}

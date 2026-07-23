@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Apple Connector API",
-    "description": "Read-only HTTP API for Messages.app and Reminders.app data backed by live SQLite connections.\n\nPagination uses keyset cursors only (default limit 50, maximum 200, newest first). Offsets are not supported.\n\nAuthentication, TLS, and network exposure controls are expected to be enforced by an external reverse proxy or firewall. This service does not implement authentication or TLS.",
+    "description": "Read-only HTTP API for Messages.app, Reminders.app, and Notes.app data backed by live SQLite connections.\n\nPagination uses keyset cursors only (default limit 50, maximum 200, newest first). Offsets are not supported.\n\nAuthentication, TLS, and network exposure controls are expected to be enforced by an external reverse proxy or firewall. This service does not implement authentication or TLS.",
     "license": {
       "name": "MIT",
       "identifier": "MIT"
@@ -22,11 +22,11 @@
           "health"
         ],
         "summary": "Health check",
-        "description": "Reports whether the read-only Messages and Reminders database pools are healthy.",
+        "description": "Reports whether the read-only Messages, Reminders, and Notes database pools are healthy.",
         "operationId": "getHealth",
         "responses": {
           "200": {
-            "description": "Both database pools are healthy",
+            "description": "All database pools are healthy",
             "content": {
               "application/json": {
                 "schema": {
@@ -36,7 +36,7 @@
             }
           },
           "503": {
-            "description": "One or both database pools are unavailable",
+            "description": "One or more database pools are unavailable",
             "content": {
               "application/json": {
                 "schema": {
@@ -983,6 +983,701 @@
           },
           "503": {
             "description": "Messages database is unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/note-attachments/{id}": {
+      "get": {
+        "tags": [
+          "note-attachments"
+        ],
+        "summary": "Get note attachment metadata",
+        "operationId": "getNoteAttachment",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Note attachment metadata",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NoteAttachmentDetailDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Attachment not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Notes database is unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/note-attachments/{id}/content": {
+      "get": {
+        "tags": [
+          "note-attachments"
+        ],
+        "summary": "Download note attachment content",
+        "operationId": "getNoteAttachmentContent",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Range",
+            "in": "header",
+            "description": "Byte range for partial content requests.",
+            "required": false,
+            "schema": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "example": "bytes=0-1023"
+          },
+          {
+            "name": "If-None-Match",
+            "in": "header",
+            "description": "Validator for conditional GET/HEAD requests.",
+            "required": false,
+            "schema": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "example": "\"abc123\""
+          },
+          {
+            "name": "If-Modified-Since",
+            "in": "header",
+            "description": "Timestamp validator for conditional GET/HEAD requests.",
+            "required": false,
+            "schema": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "example": "Mon, 01 Jan 2024 12:00:00 GMT"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Attachment bytes",
+            "content": {
+              "application/octet-stream": {}
+            }
+          },
+          "404": {
+            "description": "Attachment not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Notes database is unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "head": {
+        "tags": [
+          "note-attachments"
+        ],
+        "summary": "Head note attachment content",
+        "operationId": "headNoteAttachmentContent",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Range",
+            "in": "header",
+            "description": "Byte range for partial content requests.",
+            "required": false,
+            "schema": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "example": "bytes=0-1023"
+          },
+          {
+            "name": "If-None-Match",
+            "in": "header",
+            "description": "Validator for conditional GET/HEAD requests.",
+            "required": false,
+            "schema": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "example": "\"abc123\""
+          },
+          {
+            "name": "If-Modified-Since",
+            "in": "header",
+            "description": "Timestamp validator for conditional GET/HEAD requests.",
+            "required": false,
+            "schema": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "example": "Mon, 01 Jan 2024 12:00:00 GMT"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Attachment metadata headers"
+          },
+          "404": {
+            "description": "Attachment not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/note-folders": {
+      "get": {
+        "tags": [
+          "note-folders"
+        ],
+        "summary": "List note folders",
+        "operationId": "listNoteFolders",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "Maximum number of items to return. Defaults to 50. Keyset pagination only; no offsets.",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 50,
+              "maximum": 200,
+              "minimum": 1
+            },
+            "style": "form",
+            "example": 50
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "description": "URL-safe versioned cursor for the next page. Results are ordered newest first.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "style": "form",
+            "example": "v1.eyJkYXRlIjoxNzA0MDk2MDAwfQ"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Paginated note folder summaries",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NoteFolderPageDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid pagination parameters",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Notes database is unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/note-folders/{folder_id}": {
+      "get": {
+        "tags": [
+          "note-folders"
+        ],
+        "summary": "Get a note folder",
+        "operationId": "getNoteFolder",
+        "parameters": [
+          {
+            "name": "folder_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Note folder detail",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NoteFolderDetailDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Folder not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Notes database is unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/note-folders/{folder_id}/notes": {
+      "get": {
+        "tags": [
+          "note-folders"
+        ],
+        "summary": "List notes in a note folder",
+        "operationId": "listFolderNotes",
+        "parameters": [
+          {
+            "name": "folder_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 50,
+              "maximum": 200,
+              "minimum": 1
+            },
+            "style": "form",
+            "example": 50
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "style": "form",
+            "example": "v1.eyJtb2RpZmllZF9hdCI6MTAwfQ"
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 256
+            },
+            "style": "form",
+            "example": "groceries"
+          },
+          {
+            "name": "folder_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "style": "form"
+          },
+          {
+            "name": "is_pinned",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            },
+            "style": "form"
+          },
+          {
+            "name": "is_locked",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            },
+            "style": "form"
+          },
+          {
+            "name": "has_checklist",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            },
+            "style": "form"
+          },
+          {
+            "name": "has_attachments",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            },
+            "style": "form"
+          },
+          {
+            "name": "include_deleted",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            },
+            "style": "form"
+          },
+          {
+            "name": "modified_before",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "style": "form",
+            "example": "2026-01-15T12:00:00Z"
+          },
+          {
+            "name": "modified_after",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "style": "form",
+            "example": "2026-01-01T00:00:00Z"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Paginated notes in folder",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotePageDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Folder not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Notes database is unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/notes": {
+      "get": {
+        "tags": [
+          "notes"
+        ],
+        "summary": "List notes globally",
+        "operationId": "listNotes",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 50,
+              "maximum": 200,
+              "minimum": 1
+            },
+            "style": "form",
+            "example": 50
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "style": "form",
+            "example": "v1.eyJtb2RpZmllZF9hdCI6MTAwfQ"
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 256
+            },
+            "style": "form",
+            "example": "groceries"
+          },
+          {
+            "name": "folder_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "style": "form"
+          },
+          {
+            "name": "is_pinned",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            },
+            "style": "form"
+          },
+          {
+            "name": "is_locked",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            },
+            "style": "form"
+          },
+          {
+            "name": "has_checklist",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            },
+            "style": "form"
+          },
+          {
+            "name": "has_attachments",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            },
+            "style": "form"
+          },
+          {
+            "name": "include_deleted",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            },
+            "style": "form"
+          },
+          {
+            "name": "modified_before",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "style": "form",
+            "example": "2026-01-15T12:00:00Z"
+          },
+          {
+            "name": "modified_after",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "style": "form",
+            "example": "2026-01-01T00:00:00Z"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Paginated notes",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotePageDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid query parameters",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Notes database is unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/notes/{note_id}": {
+      "get": {
+        "tags": [
+          "notes"
+        ],
+        "summary": "Get a note",
+        "operationId": "getNote",
+        "parameters": [
+          {
+            "name": "note_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Note detail",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NoteDetailDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Note not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Notes database is unavailable",
             "content": {
               "application/json": {
                 "schema": {
@@ -2318,6 +3013,25 @@
           }
         }
       },
+      "ChecklistItemDto": {
+        "type": "object",
+        "required": [
+          "id",
+          "text",
+          "done"
+        ],
+        "properties": {
+          "done": {
+            "type": "boolean"
+          },
+          "id": {
+            "type": "string"
+          },
+          "text": {
+            "type": "string"
+          }
+        }
+      },
       "ConditionalRequestHeaders": {
         "type": "object",
         "properties": {
@@ -2381,6 +3095,23 @@
           }
         }
       },
+      "EmbeddedObjectDto": {
+        "type": "object",
+        "properties": {
+          "attachment_identifier": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "type_uti": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
       "ErrorBody": {
         "type": "object",
         "required": [
@@ -2417,6 +3148,14 @@
             "$ref": "#/components/schemas/ErrorBody"
           }
         }
+      },
+      "FolderKindDto": {
+        "type": "string",
+        "enum": [
+          "standard",
+          "smart",
+          "deleted"
+        ]
       },
       "GroupActionKindDto": {
         "type": "string",
@@ -2482,10 +3221,14 @@
         "type": "object",
         "required": [
           "messages",
-          "reminders"
+          "reminders",
+          "notes"
         ],
         "properties": {
           "messages": {
+            "$ref": "#/components/schemas/HealthStatus"
+          },
+          "notes": {
             "$ref": "#/components/schemas/HealthStatus"
           },
           "reminders": {
@@ -3003,6 +3746,622 @@
           }
         }
       },
+      "NoteAttachmentDetailDto": {
+        "type": "object",
+        "required": [
+          "id",
+          "row_id",
+          "note_id"
+        ],
+        "properties": {
+          "file_size": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64"
+          },
+          "filename": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "id": {
+            "$ref": "#/components/schemas/NoteAttachmentId"
+          },
+          "modified_at": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/UnixTimestamp"
+              }
+            ]
+          },
+          "note_id": {
+            "$ref": "#/components/schemas/NoteId"
+          },
+          "row_id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "uti": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "NoteAttachmentId": {
+        "type": "string",
+        "description": "Stable identifier for a note attachment (its UUID).",
+        "example": "11111111-1111-1111-1111-111111111111"
+      },
+      "NoteAttachmentIdPath": {
+        "type": "object",
+        "required": [
+          "id"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          }
+        }
+      },
+      "NoteAttachmentSummaryDto": {
+        "type": "object",
+        "required": [
+          "id",
+          "row_id"
+        ],
+        "properties": {
+          "file_size": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64"
+          },
+          "filename": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "id": {
+            "$ref": "#/components/schemas/NoteAttachmentId"
+          },
+          "row_id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "uti": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "NoteBodyDto": {
+        "type": "object",
+        "properties": {
+          "checklist_items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ChecklistItemDto"
+            }
+          },
+          "decode_error": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "embedded": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/EmbeddedObjectDto"
+            }
+          },
+          "runs": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/NoteRunDto"
+            }
+          },
+          "text": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "NoteDetailDto": {
+        "type": "object",
+        "required": [
+          "id",
+          "row_id",
+          "title",
+          "folder_kind",
+          "is_pinned",
+          "has_checklist",
+          "is_locked",
+          "marked_for_deletion",
+          "has_attachments",
+          "body",
+          "attachments"
+        ],
+        "properties": {
+          "attachments": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/NoteAttachmentSummaryDto"
+            }
+          },
+          "body": {
+            "$ref": "#/components/schemas/NoteBodyDto"
+          },
+          "created_at": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/UnixTimestamp"
+              }
+            ]
+          },
+          "folder_id": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/NoteFolderId"
+              }
+            ]
+          },
+          "folder_kind": {
+            "$ref": "#/components/schemas/FolderKindDto"
+          },
+          "folder_name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "folder_row_id": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64"
+          },
+          "has_attachments": {
+            "type": "boolean"
+          },
+          "has_checklist": {
+            "type": "boolean"
+          },
+          "id": {
+            "$ref": "#/components/schemas/NoteId"
+          },
+          "is_locked": {
+            "type": "boolean"
+          },
+          "is_pinned": {
+            "type": "boolean"
+          },
+          "marked_for_deletion": {
+            "type": "boolean"
+          },
+          "modified_at": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/UnixTimestamp"
+              }
+            ]
+          },
+          "row_id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "snippet": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "title": {
+            "type": "string"
+          }
+        }
+      },
+      "NoteFolderDetailDto": {
+        "type": "object",
+        "required": [
+          "id",
+          "row_id",
+          "title",
+          "kind"
+        ],
+        "properties": {
+          "account_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "id": {
+            "$ref": "#/components/schemas/NoteFolderId"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/FolderKindDto"
+          },
+          "modified_at": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/UnixTimestamp"
+              }
+            ]
+          },
+          "parent_id": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/NoteFolderId"
+              }
+            ]
+          },
+          "parent_row_id": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64"
+          },
+          "row_id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "title": {
+            "type": "string"
+          }
+        }
+      },
+      "NoteFolderId": {
+        "type": "string",
+        "description": "Stable identifier for a note folder (its UUID).",
+        "example": "ffffffff-ffff-ffff-ffff-ffffffffffff"
+      },
+      "NoteFolderIdPath": {
+        "type": "object",
+        "required": [
+          "folder_id"
+        ],
+        "properties": {
+          "folder_id": {
+            "type": "string"
+          }
+        }
+      },
+      "NoteFolderPageDto": {
+        "type": "object",
+        "required": [
+          "items",
+          "page"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/NoteFolderSummaryDto"
+            }
+          },
+          "page": {
+            "$ref": "#/components/schemas/PageMetaDto"
+          }
+        }
+      },
+      "NoteFolderSummaryDto": {
+        "type": "object",
+        "required": [
+          "id",
+          "row_id",
+          "title",
+          "kind"
+        ],
+        "properties": {
+          "id": {
+            "$ref": "#/components/schemas/NoteFolderId"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/FolderKindDto"
+          },
+          "modified_at": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/UnixTimestamp"
+              }
+            ]
+          },
+          "parent_id": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/NoteFolderId"
+              }
+            ]
+          },
+          "row_id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "title": {
+            "type": "string"
+          }
+        }
+      },
+      "NoteId": {
+        "type": "string",
+        "description": "Stable identifier for a note (its UUID).",
+        "example": "eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee"
+      },
+      "NoteIdPath": {
+        "type": "object",
+        "required": [
+          "note_id"
+        ],
+        "properties": {
+          "note_id": {
+            "type": "string"
+          }
+        }
+      },
+      "NoteListParams": {
+        "type": "object",
+        "properties": {
+          "cursor": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "folder_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "has_attachments": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "has_checklist": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "include_deleted": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "is_locked": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "is_pinned": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "limit": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "minimum": 0
+          },
+          "modified_after": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "modified_before": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "q": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "NotePageDto": {
+        "type": "object",
+        "required": [
+          "items",
+          "page"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/NoteSummaryDto"
+            }
+          },
+          "page": {
+            "$ref": "#/components/schemas/PageMetaDto"
+          }
+        }
+      },
+      "NoteRunDto": {
+        "type": "object",
+        "required": [
+          "start",
+          "length"
+        ],
+        "properties": {
+          "font_hints": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "minimum": 0
+          },
+          "length": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "link": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "paragraph_style": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/ParagraphStyleDto"
+              }
+            ]
+          },
+          "start": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
+      },
+      "NoteSummaryDto": {
+        "type": "object",
+        "required": [
+          "id",
+          "row_id",
+          "title",
+          "folder_kind",
+          "is_pinned",
+          "has_checklist",
+          "is_locked",
+          "marked_for_deletion",
+          "has_attachments"
+        ],
+        "properties": {
+          "created_at": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/UnixTimestamp"
+              }
+            ]
+          },
+          "folder_id": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/NoteFolderId"
+              }
+            ]
+          },
+          "folder_kind": {
+            "$ref": "#/components/schemas/FolderKindDto"
+          },
+          "folder_name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "folder_row_id": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64"
+          },
+          "has_attachments": {
+            "type": "boolean"
+          },
+          "has_checklist": {
+            "type": "boolean"
+          },
+          "id": {
+            "$ref": "#/components/schemas/NoteId"
+          },
+          "is_locked": {
+            "type": "boolean"
+          },
+          "is_pinned": {
+            "type": "boolean"
+          },
+          "marked_for_deletion": {
+            "type": "boolean"
+          },
+          "modified_at": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/UnixTimestamp"
+              }
+            ]
+          },
+          "row_id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "snippet": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "title": {
+            "type": "string"
+          }
+        }
+      },
       "OpaquePayloadDto": {
         "type": "object",
         "required": [
@@ -3072,6 +4431,42 @@
             "minimum": 0
           }
         }
+      },
+      "ParagraphStyleDto": {
+        "type": "object",
+        "required": [
+          "style"
+        ],
+        "properties": {
+          "done": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "style": {
+            "$ref": "#/components/schemas/ParagraphStyleKindDto"
+          },
+          "todo_uuid": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "ParagraphStyleKindDto": {
+        "type": "string",
+        "enum": [
+          "title",
+          "heading",
+          "monospace",
+          "bullet_list",
+          "dash_list",
+          "numbered_list",
+          "checklist",
+          "unknown"
+        ]
       },
       "PhotosBalloonDto": {
         "type": "object",
@@ -4125,6 +5520,18 @@
     {
       "name": "reminder-attachments",
       "description": "Reminder attachment metadata and byte streaming"
+    },
+    {
+      "name": "note-folders",
+      "description": "Note folder listing and folder-scoped notes"
+    },
+    {
+      "name": "notes",
+      "description": "Global note listing and lookup"
+    },
+    {
+      "name": "note-attachments",
+      "description": "Note attachment metadata and byte streaming"
     },
     {
       "name": "meta",

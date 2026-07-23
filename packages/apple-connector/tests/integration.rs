@@ -4,7 +4,11 @@ use std::time::Duration;
 
 use apple_connector::{
     AppState, connect_pool,
-    fixtures::{FixtureDb, RemindersFixtureDb},
+    fixtures::{
+        FixtureDb, NotesFixtureDb, RemindersFixtureDb, SEED_CHECKLIST_NOTE_ID,
+        SEED_LOCKED_NOTE_ID, SEED_NOTES_FOLDER_ID, SEED_PLAIN_TEXT_NOTE_ID,
+        SEED_PROJECTS_FOLDER_ID,
+    },
     router,
 };
 use axum::{Router, body::Body, routing::get};
@@ -84,18 +88,24 @@ async fn integration_health_and_unavailable_errors() {
         .expect("reminders fixture");
     let messages_pool = connect_pool(messages_fixture.path()).await.expect("pool");
     let reminders_pool = connect_pool(reminders_fixture.path()).await.expect("pool");
-    let healthy_app = router(AppState::new(Some(messages_pool), Some(reminders_pool)));
+    let healthy_app = router(AppState::new(
+        Some(messages_pool),
+        Some(reminders_pool),
+        None,
+    ));
 
     let (status, payload) = response_json(healthy_app, "/healthz").await;
-    assert_eq!(status, StatusCode::OK);
+    assert_eq!(status, StatusCode::SERVICE_UNAVAILABLE);
     assert_eq!(payload["messages"], "ok");
     assert_eq!(payload["reminders"], "ok");
+    assert_eq!(payload["notes"], "unavailable");
 
-    let unavailable_app = router(AppState::new(None, None));
+    let unavailable_app = router(AppState::new(None, None, None));
     let (status, payload) = response_json(unavailable_app.clone(), "/healthz").await;
     assert_eq!(status, StatusCode::SERVICE_UNAVAILABLE);
     assert_eq!(payload["messages"], "unavailable");
     assert_eq!(payload["reminders"], "unavailable");
+    assert_eq!(payload["notes"], "unavailable");
 
     let (status, payload) = response_json(unavailable_app, "/v1/messages").await;
     assert_eq!(status, StatusCode::SERVICE_UNAVAILABLE);
@@ -106,7 +116,7 @@ async fn integration_health_and_unavailable_errors() {
 async fn integration_pagination_search_and_live_updates() {
     let fixture = seeded_search_fixture().await;
     let pool = connect_pool(fixture.path()).await.expect("pool");
-    let app = router(AppState::new(Some(pool), None));
+    let app = router(AppState::new(Some(pool), None, None));
 
     let (status, first_page) = response_json(app.clone(), "/v1/messages?limit=2").await;
     assert_eq!(status, StatusCode::OK);
@@ -151,7 +161,7 @@ async fn integration_pagination_search_and_live_updates() {
 async fn integration_media_metadata_is_structured_without_paths() {
     let fixture = FixtureDb::empty().await.expect("fixture");
     let pool = connect_pool(fixture.path()).await.expect("pool");
-    let app = router(AppState::new(Some(pool), None));
+    let app = router(AppState::new(Some(pool), None, None));
 
     let response = app
         .oneshot(
@@ -180,7 +190,7 @@ async fn integration_media_metadata_is_structured_without_paths() {
 async fn integration_wrong_method_returns_json_405() {
     let fixture = FixtureDb::empty().await.expect("fixture");
     let pool = connect_pool(fixture.path()).await.expect("pool");
-    let app = router(AppState::new(Some(pool), None));
+    let app = router(AppState::new(Some(pool), None, None));
 
     let response = app
         .oneshot(
@@ -257,7 +267,7 @@ async fn smoke_real_database_and_attachment_range() {
     let pool = connect_pool(std::path::Path::new(&database))
         .await
         .expect("connect real database");
-    let app = router(AppState::new(Some(pool), None));
+    let app = router(AppState::new(Some(pool), None, None));
 
     let (status, payload) = response_json(app.clone(), "/healthz").await;
     assert_eq!(status, StatusCode::OK);
@@ -314,7 +324,7 @@ async fn smoke_real_database_and_attachment_range() {
 async fn integration_reminders_fixture_endpoints() {
     let fixture = RemindersFixtureDb::seeded().await.expect("fixture");
     let pool = connect_pool(fixture.path()).await.expect("pool");
-    let app = router(AppState::new(None, Some(pool)));
+    let app = router(AppState::new(None, Some(pool), None));
 
     let (status, lists) = response_json(app.clone(), "/v1/reminder-lists?limit=10").await;
     assert_eq!(status, StatusCode::OK);
@@ -351,7 +361,7 @@ async fn smoke_reminders_real_database() {
     let pool = connect_pool(std::path::Path::new(&database))
         .await
         .expect("connect real database");
-    let app = router(AppState::new(None, Some(pool)));
+    let app = router(AppState::new(None, Some(pool), None));
 
     let (status, payload) = response_json(app.clone(), "/healthz").await;
     assert_eq!(status, StatusCode::OK);
@@ -364,5 +374,121 @@ async fn smoke_reminders_real_database() {
             .as_array()
             .is_some_and(|items| !items.is_empty()),
         "expected at least one reminder list in the real database"
+    );
+}
+
+#[tokio::test]
+async fn integration_notes_fixture_endpoints() {
+    let fixture = NotesFixtureDb::seeded().await.expect("fixture");
+    let pool = connect_pool(fixture.path()).await.expect("pool");
+    let app = router(AppState::new(None, None, Some(pool)));
+
+    let (status, folders) = response_json(app.clone(), "/v1/note-folders?limit=10").await;
+    assert_eq!(status, StatusCode::OK);
+    assert!(
+        folders["items"]
+            .as_array()
+            .is_some_and(|items| items.len() >= 2),
+        "expected seeded note folders"
+    );
+
+    let (status, notes) = response_json(
+        app.clone(),
+        &format!("/v1/note-folders/{SEED_NOTES_FOLDER_ID}/notes?limit=10"),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert!(
+        notes["items"]
+            .as_array()
+            .is_some_and(|items| !items.is_empty()),
+        "expected seeded notes in folder"
+    );
+
+    let (status, detail) = response_json(
+        app.clone(),
+        &format!("/v1/notes/{SEED_PLAIN_TEXT_NOTE_ID}"),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert!(
+        detail["body"]["text"]
+            .as_str()
+            .is_some_and(|text| text.contains("IBAN")),
+        "expected decoded plain-text body"
+    );
+
+    let (status, locked) = response_json(
+        app.clone(),
+        &format!("/v1/notes/{SEED_LOCKED_NOTE_ID}"),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(locked["is_locked"], true);
+    assert!(locked["body"]["text"].is_null());
+
+    let (status, checklist) = response_json(
+        app.clone(),
+        &format!("/v1/notes/{SEED_CHECKLIST_NOTE_ID}"),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert!(
+        checklist["body"]["checklist_items"]
+            .as_array()
+            .is_some_and(|items| !items.is_empty()),
+        "expected checklist items"
+    );
+
+    let (status, smart) = response_json(
+        app,
+        &format!("/v1/note-folders/{SEED_PROJECTS_FOLDER_ID}"),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(smart["kind"], "smart");
+}
+
+#[tokio::test]
+async fn integration_notes_search_filters() {
+    let fixture = NotesFixtureDb::seeded().await.expect("fixture");
+    let pool = connect_pool(fixture.path()).await.expect("pool");
+    let app = router(AppState::new(None, None, Some(pool)));
+
+    let (status, results) = response_json(app.clone(), "/v1/notes?q=IBAN&limit=10").await;
+    assert_eq!(status, StatusCode::OK);
+    assert!(
+        results["items"]
+            .as_array()
+            .is_some_and(|items| !items.is_empty()),
+        "expected text search hit"
+    );
+
+    let (status, pinned) = response_json(app, "/v1/notes?is_pinned=true&limit=10").await;
+    assert_eq!(status, StatusCode::OK);
+    assert!(pinned["items"].as_array().is_some());
+}
+
+#[tokio::test]
+#[ignore = "requires APPLE_CONNECTOR_NOTES_DATABASE pointing at a read-only Notes store copy"]
+async fn smoke_notes_real_database() {
+    let database = std::env::var("APPLE_CONNECTOR_NOTES_DATABASE")
+        .expect("APPLE_CONNECTOR_NOTES_DATABASE must be set for smoke test");
+    let pool = connect_pool(std::path::Path::new(&database))
+        .await
+        .expect("connect real database");
+    let app = router(AppState::new(None, None, Some(pool)));
+
+    let (status, payload) = response_json(app.clone(), "/healthz").await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(payload["notes"], "ok");
+
+    let (status, folders) = response_json(app.clone(), "/v1/note-folders?limit=1").await;
+    assert_eq!(status, StatusCode::OK);
+    assert!(
+        folders["items"]
+            .as_array()
+            .is_some_and(|items| !items.is_empty()),
+        "expected at least one note folder in the real database"
     );
 }

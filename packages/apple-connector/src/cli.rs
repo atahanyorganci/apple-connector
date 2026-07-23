@@ -39,6 +39,14 @@ pub struct Cli {
     /// Path to the Reminders attachment support directory.
     #[arg(long, value_name = "PATH")]
     pub reminders_attachment_root: Option<PathBuf>,
+
+    /// Path to the read-only Notes SQLite store. Defaults to the local NoteStore.
+    #[arg(long, value_name = "PATH")]
+    pub notes_database: Option<PathBuf>,
+
+    /// Path to the Notes attachment Accounts directory.
+    #[arg(long, value_name = "PATH")]
+    pub notes_attachment_root: Option<PathBuf>,
 }
 
 impl Cli {
@@ -77,6 +85,16 @@ impl Cli {
         Ok(crate::messages::attachment_path::default_attachment_root(
             &self.messages_database_path()?,
         ))
+    }
+
+    pub fn notes_database_path(&self) -> Result<PathBuf, IoError> {
+        if let Some(path) = &self.notes_database {
+            return Ok(path.clone());
+        }
+        if let Ok(path) = std::env::var("APPLE_CONNECTOR_NOTES_DATABASE") {
+            return Ok(PathBuf::from(path));
+        }
+        crate::notes::discovery::default_notes_database_path()
     }
 
     pub fn warns_about_public_binding(&self) -> bool {

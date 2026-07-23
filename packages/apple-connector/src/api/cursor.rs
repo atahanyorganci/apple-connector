@@ -2,7 +2,11 @@ use base64::{Engine, engine::general_purpose::URL_SAFE_NO_PAD};
 use serde::{Deserialize, Serialize};
 
 use super::{error::ApiError, params::CURSOR_VERSION};
-use crate::{messages::search::MessageFiltersSnapshot, reminders::ReminderFiltersSnapshot};
+use crate::{
+    messages::search::MessageFiltersSnapshot,
+    notes::search::NoteFiltersSnapshot,
+    reminders::ReminderFiltersSnapshot,
+};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ListCursor {
@@ -26,6 +30,30 @@ pub struct ReminderSearchCursor {
     pub modified_at: f64,
     pub row_id: i64,
     pub filters: ReminderFiltersSnapshot,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub struct FolderListCursor {
+    pub row_id: i64,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+pub struct GlobalNoteCursor {
+    pub modified_at: f64,
+    pub row_id: i64,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+pub struct FolderNoteCursor {
+    pub modified_at: f64,
+    pub row_id: i64,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct NoteSearchCursor {
+    pub modified_at: f64,
+    pub row_id: i64,
+    pub filters: NoteFiltersSnapshot,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -139,6 +167,20 @@ pub fn decode_reminder_search_cursor(
     expected_filters: &ReminderFiltersSnapshot,
 ) -> Result<ReminderSearchCursor, ApiError> {
     let decoded = decode::<ReminderSearchCursor>(cursor)?;
+    if decoded.filters != *expected_filters {
+        return Err(ApiError::validation_with_details(
+            "cursor does not match the active filters",
+            serde_json::json!({ "field": "cursor" }),
+        ));
+    }
+    Ok(decoded)
+}
+
+pub fn decode_note_search_cursor(
+    cursor: &str,
+    expected_filters: &NoteFiltersSnapshot,
+) -> Result<NoteSearchCursor, ApiError> {
+    let decoded = decode::<NoteSearchCursor>(cursor)?;
     if decoded.filters != *expected_filters {
         return Err(ApiError::validation_with_details(
             "cursor does not match the active filters",

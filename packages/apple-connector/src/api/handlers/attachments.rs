@@ -365,8 +365,10 @@ mod tests {
             router(AppState::with_attachment_roots(
                 Some(pool),
                 None,
+                None,
                 root,
                 PathBuf::from("/var/empty/reminders-attachments"),
+                PathBuf::from("/var/empty/notes-attachments"),
             ))
         }
 

@@ -7,3 +7,5 @@ packages/apple-connector/fixtures/messages/chat.db
 packages/apple-connector/fixtures/messages/chat.db-*
 packages/apple-connector/fixtures/reminders/reminders.db
 packages/apple-connector/fixtures/reminders/reminders.db-*
+packages/apple-connector/fixtures/notes/notes.db
+packages/apple-connector/fixtures/notes/notes.db-*

@@ -139,7 +139,7 @@ mod tests {
     async fn list_and_get_reminders_from_fixture() {
         let fixture = RemindersFixtureDb::seeded().await.expect("fixture");
         let pool = connect_pool(fixture.path()).await.expect("pool");
-        let app = router(AppState::new(None, Some(pool)));
+        let app = router(AppState::new(None, Some(pool), None));
 
         let response = app
             .clone()

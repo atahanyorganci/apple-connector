@@ -1,3 +1,7 @@
 [workspace]
-members = ["packages/apple-connector", "packages/apple-typedstream"]
+members = [
+  "packages/apple-connector",
+  "packages/apple-notes-protobuf",
+  "packages/apple-typedstream",
+]
 resolver = "3"

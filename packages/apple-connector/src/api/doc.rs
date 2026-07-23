@@ -15,6 +15,12 @@ use super::{
         },
         message::{MessageDetailDto, MessagePageDto, MessageSummaryDto},
         pagination::PageMetaDto,
+        note::{
+            ChecklistItemDto, EmbeddedObjectDto, FolderKindDto, NoteAttachmentDetailDto,
+            NoteAttachmentSummaryDto, NoteBodyDto, NoteDetailDto, NoteFolderDetailDto,
+            NoteFolderPageDto, NoteFolderSummaryDto, NotePageDto, NoteRunDto, NoteSummaryDto,
+            ParagraphStyleDto, ParagraphStyleKindDto,
+        },
         reminder::{
             AlarmDto, AlarmKindDto, DueDto, RecurrenceDto, ReminderAttachmentDetailDto,
             ReminderAttachmentKindDto, ReminderAttachmentSummaryDto, ReminderDetailDto,
@@ -26,14 +32,15 @@ use super::{
     error::{ErrorBody, ErrorCode, ErrorResponse},
     params::{
         AttachmentGuidPath, ChatIdPath, ConditionalRequestHeaders, ContentTypeFilterDto,
-        DirectionFilterDto, MessageGuidPath, MessageListParams, PageParams, RangeRequestHeader,
+        DirectionFilterDto, MessageGuidPath, MessageListParams, NoteAttachmentIdPath,
+        NoteFolderIdPath, NoteIdPath, NoteListParams, PageParams, RangeRequestHeader,
         ReminderAttachmentIdPath, ReminderIdPath, ReminderListIdPath, ReminderListParams,
         TransportFilterDto,
     },
 };
 use crate::apple_types::{
-    AttachmentId, ChatId, MessageId, ReminderAttachmentId, ReminderId, ReminderListId, SectionId,
-    UnixTimestamp,
+    AttachmentId, ChatId, MessageId, NoteAttachmentId, NoteFolderId, NoteId,
+    ReminderAttachmentId, ReminderId, ReminderListId, SectionId, UnixTimestamp,
 };
 
 struct SecurityAddon;
@@ -64,7 +71,7 @@ impl Modify for SecurityAddon {
     info(
         title = "Apple Connector API",
         version = "1.0.0",
-        description = "Read-only HTTP API for Messages.app and Reminders.app data backed by live SQLite connections.\n\n\
+        description = "Read-only HTTP API for Messages.app, Reminders.app, and Notes.app data backed by live SQLite connections.\n\n\
             Pagination uses keyset cursors only (default limit 50, maximum 200, newest first). \
             Offsets are not supported.\n\n\
             Authentication, TLS, and network exposure controls are expected to be enforced by an \
@@ -84,17 +91,42 @@ impl Modify for SecurityAddon {
         (name = "reminder-lists", description = "Reminder list listing and list-scoped reminders"),
         (name = "reminders", description = "Global reminder listing and lookup"),
         (name = "reminder-attachments", description = "Reminder attachment metadata and byte streaming"),
+        (name = "note-folders", description = "Note folder listing and folder-scoped notes"),
+        (name = "notes", description = "Global note listing and lookup"),
+        (name = "note-attachments", description = "Note attachment metadata and byte streaming"),
         (name = "meta", description = "API metadata and contract export")
     ),
     components(schemas(
         AttachmentId,
         ChatId,
         MessageId,
+        NoteAttachmentId,
+        NoteFolderId,
+        NoteId,
         ReminderAttachmentId,
         ReminderId,
         ReminderListId,
         SectionId,
         UnixTimestamp,
+        ChecklistItemDto,
+        EmbeddedObjectDto,
+        FolderKindDto,
+        NoteAttachmentDetailDto,
+        NoteAttachmentIdPath,
+        NoteAttachmentSummaryDto,
+        NoteBodyDto,
+        NoteDetailDto,
+        NoteFolderDetailDto,
+        NoteFolderIdPath,
+        NoteFolderPageDto,
+        NoteFolderSummaryDto,
+        NoteIdPath,
+        NoteListParams,
+        NotePageDto,
+        NoteRunDto,
+        NoteSummaryDto,
+        ParagraphStyleDto,
+        ParagraphStyleKindDto,
         AlarmDto,
         AlarmKindDto,
         DueDto,
@@ -223,6 +255,26 @@ mod tests {
             "head",
             "/v1/reminder-attachments/{id}/content",
             "headReminderAttachmentContent",
+        ),
+        ("get", "/v1/note-folders", "listNoteFolders"),
+        ("get", "/v1/note-folders/{folder_id}", "getNoteFolder"),
+        (
+            "get",
+            "/v1/note-folders/{folder_id}/notes",
+            "listFolderNotes",
+        ),
+        ("get", "/v1/notes", "listNotes"),
+        ("get", "/v1/notes/{note_id}", "getNote"),
+        ("get", "/v1/note-attachments/{id}", "getNoteAttachment"),
+        (
+            "get",
+            "/v1/note-attachments/{id}/content",
+            "getNoteAttachmentContent",
+        ),
+        (
+            "head",
+            "/v1/note-attachments/{id}/content",
+            "headNoteAttachmentContent",
         ),
         ("get", "/openapi.json", "getOpenApiSpec"),
     ];

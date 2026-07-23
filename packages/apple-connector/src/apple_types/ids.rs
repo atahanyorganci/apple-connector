@@ -85,6 +85,21 @@ string_id!(
     ReminderAttachmentId,
     "dddddddd-dddd-dddd-dddd-dddddddddddd"
 );
+string_id!(
+    /// Stable identifier for a note (its UUID).
+    NoteId,
+    "eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee"
+);
+string_id!(
+    /// Stable identifier for a note folder (its UUID).
+    NoteFolderId,
+    "ffffffff-ffff-ffff-ffff-ffffffffffff"
+);
+string_id!(
+    /// Stable identifier for a note attachment (its UUID).
+    NoteAttachmentId,
+    "11111111-1111-1111-1111-111111111111"
+);
 
 /// Internal chat row identifier.
 ///
