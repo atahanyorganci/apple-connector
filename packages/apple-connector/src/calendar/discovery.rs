@@ -6,9 +6,8 @@ use std::{
 pub fn default_calendar_database_path() -> Result<PathBuf, IoError> {
     let home = std::env::var_os("HOME")
         .ok_or_else(|| IoError::new(ErrorKind::NotFound, "HOME is not set"))?;
-    Ok(PathBuf::from(home).join(
-        "Library/Group Containers/group.com.apple.calendar/Calendar.sqlitedb",
-    ))
+    Ok(PathBuf::from(home)
+        .join("Library/Group Containers/group.com.apple.calendar/Calendar.sqlitedb"))
 }
 
 pub fn default_calendar_attachment_root() -> Result<PathBuf, IoError> {

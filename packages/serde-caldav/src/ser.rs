@@ -1,7 +1,9 @@
 use std::io::Write;
 
-use quick_xml::Writer;
-use quick_xml::events::{BytesDecl, BytesEnd, BytesStart, BytesText, Event};
+use quick_xml::{
+    Writer,
+    events::{BytesDecl, BytesEnd, BytesStart, BytesText, Event},
+};
 
 use crate::{
     error::{Error, Result},
@@ -65,7 +67,8 @@ fn write_response(writer: &mut Writer<Vec<u8>>, object: &CalDavCalendarObject) -
     writer
         .write_event(Event::Start(cal_data))
         .map_err(|e| Error::Serialize(e.to_string()))?;
-    let ics = serde_icalendar::to_string(&object.event).map_err(|e| Error::Serialize(e.to_string()))?;
+    let ics =
+        serde_icalendar::to_string(&object.event).map_err(|e| Error::Serialize(e.to_string()))?;
     writer
         .write_event(Event::Text(BytesText::from_escaped(ics.trim())))
         .map_err(|e| Error::Serialize(e.to_string()))?;

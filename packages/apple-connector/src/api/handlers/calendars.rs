@@ -18,11 +18,11 @@ use crate::{
         params::{CalendarIdPath, PageParams},
         router::AppState,
     },
-    db::run_timed_query,
     calendar::{
         CalendarRepository, Event, EventDetail, EventSummary,
         enums::{Availability, InvitationStatus, PrivacyLevel},
     },
+    db::run_timed_query,
 };
 
 /// List calendar accounts
@@ -40,11 +40,10 @@ pub async fn list_calendar_accounts(
     State(state): State<AppState>,
 ) -> Result<Json<CalendarAccountPageDto>, ApiError> {
     let pool = require_calendar_db(&state.calendar_db)?;
-    let accounts = run_timed_query(|| async {
-        CalendarRepository::new(pool).list_accounts().await
-    })
-        .await
-        .map_err(|error| ApiError::internal(error.to_string()))?;
+    let accounts =
+        run_timed_query(|| async { CalendarRepository::new(pool).list_accounts().await })
+            .await
+            .map_err(|error| ApiError::internal(error.to_string()))?;
     Ok(Json(calendar_account_page_to_dto(accounts)))
 }
 
@@ -78,8 +77,8 @@ pub async fn list_calendars(
             .list_calendars(limit, cursor)
             .await
     })
-        .await
-        .map_err(|error| ApiError::internal(error.to_string()))?;
+    .await
+    .map_err(|error| ApiError::internal(error.to_string()))?;
     Ok(Json(calendar_page_to_dto(
         page.items,
         page.has_more,
@@ -151,12 +150,7 @@ pub async fn list_calendar_events(
         .transpose()?;
     let page = run_timed_query(|| async {
         CalendarRepository::new(pool)
-            .list_calendar_events(
-                path.calendar_id.as_str(),
-                &filters,
-                limit,
-                cursor,
-            )
+            .list_calendar_events(path.calendar_id.as_str(), &filters, limit, cursor)
             .await
     })
     .await
@@ -172,10 +166,15 @@ pub(crate) async fn respond_with_events(
     format: crate::api::format::ResponseFormat,
 ) -> Result<Response, ApiError> {
     match format {
-        crate::api::format::ResponseFormat::Json => Ok(Json(crate::api::dto::calendar_convert::event_page_to_dto(
-            items, has_more, next_cursor, limit,
-        ))
-        .into_response()),
+        crate::api::format::ResponseFormat::Json => {
+            Ok(Json(crate::api::dto::calendar_convert::event_page_to_dto(
+                items,
+                has_more,
+                next_cursor,
+                limit,
+            ))
+            .into_response())
+        }
         crate::api::format::ResponseFormat::Ics => {
             let mut body = String::new();
             for summary in &items {

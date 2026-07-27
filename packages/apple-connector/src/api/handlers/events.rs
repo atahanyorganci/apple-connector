@@ -9,10 +9,7 @@ use axum::{
 use super::{calendars::respond_with_events, health::require_calendar_db};
 use crate::{
     api::{
-        dto::{
-            EventDetailDto,
-            calendar_convert::event_detail_to_dto,
-        },
+        dto::{EventDetailDto, calendar_convert::event_detail_to_dto},
         error::{ApiError, ErrorResponse},
         format::{ResponseFormat, parse_request_format, resolve_format},
         params::{EventIdPath, EventListParams},
@@ -116,9 +113,9 @@ pub async fn get_event(
             .get_event(&path.event_id)
             .await
     })
-        .await
-        .map_err(|error| ApiError::internal(error.to_string()))?
-        .ok_or_else(|| ApiError::not_found("Event not found"))?;
+    .await
+    .map_err(|error| ApiError::internal(error.to_string()))?
+    .ok_or_else(|| ApiError::not_found("Event not found"))?;
     respond_with_event(&event, format).await
 }
 
@@ -161,7 +158,10 @@ pub async fn parse_event(
     Ok(Json(interchange_to_detail_dto(&interchange)))
 }
 
-async fn respond_with_event(event: &EventDetail, format: ResponseFormat) -> Result<Response, ApiError> {
+async fn respond_with_event(
+    event: &EventDetail,
+    format: ResponseFormat,
+) -> Result<Response, ApiError> {
     match format {
         ResponseFormat::Json => Ok(Json(event_detail_to_dto(event)).into_response()),
         ResponseFormat::Ics => {
@@ -197,12 +197,13 @@ async fn respond_with_event(event: &EventDetail, format: ResponseFormat) -> Resu
 }
 
 fn interchange_to_detail_dto(event: &Event) -> EventDetailDto {
+    use chrono::TimeZone;
+
     use crate::calendar::{
-        enums::{Availability, EventClass, EventStatus, InvitationStatus, PrivacyLevel},
         EventDetail, EventLocation, EventParticipant, EventSummary, InterchangeStatus,
         RecurrenceRule,
+        enums::{Availability, EventClass, EventStatus, InvitationStatus, PrivacyLevel},
     };
-    use chrono::TimeZone;
 
     let summary = EventSummary {
         row_id: 0,
@@ -210,14 +211,21 @@ fn interchange_to_detail_dto(event: &Event) -> EventDetailDto {
         calendar_row_id: 0,
         calendar_id: String::new(),
         summary: event.summary.clone(),
-        start: event.start.and_then(|ts| chrono::Utc.timestamp_opt(ts, 0).single()),
-        end: event.end.and_then(|ts| chrono::Utc.timestamp_opt(ts, 0).single()),
+        start: event
+            .start
+            .and_then(|ts| chrono::Utc.timestamp_opt(ts, 0).single()),
+        end: event
+            .end
+            .and_then(|ts| chrono::Utc.timestamp_opt(ts, 0).single()),
         all_day: event.all_day,
-        status: event.status.map(|s| match s {
-            InterchangeStatus::Confirmed => EventStatus::Confirmed,
-            InterchangeStatus::Tentative => EventStatus::Tentative,
-            InterchangeStatus::Cancelled => EventStatus::Cancelled,
-        }).unwrap_or_default(),
+        status: event
+            .status
+            .map(|s| match s {
+                InterchangeStatus::Confirmed => EventStatus::Confirmed,
+                InterchangeStatus::Tentative => EventStatus::Tentative,
+                InterchangeStatus::Cancelled => EventStatus::Cancelled,
+            })
+            .unwrap_or_default(),
         hidden: false,
         is_recurring: event.recurrence_rule.is_some(),
         occurrence_start: None,
@@ -234,16 +242,19 @@ fn interchange_to_detail_dto(event: &Event) -> EventDetailDto {
             latitude: None,
             longitude: None,
         }),
-        organizer: event.organizer_email.as_ref().map(|email| EventParticipant {
-            id: String::new(),
-            email: Some(email.clone()),
-            phone_number: None,
-            name: None,
-            is_self: false,
-            status: InvitationStatus::Unknown,
-            role: None,
-            comment: None,
-        }),
+        organizer: event
+            .organizer_email
+            .as_ref()
+            .map(|email| EventParticipant {
+                id: String::new(),
+                email: Some(email.clone()),
+                phone_number: None,
+                name: None,
+                is_self: false,
+                status: InvitationStatus::Unknown,
+                role: None,
+                comment: None,
+            }),
         attendees: event
             .attendees
             .iter()

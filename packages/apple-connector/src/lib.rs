@@ -11,6 +11,7 @@ mod reminders;
 use std::{error::Error, io::Error as IoError, net::SocketAddr, path::PathBuf};
 
 pub use api::{AppState, build_openapi_spec, router};
+pub use calendar::{CalendarInventory, load_inventory as load_calendar_inventory};
 #[allow(deprecated)]
 pub use cli::default_database_path;
 pub use cli::{Cli, default_messages_database_path};
@@ -25,7 +26,6 @@ pub use messages::{
     load_all, load_chats,
 };
 pub use notes::{NoteInventory, load_inventory as load_notes_inventory};
-pub use calendar::{CalendarInventory, load_inventory as load_calendar_inventory};
 pub use reminders::{ReminderInventory, load_inventory};
 use tracing::{info, warn};
 

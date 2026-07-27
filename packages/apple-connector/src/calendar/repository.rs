@@ -5,19 +5,26 @@ use super::{
         account_from_row, calendar_detail_from_row, calendar_summary_from_row,
         event_detail_from_row, event_summary_from_row,
     },
-    model::{CalendarAccount, CalendarDetail, CalendarSummary, EventAttachment, EventDetail, EventSummary},
+    model::{
+        CalendarAccount, CalendarDetail, CalendarSummary, EventAttachment, EventDetail,
+        EventSummary,
+    },
     row::{
         AlarmRow, AttachmentRow, CalendarRow, EventRow, ExceptionDateRow, LocationRow,
         ParticipantRow, RecurrenceRow, StoreRow, core_data_secs_from_timestamp,
     },
-    search::{EventFilters, apply_direct_date_range, apply_event_filters, apply_occurrence_date_range},
+    search::{
+        EventFilters, apply_direct_date_range, apply_event_filters, apply_occurrence_date_range,
+    },
     sql::{
         ALARM_SELECT, ATTACHMENT_SELECT, CALENDAR_SELECT, EVENT_SELECT, EXCEPTION_DATE_SELECT,
         LOCATION_SELECT, OCCURRENCE_EVENT_SELECT, PARTICIPANT_SELECT, RECURRENCE_SELECT,
         STORE_SELECT,
     },
 };
-use crate::api::cursor::{CalendarEventCursor, CalendarListCursor, EventSearchCursor, GlobalEventCursor, encode};
+use crate::api::cursor::{
+    CalendarEventCursor, CalendarListCursor, EventSearchCursor, GlobalEventCursor, encode,
+};
 
 #[derive(Debug, Clone)]
 pub struct Page<T> {
@@ -71,7 +78,10 @@ impl<'a> CalendarRepository<'a> {
         let rows: Vec<CalendarRow> = builder.build_query_as().fetch_all(self.pool).await?;
         let (rows, has_more) = split_page(rows, limit);
         let next_cursor = has_more
-            .then(|| rows.last().map(|row| encode(&CalendarListCursor { row_id: row.row_id }).ok()))
+            .then(|| {
+                rows.last()
+                    .map(|row| encode(&CalendarListCursor { row_id: row.row_id }).ok())
+            })
             .flatten()
             .flatten();
         Ok(Page {
@@ -81,13 +91,17 @@ impl<'a> CalendarRepository<'a> {
         })
     }
 
-    pub async fn get_calendar(&self, calendar_id: &str) -> Result<Option<CalendarDetail>, sqlx::Error> {
+    pub async fn get_calendar(
+        &self,
+        calendar_id: &str,
+    ) -> Result<Option<CalendarDetail>, sqlx::Error> {
         crate::db::run_timed_query(|| async {
             let mut builder = QueryBuilder::<Sqlite>::new(CALENDAR_SELECT);
             builder.push(" WHERE lower(c.UUID) = lower(");
             builder.push_bind(calendar_id.to_owned());
             builder.push(")");
-            let row: Option<CalendarRow> = builder.build_query_as().fetch_optional(self.pool).await?;
+            let row: Option<CalendarRow> =
+                builder.build_query_as().fetch_optional(self.pool).await?;
             Ok(row.map(calendar_detail_from_row))
         })
         .await
@@ -194,7 +208,9 @@ impl<'a> CalendarRepository<'a> {
             .then(|| {
                 rows.last().map(|row| {
                     encode(&GlobalEventCursor {
-                        modified_at: row.occurrence_start.unwrap_or(row.start_date.unwrap_or(0.0)),
+                        modified_at: row
+                            .occurrence_start
+                            .unwrap_or(row.start_date.unwrap_or(0.0)),
                         row_id: row.row_id,
                     })
                     .ok()
@@ -260,7 +276,10 @@ impl<'a> CalendarRepository<'a> {
             let mut builder = QueryBuilder::<Sqlite>::new(LOCATION_SELECT);
             builder.push(" WHERE ROWID = ");
             builder.push_bind(location_id);
-            builder.build_query_as::<LocationRow>().fetch_optional(self.pool).await?
+            builder
+                .build_query_as::<LocationRow>()
+                .fetch_optional(self.pool)
+                .await?
         } else {
             None
         };
@@ -268,11 +287,13 @@ impl<'a> CalendarRepository<'a> {
         let mut participant_builder = QueryBuilder::<Sqlite>::new(PARTICIPANT_SELECT);
         participant_builder.push(" WHERE owner_id = ");
         participant_builder.push_bind(event_row_id);
-        let participants: Vec<ParticipantRow> =
-            participant_builder.build_query_as().fetch_all(self.pool).await?;
-        let organizer = row.organizer_id.and_then(|org_id| {
-            participants.iter().find(|p| p.row_id == org_id).cloned()
-        });
+        let participants: Vec<ParticipantRow> = participant_builder
+            .build_query_as()
+            .fetch_all(self.pool)
+            .await?;
+        let organizer = row
+            .organizer_id
+            .and_then(|org_id| participants.iter().find(|p| p.row_id == org_id).cloned());
         let attendees: Vec<ParticipantRow> = participants
             .into_iter()
             .filter(|p| Some(p.row_id) != row.organizer_id)
@@ -289,8 +310,10 @@ impl<'a> CalendarRepository<'a> {
         let mut exception_builder = QueryBuilder::<Sqlite>::new(EXCEPTION_DATE_SELECT);
         exception_builder.push(" WHERE owner_id = ");
         exception_builder.push_bind(event_row_id);
-        let exception_rows: Vec<ExceptionDateRow> =
-            exception_builder.build_query_as().fetch_all(self.pool).await?;
+        let exception_rows: Vec<ExceptionDateRow> = exception_builder
+            .build_query_as()
+            .fetch_all(self.pool)
+            .await?;
 
         let mut alarm_builder = QueryBuilder::<Sqlite>::new(ALARM_SELECT);
         alarm_builder.push(" WHERE calendaritem_owner_id = ");
@@ -300,8 +323,10 @@ impl<'a> CalendarRepository<'a> {
         let mut attachment_builder = QueryBuilder::<Sqlite>::new(ATTACHMENT_SELECT);
         attachment_builder.push(" WHERE a.owner_id = ");
         attachment_builder.push_bind(event_row_id);
-        let attachments: Vec<AttachmentRow> =
-            attachment_builder.build_query_as().fetch_all(self.pool).await?;
+        let attachments: Vec<AttachmentRow> = attachment_builder
+            .build_query_as()
+            .fetch_all(self.pool)
+            .await?;
 
         Ok(event_detail_from_row(
             row,
@@ -328,7 +353,8 @@ impl<'a> CalendarRepository<'a> {
             builder.push(") AND lower(af.UUID) = lower(");
             builder.push_bind(attachment_id.to_owned());
             builder.push(")");
-            let row: Option<AttachmentRow> = builder.build_query_as().fetch_optional(self.pool).await?;
+            let row: Option<AttachmentRow> =
+                builder.build_query_as().fetch_optional(self.pool).await?;
             Ok(row.map(super::assembly::attachment_from_row))
         })
         .await
@@ -351,7 +377,10 @@ pub fn unix_to_core_data_secs(unix: i64) -> f64 {
 #[cfg(test)]
 mod tests {
     use super::{CalendarRepository, unix_to_core_data_secs};
-    use crate::{connect_pool, fixtures::{CalendarFixtureDb, SEED_EVENT_ID}};
+    use crate::{
+        connect_pool,
+        fixtures::{CalendarFixtureDb, SEED_EVENT_ID},
+    };
 
     #[tokio::test]
     async fn lists_seeded_events() {

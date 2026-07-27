@@ -1,6 +1,9 @@
 use std::path::{Component, Path, PathBuf};
 
-pub fn resolve_attachment_path(root: &Path, local_path: &str) -> Result<PathBuf, AttachmentPathError> {
+pub fn resolve_attachment_path(
+    root: &Path,
+    local_path: &str,
+) -> Result<PathBuf, AttachmentPathError> {
     let relative = Path::new(local_path);
     if relative.is_absolute() {
         return Err(AttachmentPathError::AbsolutePath);
@@ -14,8 +17,12 @@ pub fn resolve_attachment_path(root: &Path, local_path: &str) -> Result<PathBuf,
         }
     }
     let joined = root.join(relative);
-    let canonical_root = root.canonicalize().map_err(|_| AttachmentPathError::RootUnavailable)?;
-    let canonical = joined.canonicalize().map_err(|_| AttachmentPathError::NotFound)?;
+    let canonical_root = root
+        .canonicalize()
+        .map_err(|_| AttachmentPathError::RootUnavailable)?;
+    let canonical = joined
+        .canonicalize()
+        .map_err(|_| AttachmentPathError::NotFound)?;
     if !canonical.starts_with(&canonical_root) {
         return Err(AttachmentPathError::Traversal);
     }
@@ -46,8 +53,7 @@ impl AttachmentPathError {
 
 #[cfg(test)]
 mod tests {
-    use std::fs;
-    use std::io::Write;
+    use std::{fs, io::Write};
 
     use tempfile::TempDir;
 

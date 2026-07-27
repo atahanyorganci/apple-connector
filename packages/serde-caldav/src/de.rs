@@ -1,5 +1,4 @@
-use quick_xml::Reader;
-use quick_xml::events::Event;
+use quick_xml::{Reader, events::Event};
 use serde_icalendar::CalendarEvent;
 
 use crate::{
@@ -28,7 +27,8 @@ pub fn parse_xml(input: &[u8]) -> Result<CalDavCalendarObject> {
             }
             Ok(Event::Text(e)) => {
                 if in_calendar_data {
-                    calendar_data.push_str(&e.unescape().map_err(|err| Error::Parse(err.to_string()))?);
+                    calendar_data
+                        .push_str(&e.unescape().map_err(|err| Error::Parse(err.to_string()))?);
                 }
             }
             Ok(Event::End(e)) => {

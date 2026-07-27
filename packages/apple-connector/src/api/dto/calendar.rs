@@ -1,9 +1,10 @@
 use serde::Serialize;
 use utoipa::ToSchema;
 
-use crate::apple_types::{CalendarAccountId, CalendarAttachmentId, CalendarId, EventId, UnixTimestamp};
-
 use super::pagination::PageMetaDto;
+use crate::apple_types::{
+    CalendarAccountId, CalendarAttachmentId, CalendarId, EventId, UnixTimestamp,
+};
 
 #[derive(Debug, Clone, Serialize, ToSchema)]
 #[serde(rename_all = "snake_case")]

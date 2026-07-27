@@ -68,11 +68,11 @@ async fn integration_calendar_accounts_and_calendars() {
 
     let (status, accounts) = response_json(app.clone(), "/v1/calendar-accounts").await;
     assert_eq!(status, StatusCode::OK);
-    assert!(
-        accounts["items"]
-            .as_array()
-            .is_some_and(|items| items.iter().any(|item| item["id"] == SEED_CALENDAR_ACCOUNT_ID))
-    );
+    assert!(accounts["items"].as_array().is_some_and(|items| {
+        items
+            .iter()
+            .any(|item| item["id"] == SEED_CALENDAR_ACCOUNT_ID)
+    }));
 
     let (status, calendars) = response_json(app.clone(), "/v1/calendars?limit=10").await;
     assert_eq!(status, StatusCode::OK);
@@ -82,8 +82,7 @@ async fn integration_calendar_accounts_and_calendars() {
             .is_some_and(|items| items.iter().any(|item| item["id"] == SEED_CALENDAR_ID))
     );
 
-    let (status, calendar) =
-        response_json(app, &format!("/v1/calendars/{SEED_CALENDAR_ID}")).await;
+    let (status, calendar) = response_json(app, &format!("/v1/calendars/{SEED_CALENDAR_ID}")).await;
     assert_eq!(status, StatusCode::OK);
     assert_eq!(calendar["id"], SEED_CALENDAR_ID);
 }
@@ -102,12 +101,15 @@ async fn integration_calendar_events_json_ics_and_caldav() {
             .is_some_and(|items| items.iter().any(|item| item["id"] == SEED_EVENT_ID))
     );
 
-    let (status, detail) =
-        response_json(app.clone(), &format!("/v1/events/{SEED_EVENT_ID}")).await;
+    let (status, detail) = response_json(app.clone(), &format!("/v1/events/{SEED_EVENT_ID}")).await;
     assert_eq!(status, StatusCode::OK);
     assert_eq!(detail["id"], SEED_EVENT_ID);
     assert!(detail["location"].is_object());
-    assert!(detail["attendees"].as_array().is_some_and(|a| !a.is_empty()));
+    assert!(
+        detail["attendees"]
+            .as_array()
+            .is_some_and(|a| !a.is_empty())
+    );
 
     let (status, ics) = response_text(
         app.clone(),
@@ -134,21 +136,20 @@ async fn integration_calendar_events_json_ics_and_caldav() {
     )
     .await;
     assert_eq!(status, StatusCode::OK);
-    assert!(scoped["items"].as_array().is_some_and(|items| !items.is_empty()));
-
-    let (status, recurring) = response_json(
-        app,
-        "/v1/events?start=1736942400&end=1739548800&limit=10",
-    )
-    .await;
-    assert_eq!(status, StatusCode::OK);
     assert!(
-        recurring["items"].as_array().is_some_and(|items| {
-            items
-                .iter()
-                .any(|item| item["id"] == SEED_RECURRING_EVENT_ID)
-        })
+        scoped["items"]
+            .as_array()
+            .is_some_and(|items| !items.is_empty())
     );
+
+    let (status, recurring) =
+        response_json(app, "/v1/events?start=1736942400&end=1739548800&limit=10").await;
+    assert_eq!(status, StatusCode::OK);
+    assert!(recurring["items"].as_array().is_some_and(|items| {
+        items
+            .iter()
+            .any(|item| item["id"] == SEED_RECURRING_EVENT_ID)
+    }));
 }
 
 #[tokio::test]

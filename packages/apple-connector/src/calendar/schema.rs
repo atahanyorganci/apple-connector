@@ -17,7 +17,9 @@ impl CalendarSchemaVariant {
     }
 }
 
-pub async fn detect_schema_variant(pool: &SqlitePool) -> Result<CalendarSchemaVariant, sqlx::Error> {
+pub async fn detect_schema_variant(
+    pool: &SqlitePool,
+) -> Result<CalendarSchemaVariant, sqlx::Error> {
     let modern: (i64,) = sqlx::query_as(
         "SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = 'CalendarItem'",
     )

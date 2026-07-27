@@ -1,5 +1,7 @@
-use axum::http::header::{ACCEPT, CONTENT_TYPE};
-use axum::http::HeaderMap;
+use axum::http::{
+    HeaderMap,
+    header::{ACCEPT, CONTENT_TYPE},
+};
 
 use crate::api::error::ApiError;
 
@@ -20,7 +22,10 @@ impl ResponseFormat {
     }
 }
 
-pub fn resolve_format(headers: &HeaderMap, format_query: Option<&str>) -> Result<ResponseFormat, ApiError> {
+pub fn resolve_format(
+    headers: &HeaderMap,
+    format_query: Option<&str>,
+) -> Result<ResponseFormat, ApiError> {
     if let Some(format) = format_query {
         return match format.to_ascii_lowercase().as_str() {
             "json" => Ok(ResponseFormat::Json),

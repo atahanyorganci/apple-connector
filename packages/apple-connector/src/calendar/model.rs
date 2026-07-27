@@ -177,11 +177,10 @@ impl From<&EventDetail> for Event {
             uid: detail.summary.id.clone(),
             summary: detail.summary.summary.clone(),
             description: detail.description.clone(),
-            location: detail.location.as_ref().and_then(|l| {
-                l.title
-                    .clone()
-                    .or_else(|| l.address.clone())
-            }),
+            location: detail
+                .location
+                .as_ref()
+                .and_then(|l| l.title.clone().or_else(|| l.address.clone())),
             url: detail.url.clone(),
             status: Some(match detail.summary.status {
                 EventStatus::Confirmed => InterchangeStatus::Confirmed,
@@ -211,10 +210,7 @@ impl From<&EventDetail> for Event {
                     })
                 })
                 .collect(),
-            recurrence_rule: detail
-                .recurrence
-                .as_ref()
-                .and_then(|r| r.specifier.clone()),
+            recurrence_rule: detail.recurrence.as_ref().and_then(|r| r.specifier.clone()),
             exception_dates: detail
                 .exception_dates
                 .iter()
@@ -232,10 +228,7 @@ impl Event {
 
         fn ts_to_dt(ts: i64, all_day: bool) -> EventDateTime {
             EventDateTime {
-                timestamp: Utc
-                    .timestamp_opt(ts, 0)
-                    .single()
-                    .unwrap_or_else(Utc::now),
+                timestamp: Utc.timestamp_opt(ts, 0).single().unwrap_or_else(Utc::now),
                 all_day,
                 tzid: None,
             }

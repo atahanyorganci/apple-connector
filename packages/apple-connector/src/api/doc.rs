@@ -3,7 +3,6 @@ use utoipa::{Modify, OpenApi};
 use super::{
     dto::{
         attachment::{AttachmentDetailDto, AttachmentKindDto, AttachmentSummaryDto},
-        chat::{ChatDetailDto, ChatPageDto, ChatSummaryDto},
         calendar::{
             AvailabilityDto, CalendarAccountDto, CalendarAccountPageDto, CalendarDetailDto,
             CalendarPageDto, CalendarSummaryDto, EventAlarmDto, EventAttachmentDetailDto,
@@ -11,6 +10,7 @@ use super::{
             EventPageDto, EventParticipantDto, EventStatusDto, EventSummaryDto,
             InvitationStatusDto, PrivacyLevelDto, RecurrenceRuleDto, StoreTypeDto,
         },
+        chat::{ChatDetailDto, ChatPageDto, ChatSummaryDto},
         common::{DirectionDto, HandleDto, HealthStatus, HealthStatusDto, TransportDto},
         content::{
             AppBalloonContentDto, AppBalloonKindDto, AttachmentContentDto, AttributedBodyErrorDto,
@@ -38,17 +38,18 @@ use super::{
     },
     error::{ErrorBody, ErrorCode, ErrorResponse},
     params::{
-        AttachmentGuidPath, CalendarIdPath, ChatIdPath, ConditionalRequestHeaders, ContentTypeFilterDto,
-        DirectionFilterDto, EventAttachmentIdPath, EventIdPath, EventListParams, MessageGuidPath, MessageListParams, NoteAttachmentIdPath,
+        AttachmentGuidPath, CalendarIdPath, ChatIdPath, ConditionalRequestHeaders,
+        ContentTypeFilterDto, DirectionFilterDto, EventAttachmentIdPath, EventIdPath,
+        EventListParams, MessageGuidPath, MessageListParams, NoteAttachmentIdPath,
         NoteFolderIdPath, NoteIdPath, NoteListParams, PageParams, RangeRequestHeader,
         ReminderAttachmentIdPath, ReminderIdPath, ReminderListIdPath, ReminderListParams,
         TransportFilterDto,
     },
 };
 use crate::apple_types::{
-    AttachmentId, CalendarAccountId, CalendarAttachmentId, CalendarId, ChatId, EventId,
-    MessageId, NoteAttachmentId, NoteFolderId, NoteId, ReminderAttachmentId, ReminderId,
-    ReminderListId, SectionId, UnixTimestamp,
+    AttachmentId, CalendarAccountId, CalendarAttachmentId, CalendarId, ChatId, EventId, MessageId,
+    NoteAttachmentId, NoteFolderId, NoteId, ReminderAttachmentId, ReminderId, ReminderListId,
+    SectionId, UnixTimestamp,
 };
 
 struct SecurityAddon;

@@ -1,19 +1,21 @@
 use super::{
     enums::{Availability, EventClass, EventStatus, InvitationStatus, PrivacyLevel, StoreType},
     model::{
-        CalendarAccount, CalendarDetail, CalendarSummary, EventAlarm, EventAttachment,
-        EventDetail, EventLocation, EventParticipant, EventSummary, RecurrenceRule,
+        CalendarAccount, CalendarDetail, CalendarSummary, EventAlarm, EventAttachment, EventDetail,
+        EventLocation, EventParticipant, EventSummary, RecurrenceRule,
     },
     row::{
-        AlarmRow, AttachmentRow, CalendarRow, EventRow, LocationRow, ParticipantRow,
-        RecurrenceRow, StoreRow, microdegrees_to_degrees, parse_core_data_timestamp,
+        AlarmRow, AttachmentRow, CalendarRow, EventRow, LocationRow, ParticipantRow, RecurrenceRow,
+        StoreRow, microdegrees_to_degrees, parse_core_data_timestamp,
     },
 };
 
 pub fn account_from_row(row: StoreRow) -> CalendarAccount {
     CalendarAccount {
         row_id: row.row_id,
-        id: row.external_id.unwrap_or_else(|| format!("store-{}", row.row_id)),
+        id: row
+            .external_id
+            .unwrap_or_else(|| format!("store-{}", row.row_id)),
         name: row.name,
         store_type: StoreType::from_raw(row.store_type),
         disabled: row.disabled.is_some_and(|v| v != 0),

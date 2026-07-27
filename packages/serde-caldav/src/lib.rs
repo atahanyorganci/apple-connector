@@ -6,14 +6,11 @@ mod model;
 mod ser;
 pub mod xmlns;
 
-pub use de::{parse_multistatus, parse_xml};
-pub use error::{Error, Result};
-pub use model::{
-    CalDavCalendarObject, CalDavCalendarResource, CalDavMultistatus, CalDavResponse,
-};
-
 use std::io::{Read, Write};
 
+pub use de::{parse_multistatus, parse_xml};
+pub use error::{Error, Result};
+pub use model::{CalDavCalendarObject, CalDavCalendarResource, CalDavMultistatus, CalDavResponse};
 use serde::{Serialize, de::DeserializeOwned};
 
 /// Serialize a value into CalDAV XML with embedded ICS calendar-data.
@@ -70,7 +67,7 @@ where
 mod tests {
     use serde_icalendar::CalendarEvent;
 
-    use super::{from_str, to_string, CalDavCalendarObject};
+    use super::{CalDavCalendarObject, from_str, to_string};
 
     #[test]
     fn stub_round_trip_caldav_object() {

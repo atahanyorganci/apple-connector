@@ -18,22 +18,29 @@ pub async fn load_inventory(pool: &SqlitePool) -> Result<CalendarInventory, sqlx
     let variant = detect_schema_variant(pool).await?;
     let (stores, calendars, events, recurring, occurrences, attachments, hidden) = match variant {
         CalendarSchemaVariant::CalendarItem => {
-            let stores: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM Store").fetch_one(pool).await?;
-            let calendars: (i64,) =
-                sqlx::query_as("SELECT COUNT(*) FROM Calendar").fetch_one(pool).await?;
-            let events: (i64,) =
-                sqlx::query_as("SELECT COUNT(*) FROM CalendarItem").fetch_one(pool).await?;
-            let recurring: (i64,) = sqlx::query_as(
-                "SELECT COUNT(*) FROM CalendarItem WHERE has_recurrences = 1",
-            )
-            .fetch_one(pool)
-            .await?;
-            let occurrences: (i64,) =
-                sqlx::query_as("SELECT COUNT(*) FROM OccurrenceCache").fetch_one(pool).await?;
-            let attachments: (i64,) =
-                sqlx::query_as("SELECT COUNT(*) FROM Attachment").fetch_one(pool).await?;
+            let stores: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM Store")
+                .fetch_one(pool)
+                .await?;
+            let calendars: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM Calendar")
+                .fetch_one(pool)
+                .await?;
+            let events: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM CalendarItem")
+                .fetch_one(pool)
+                .await?;
+            let recurring: (i64,) =
+                sqlx::query_as("SELECT COUNT(*) FROM CalendarItem WHERE has_recurrences = 1")
+                    .fetch_one(pool)
+                    .await?;
+            let occurrences: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM OccurrenceCache")
+                .fetch_one(pool)
+                .await?;
+            let attachments: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM Attachment")
+                .fetch_one(pool)
+                .await?;
             let hidden: (i64,) =
-                sqlx::query_as("SELECT COUNT(*) FROM CalendarItem WHERE hidden = 1").fetch_one(pool).await?;
+                sqlx::query_as("SELECT COUNT(*) FROM CalendarItem WHERE hidden = 1")
+                    .fetch_one(pool)
+                    .await?;
             (
                 stores.0,
                 calendars.0,

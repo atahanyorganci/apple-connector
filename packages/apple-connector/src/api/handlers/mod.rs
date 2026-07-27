@@ -1,6 +1,6 @@
 pub mod attachments;
-pub mod chats;
 pub mod calendars;
+pub mod chats;
 pub mod event_attachments;
 pub mod events;
 pub mod health;

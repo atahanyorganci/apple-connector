@@ -53,7 +53,11 @@ impl EventFilters {
     }
 }
 
-pub fn apply_event_filters(builder: &mut QueryBuilder<Sqlite>, filters: &EventFilters, alias: &str) {
+pub fn apply_event_filters(
+    builder: &mut QueryBuilder<Sqlite>,
+    filters: &EventFilters,
+    alias: &str,
+) {
     if !filters.include_hidden {
         builder.push(format!(" AND {alias}.hidden = 0"));
     }

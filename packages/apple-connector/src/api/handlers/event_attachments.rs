@@ -37,10 +37,7 @@ pub async fn get_event_attachment_content(
     let pool = require_calendar_db(&state.calendar_db)?;
     let attachment = run_timed_query(|| async {
         CalendarRepository::new(pool)
-            .get_attachment(
-                path.event_id.as_str(),
-                path.attachment_id.as_str(),
-            )
+            .get_attachment(path.event_id.as_str(), path.attachment_id.as_str())
             .await
     })
     .await

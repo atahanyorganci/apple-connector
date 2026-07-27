@@ -2,9 +2,9 @@ use super::{
     calendar::{
         AvailabilityDto, CalendarAccountDto, CalendarAccountPageDto, CalendarDetailDto,
         CalendarPageDto, CalendarSummaryDto, EventAlarmDto, EventAttachmentDetailDto,
-        EventAttachmentSummaryDto, EventClassDto, EventDetailDto, EventLocationDto,
-        EventPageDto, EventParticipantDto, EventStatusDto, EventSummaryDto, InvitationStatusDto,
-        PrivacyLevelDto, RecurrenceRuleDto, StoreTypeDto,
+        EventAttachmentSummaryDto, EventClassDto, EventDetailDto, EventLocationDto, EventPageDto,
+        EventParticipantDto, EventStatusDto, EventSummaryDto, InvitationStatusDto, PrivacyLevelDto,
+        RecurrenceRuleDto, StoreTypeDto,
     },
     common::timestamp_to_unix,
     pagination::PageMetaDto,

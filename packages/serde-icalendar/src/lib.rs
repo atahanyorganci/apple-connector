@@ -5,13 +5,12 @@ mod error;
 mod model;
 mod ser;
 
+use std::io::{Read, Write};
+
 pub use error::{Error, Result};
 pub use model::{
     Alarm, Attendee, CalendarEvent, EventDateTime, EventStatus, ExtensionBag, Organizer,
 };
-
-use std::io::{Read, Write};
-
 use serde::{Serialize, de::DeserializeOwned};
 
 /// Serialize a value into an iCalendar string.
@@ -66,7 +65,7 @@ where
 
 #[cfg(test)]
 mod tests {
-    use super::{from_str, to_string, CalendarEvent};
+    use super::{CalendarEvent, from_str, to_string};
 
     #[test]
     fn round_trip_empty_event() {

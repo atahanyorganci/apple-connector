@@ -9,8 +9,8 @@ mod ids;
 mod timestamp;
 
 pub use ids::{
-    AttachmentId, CalendarAccountId, CalendarAttachmentId, CalendarId, ChatId, EventId,
-    MessageId, NoteAttachmentId, NoteFolderId, NoteId, ReminderAttachmentId, ReminderId,
-    ReminderListId, SectionId,
+    AttachmentId, CalendarAccountId, CalendarAttachmentId, CalendarId, ChatId, EventId, MessageId,
+    NoteAttachmentId, NoteFolderId, NoteId, ReminderAttachmentId, ReminderId, ReminderListId,
+    SectionId,
 };
 pub use timestamp::UnixTimestamp;
