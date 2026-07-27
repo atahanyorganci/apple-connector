@@ -1,6 +1,7 @@
 [workspace]
 members = [
   "packages/apple-connector",
+  "packages/apple-eventkit",
   "packages/apple-notes-protobuf",
   "packages/apple-typedstream",
   "packages/serde-icalendar",

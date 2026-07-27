@@ -1,0 +1,22 @@
+[package]
+name = "apple-eventkit"
+version = "0.1.0"
+edition = "2024"
+license = "MIT"
+description = "EventKit wrapper for Reminders and Calendar writes on macOS"
+
+[dependencies]
+chrono = { version = "0.4", default-features = false, features = [
+  "clock",
+  "std",
+] }
+thiserror = "2"
+
+[target.'cfg(target_os = "macos")'.dependencies]
+block2 = "0.6"
+dispatch2 = "0.3"
+objc2 = "0.6"
+objc2-core-location = "0.3"
+objc2-event-kit = "0.3"
+objc2-foundation = "0.3"
+tokio = { version = "1", features = ["sync", "time", "rt"] }
