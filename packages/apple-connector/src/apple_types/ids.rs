@@ -100,6 +100,26 @@ string_id!(
     NoteAttachmentId,
     "11111111-1111-1111-1111-111111111111"
 );
+string_id!(
+    /// Stable identifier for a calendar (its UUID).
+    CalendarId,
+    "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"
+);
+string_id!(
+    /// Stable identifier for a calendar account (store external id).
+    CalendarAccountId,
+    "store-icloud"
+);
+string_id!(
+    /// Stable identifier for a calendar event (its UUID).
+    EventId,
+    "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"
+);
+string_id!(
+    /// Stable identifier for a calendar event attachment (its UUID).
+    CalendarAttachmentId,
+    "dddddddd-dddd-dddd-dddd-dddddddddddd"
+);
 
 /// Internal chat row identifier.
 ///

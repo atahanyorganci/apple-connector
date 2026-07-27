@@ -47,6 +47,14 @@ pub struct Cli {
     /// Path to the Notes attachment Accounts directory.
     #[arg(long, value_name = "PATH")]
     pub notes_attachment_root: Option<PathBuf>,
+
+    /// Path to the read-only Calendar SQLite store. Defaults to the local Calendar.sqlitedb.
+    #[arg(long, value_name = "PATH")]
+    pub calendar_database: Option<PathBuf>,
+
+    /// Path to the Calendar attachment directory.
+    #[arg(long, value_name = "PATH")]
+    pub calendar_attachment_root: Option<PathBuf>,
 }
 
 impl Cli {

@@ -1,5 +1,6 @@
 mod api;
 pub mod apple_types;
+mod calendar;
 mod cli;
 mod db;
 pub mod fixtures;
@@ -24,6 +25,7 @@ pub use messages::{
     load_all, load_chats,
 };
 pub use notes::{NoteInventory, load_inventory as load_notes_inventory};
+pub use calendar::{CalendarInventory, load_inventory as load_calendar_inventory};
 pub use reminders::{ReminderInventory, load_inventory};
 use tracing::{info, warn};
 
@@ -80,13 +82,30 @@ pub async fn run(cli: Cli) -> Result<(), Box<dyn Error>> {
     let attachment_root = cli.attachment_root_path()?;
     let reminders_attachment_root = resolve_reminders_attachment_root(&cli, &reminders_path);
     let notes_attachment_root = resolve_notes_attachment_root(&cli, &notes_path);
+    let calendar_path = resolve_calendar_path(&cli).await;
+    let calendar_db = match calendar_path {
+        Some(ref path) => match connect_pool(path).await {
+            Ok(pool) => Some(pool),
+            Err(_error) => {
+                warn!("Calendar database could not be opened; API will report unavailable");
+                None
+            }
+        },
+        None => {
+            warn!("Calendar database could not be resolved; API will report unavailable");
+            None
+        }
+    };
+    let calendar_attachment_root = resolve_calendar_attachment_root(&cli, &calendar_path);
     let app = router(AppState::with_attachment_roots(
         messages_db,
         reminders_db,
         notes_db,
+        calendar_db,
         attachment_root,
         reminders_attachment_root,
         notes_attachment_root,
+        calendar_attachment_root,
     ));
     let address: SocketAddr = cli
         .socket_addr()
@@ -172,6 +191,53 @@ fn resolve_notes_attachment_root(cli: &Cli, notes_path: &Option<PathBuf>) -> Pat
         .unwrap_or_else(|| {
             notes::discovery::default_notes_attachment_root().unwrap_or_else(|_| {
                 PathBuf::from("/var/empty/apple-connector-notes-attachments-unconfigured")
+            })
+        })
+}
+
+async fn resolve_calendar_path(cli: &Cli) -> Option<PathBuf> {
+    if let Some(path) = &cli.calendar_database {
+        if path.is_file() {
+            return Some(path.clone());
+        }
+        warn!(path = %path.display(), "configured Calendar database path does not exist");
+        return None;
+    }
+
+    if let Ok(path) = std::env::var("APPLE_CONNECTOR_CALENDAR_DATABASE") {
+        let path = PathBuf::from(path);
+        if path.is_file() {
+            return Some(path);
+        }
+        warn!(path = %path.display(), "APPLE_CONNECTOR_CALENDAR_DATABASE path does not exist");
+        return None;
+    }
+
+    let default_path = calendar::default_calendar_database_path().ok()?;
+    if default_path.is_file() {
+        return Some(default_path);
+    }
+
+    for legacy in calendar::legacy_calendar_database_paths() {
+        if legacy.is_file() {
+            return Some(legacy);
+        }
+    }
+
+    None
+}
+
+fn resolve_calendar_attachment_root(cli: &Cli, calendar_path: &Option<PathBuf>) -> PathBuf {
+    if let Some(path) = &cli.calendar_attachment_root {
+        return path.clone();
+    }
+
+    calendar_path
+        .as_ref()
+        .and_then(|path| calendar::calendar_attachment_root_for_database(path).ok())
+        .unwrap_or_else(|| {
+            calendar::default_calendar_attachment_root().unwrap_or_else(|_| {
+                PathBuf::from("/var/empty/apple-connector-calendar-attachments-unconfigured")
             })
         })
 }

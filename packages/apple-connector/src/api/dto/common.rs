@@ -40,6 +40,7 @@ pub struct HealthStatusDto {
     pub messages: HealthStatus,
     pub reminders: HealthStatus,
     pub notes: HealthStatus,
+    pub calendar: HealthStatus,
 }
 
 pub fn direction_to_dto(direction: Direction) -> DirectionDto {

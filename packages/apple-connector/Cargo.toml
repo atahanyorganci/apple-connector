@@ -7,6 +7,8 @@ license = "MIT"
 [dependencies]
 apple-notes-protobuf = { path = "../apple-notes-protobuf" }
 apple-typedstream = { path = "../apple-typedstream" }
+serde-caldav = { path = "../serde-caldav" }
+serde-icalendar = { path = "../serde-icalendar" }
 axum = "0.8"
 base64 = "0.22"
 chrono = { version = "0.4", default-features = false, features = [
@@ -38,6 +40,7 @@ tower = "0.5"
 tower-http = { version = "0.6", features = ["fs"] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+tokio-util = { version = "0.7", features = ["io"] }
 utoipa = { version = "5", features = ["chrono", "macros"] }
 utoipa-axum = "0.2"
 utoipa-scalar = { version = "0.3.0", features = ["axum"] }
@@ -58,5 +61,7 @@ tokio = { version = "1.53.1", features = [
   "net",
   "rt-multi-thread",
   "time",
+  "fs",
 ] }
+tokio-util = { version = "0.7", features = ["io"] }
 tower = { version = "0.5", features = ["util"] }

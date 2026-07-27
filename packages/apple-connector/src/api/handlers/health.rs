@@ -27,6 +27,14 @@ pub(crate) fn require_reminders_db(
     })
 }
 
+pub(crate) fn require_calendar_db(
+    pool: &Option<SqlitePool>,
+) -> Result<&SqlitePool, crate::api::error::ApiError> {
+    pool.as_ref().ok_or_else(|| {
+        crate::api::error::ApiError::service_unavailable("Calendar database is unavailable")
+    })
+}
+
 pub(crate) fn require_notes_db(
     pool: &Option<SqlitePool>,
 ) -> Result<&SqlitePool, crate::api::error::ApiError> {
@@ -62,9 +70,16 @@ async fn notes_status(pool: &Option<SqlitePool>) -> HealthStatus {
     }
 }
 
+async fn calendar_status(pool: &Option<SqlitePool>) -> HealthStatus {
+    match pool {
+        Some(pool) if is_pool_healthy(pool).await => HealthStatus::Ok,
+        _ => HealthStatus::Unavailable,
+    }
+}
+
 /// Health check
 ///
-/// Reports whether the read-only Messages, Reminders, and Notes database pools are healthy.
+/// Reports whether the read-only Messages, Reminders, Notes, and Calendar database pools are healthy.
 #[utoipa::path(
     get,
     path = "/healthz",
@@ -81,13 +96,17 @@ pub async fn healthz(
     let messages = messages_status(&state.messages_db).await;
     let reminders = reminders_status(&state.reminders_db).await;
     let notes = notes_status(&state.notes_db).await;
+    let calendar = calendar_status(&state.calendar_db).await;
     let body = HealthStatusDto {
         messages,
         reminders,
         notes,
+        calendar,
     };
-    let all_ok =
-        messages == HealthStatus::Ok && reminders == HealthStatus::Ok && notes == HealthStatus::Ok;
+    let all_ok = messages == HealthStatus::Ok
+        && reminders == HealthStatus::Ok
+        && notes == HealthStatus::Ok
+        && calendar == HealthStatus::Ok;
 
     if all_ok {
         Ok((StatusCode::OK, Json(body)))
@@ -128,6 +147,7 @@ mod tests {
             Some(messages_pool),
             Some(reminders_pool),
             None,
+            None,
         ));
 
         let response = app
@@ -150,13 +170,13 @@ mod tests {
             .to_bytes();
         assert_eq!(
             serde_json::from_slice::<serde_json::Value>(&body).expect("json"),
-            serde_json::json!({ "messages": "ok", "reminders": "ok", "notes": "unavailable" })
+            serde_json::json!({ "messages": "ok", "reminders": "ok", "notes": "unavailable", "calendar": "unavailable" })
         );
     }
 
     #[tokio::test]
     async fn healthz_reports_unavailable_without_leaking_paths() {
-        let app = router(AppState::new(None, None, None));
+        let app = router(AppState::new(None, None, None, None));
 
         let response = app
             .oneshot(
@@ -179,7 +199,7 @@ mod tests {
         let payload = String::from_utf8(body.to_vec()).expect("utf-8");
         assert_eq!(
             serde_json::from_str::<serde_json::Value>(&payload).expect("json"),
-            serde_json::json!({ "messages": "unavailable", "reminders": "unavailable", "notes": "unavailable" })
+            serde_json::json!({ "messages": "unavailable", "reminders": "unavailable", "notes": "unavailable", "calendar": "unavailable" })
         );
         assert!(!payload.contains("chat.db"));
         assert!(!payload.contains("Library/Messages"));

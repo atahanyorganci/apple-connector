@@ -14,6 +14,8 @@ const REMINDERS_SCHEMA: &str = include_str!("../fixtures/reminders/reminders.sch
 const REMINDERS_SEED: &str = include_str!("../fixtures/reminders/seed.sql");
 const NOTES_SCHEMA: &str = include_str!("../fixtures/notes/notes.schema.sql");
 const NOTES_SEED: &str = include_str!("../fixtures/notes/seed.sql");
+const CALENDAR_SCHEMA: &str = include_str!("../fixtures/calendar/calendar.schema.sql");
+const CALENDAR_SEED: &str = include_str!("../fixtures/calendar/seed.sql");
 
 const SEED_HANDLE_ID: &str = "+15551234567";
 const SEED_CHAT_GUID: &str = "fixture-chat-guid";
@@ -29,6 +31,12 @@ pub const SEED_LOCKED_NOTE_ID: &str = "cccccccc-cccc-cccc-cccc-cccccccccccc";
 pub const SEED_SUMMARY_NOTE_ID: &str = "dddddddd-dddd-dddd-dddd-dddddddddddd";
 pub const SEED_ATTACHMENT_NOTE_ID: &str = "eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee";
 pub const SEED_ATTACHMENT_ID: &str = "ffffffff-ffff-ffff-ffff-ffffffffffff";
+
+pub const SEED_CALENDAR_ACCOUNT_ID: &str = "store-icloud";
+pub const SEED_CALENDAR_ID: &str = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa";
+pub const SEED_EVENT_ID: &str = "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb";
+pub const SEED_RECURRING_EVENT_ID: &str = "cccccccc-cccc-cccc-cccc-cccccccccccc";
+pub const SEED_EVENT_ATTACHMENT_ID: &str = "dddddddd-dddd-dddd-dddd-dddddddddddd";
 
 pub struct FixtureDb {
     _temp_dir: TempDir,
@@ -227,6 +235,60 @@ async fn apply_notes_schema(path: &Path, seed: bool) -> io::Result<()> {
 
     if seed {
         sqlx::raw_sql(NOTES_SEED)
+            .execute(&mut connection)
+            .await
+            .map_err(io::Error::other)?;
+    }
+
+    connection.close().await.ok();
+    Ok(())
+}
+
+pub struct CalendarFixtureDb {
+    _temp_dir: TempDir,
+    path: PathBuf,
+}
+
+impl CalendarFixtureDb {
+    pub async fn empty() -> io::Result<Self> {
+        Self::with_seed(false).await
+    }
+
+    pub async fn seeded() -> io::Result<Self> {
+        Self::with_seed(true).await
+    }
+
+    pub fn path(&self) -> &Path {
+        &self.path
+    }
+
+    async fn with_seed(seed: bool) -> io::Result<Self> {
+        let temp_dir = TempDir::new()?;
+        let path = temp_dir.path().join("Calendar.sqlitedb");
+        apply_calendar_schema(&path, seed).await?;
+        Ok(Self {
+            _temp_dir: temp_dir,
+            path,
+        })
+    }
+}
+
+async fn apply_calendar_schema(path: &Path, seed: bool) -> io::Result<()> {
+    let options = SqliteConnectOptions::new()
+        .filename(path)
+        .create_if_missing(true);
+
+    let mut connection = SqliteConnection::connect_with(&options)
+        .await
+        .map_err(io::Error::other)?;
+
+    sqlx::raw_sql(CALENDAR_SCHEMA)
+        .execute(&mut connection)
+        .await
+        .map_err(io::Error::other)?;
+
+    if seed {
+        sqlx::raw_sql(CALENDAR_SEED)
             .execute(&mut connection)
             .await
             .map_err(io::Error::other)?;
