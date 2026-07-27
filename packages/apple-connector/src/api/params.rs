@@ -777,8 +777,6 @@ pub struct EventListParams {
     pub end: Option<i64>,
     pub include_hidden: Option<bool>,
     pub include_cancelled: Option<bool>,
-    #[param(example = "json")]
-    pub format: Option<String>,
 }
 
 impl EventListParams {

@@ -2,7 +2,6 @@ pub(crate) mod cursor;
 mod doc;
 mod dto;
 mod error;
-pub(crate) mod format;
 mod handlers;
 mod middleware;
 pub(crate) mod params;

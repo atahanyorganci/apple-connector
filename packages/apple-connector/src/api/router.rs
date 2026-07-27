@@ -146,14 +146,23 @@ fn openapi_router() -> OpenApiRouter<AppState> {
         .routes(routes!(crate::api::handlers::calendars::list_calendars))
         .routes(routes!(crate::api::handlers::calendars::get_calendar))
         .routes(routes!(
+            crate::api::handlers::calendars::list_calendar_events_ical
+        ))
+        .routes(routes!(
+            crate::api::handlers::calendars::list_calendar_events_caldav
+        ))
+        .routes(routes!(
             crate::api::handlers::calendars::list_calendar_events
         ))
+        .routes(routes!(crate::api::handlers::events::list_events_ical))
+        .routes(routes!(crate::api::handlers::events::list_events_caldav))
         .routes(routes!(crate::api::handlers::events::list_events))
-        .routes(routes!(crate::api::handlers::events::get_event))
-        .routes(routes!(crate::api::handlers::events::parse_event))
         .routes(routes!(
             crate::api::handlers::event_attachments::get_event_attachment_content
         ))
+        .routes(routes!(crate::api::handlers::events::get_event_ical))
+        .routes(routes!(crate::api::handlers::events::get_event_caldav))
+        .routes(routes!(crate::api::handlers::events::get_event))
         .routes(routes!(crate::api::handlers::openapi::get_openapi_spec))
 }
 
@@ -196,9 +205,14 @@ mod tests {
         ("GET", "/v1/calendars"),
         ("GET", "/v1/calendars/test-id"),
         ("GET", "/v1/calendars/test-id/events"),
+        ("GET", "/v1/calendars/test-id/events/iCal"),
+        ("GET", "/v1/calendars/test-id/events/caldav"),
         ("GET", "/v1/events"),
+        ("GET", "/v1/events/iCal"),
+        ("GET", "/v1/events/caldav"),
         ("GET", "/v1/events/test-id"),
-        ("POST", "/v1/events/parse"),
+        ("GET", "/v1/events/test-id/iCal"),
+        ("GET", "/v1/events/test-id/caldav"),
         ("GET", "/v1/events/test-id/attachments/test-id"),
         ("GET", "/openapi.json"),
     ];

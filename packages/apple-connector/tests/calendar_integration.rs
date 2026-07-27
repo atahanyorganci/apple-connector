@@ -35,12 +35,11 @@ async fn response_json(app: Router, uri: &str) -> (StatusCode, serde_json::Value
     (status, payload)
 }
 
-async fn response_text(app: Router, uri: &str, accept: &str) -> (StatusCode, String) {
+async fn response_text(app: Router, uri: &str) -> (StatusCode, String) {
     let response = app
         .oneshot(
             Request::builder()
                 .uri(uri)
-                .header("accept", accept)
                 .body(Body::empty())
                 .expect("request"),
         )
@@ -111,24 +110,24 @@ async fn integration_calendar_events_json_ics_and_caldav() {
             .is_some_and(|a| !a.is_empty())
     );
 
-    let (status, ics) = response_text(
-        app.clone(),
-        &format!("/v1/events/{SEED_EVENT_ID}"),
-        "text/calendar",
-    )
-    .await;
+    let (status, ics) =
+        response_text(app.clone(), &format!("/v1/events/{SEED_EVENT_ID}/iCal")).await;
     assert_eq!(status, StatusCode::OK);
     assert!(ics.contains("BEGIN:VCALENDAR"));
     assert!(ics.contains("SUMMARY:Team Standup"));
 
-    let (status, caldav) = response_text(
-        app.clone(),
-        &format!("/v1/events/{SEED_EVENT_ID}"),
-        "application/caldav+xml",
-    )
-    .await;
+    let (status, caldav) =
+        response_text(app.clone(), &format!("/v1/events/{SEED_EVENT_ID}/caldav")).await;
     assert_eq!(status, StatusCode::OK);
     assert!(caldav.contains("calendar-data"));
+
+    let (status, list_ics) = response_text(app.clone(), "/v1/events/iCal?limit=10").await;
+    assert_eq!(status, StatusCode::OK);
+    assert!(list_ics.contains("BEGIN:VCALENDAR"));
+
+    let (status, list_caldav) = response_text(app.clone(), "/v1/events/caldav?limit=10").await;
+    assert_eq!(status, StatusCode::OK);
+    assert!(list_caldav.contains("calendar-data"));
 
     let (status, scoped) = response_json(
         app.clone(),

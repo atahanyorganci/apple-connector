@@ -661,7 +661,7 @@
         "tags": [
           "events"
         ],
-        "summary": "List events for a calendar",
+        "summary": "List events for a calendar as JSON",
         "operationId": "listCalendarEvents",
         "parameters": [
           {
@@ -764,16 +764,150 @@
               "type": "boolean"
             },
             "style": "form"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Paginated events",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EventPageDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid query parameters",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Calendar database is unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/calendars/{calendar_id}/events/caldav": {
+      "get": {
+        "tags": [
+          "events"
+        ],
+        "summary": "List events for a calendar as CalDAV XML",
+        "operationId": "listCalendarEventsCaldav",
+        "parameters": [
+          {
+            "name": "calendar_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
           },
           {
-            "name": "format",
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 50,
+              "maximum": 200,
+              "minimum": 1
+            },
+            "style": "form",
+            "example": 50
+          },
+          {
+            "name": "cursor",
             "in": "query",
             "required": false,
             "schema": {
               "type": "string"
             },
             "style": "form",
-            "example": "json"
+            "example": "v1.eyJyb3dfaWQiOjF9"
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 256
+            },
+            "style": "form",
+            "example": "standup"
+          },
+          {
+            "name": "calendar_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "style": "form"
+          },
+          {
+            "name": "account_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "style": "form"
+          },
+          {
+            "name": "start",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "style": "form",
+            "example": 1704067200
+          },
+          {
+            "name": "end",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "style": "form",
+            "example": 1735689600
+          },
+          {
+            "name": "include_hidden",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            },
+            "style": "form"
+          },
+          {
+            "name": "include_cancelled",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            },
+            "style": "form"
           }
         ],
         "responses": {
@@ -781,6 +915,146 @@
             "description": "CalDAV multistatus",
             "content": {
               "application/caldav+xml": {}
+            }
+          },
+          "400": {
+            "description": "Invalid query parameters",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Calendar database is unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/calendars/{calendar_id}/events/iCal": {
+      "get": {
+        "tags": [
+          "events"
+        ],
+        "summary": "List events for a calendar as iCalendar",
+        "operationId": "listCalendarEventsIcal",
+        "parameters": [
+          {
+            "name": "calendar_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 50,
+              "maximum": 200,
+              "minimum": 1
+            },
+            "style": "form",
+            "example": 50
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "style": "form",
+            "example": "v1.eyJyb3dfaWQiOjF9"
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 256
+            },
+            "style": "form",
+            "example": "standup"
+          },
+          {
+            "name": "calendar_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "style": "form"
+          },
+          {
+            "name": "account_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "style": "form"
+          },
+          {
+            "name": "start",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "style": "form",
+            "example": 1704067200
+          },
+          {
+            "name": "end",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "style": "form",
+            "example": 1735689600
+          },
+          {
+            "name": "include_hidden",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            },
+            "style": "form"
+          },
+          {
+            "name": "include_cancelled",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            },
+            "style": "form"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "iCalendar feed",
+            "content": {
+              "text/calendar": {}
             }
           },
           "400": {
@@ -1057,7 +1331,7 @@
         "tags": [
           "events"
         ],
-        "summary": "List events globally",
+        "summary": "List events globally as JSON",
         "operationId": "listEvents",
         "parameters": [
           {
@@ -1152,23 +1426,17 @@
               "type": "boolean"
             },
             "style": "form"
-          },
-          {
-            "name": "format",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "string"
-            },
-            "style": "form",
-            "example": "json"
           }
         ],
         "responses": {
           "200": {
-            "description": "CalDAV multistatus",
+            "description": "Paginated events",
             "content": {
-              "application/caldav+xml": {}
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EventPageDto"
+                }
+              }
             }
           },
           "400": {
@@ -1194,63 +1462,14 @@
         }
       }
     },
-    "/v1/events/parse": {
-      "post": {
-        "tags": [
-          "events"
-        ],
-        "summary": "Parse an ICS or CalDAV payload into a JSON event DTO (no database writes).",
-        "operationId": "parseEvent",
-        "requestBody": {
-          "content": {
-            "text/calendar": {
-              "schema": {
-                "type": "string"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "Parsed event",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/EventDetailDto"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Invalid payload",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/v1/events/{event_id}": {
+    "/v1/events/caldav": {
       "get": {
         "tags": [
           "events"
         ],
-        "summary": "Get an event",
-        "operationId": "getEvent",
+        "summary": "List events globally as CalDAV XML",
+        "operationId": "listEventsCaldav",
         "parameters": [
-          {
-            "name": "event_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
           {
             "name": "limit",
             "in": "query",
@@ -1343,23 +1562,196 @@
               "type": "boolean"
             },
             "style": "form"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "CalDAV multistatus",
+            "content": {
+              "application/caldav+xml": {}
+            }
+          },
+          "400": {
+            "description": "Invalid query parameters",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Calendar database is unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/events/iCal": {
+      "get": {
+        "tags": [
+          "events"
+        ],
+        "summary": "List events globally as iCalendar",
+        "operationId": "listEventsIcal",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 50,
+              "maximum": 200,
+              "minimum": 1
+            },
+            "style": "form",
+            "example": 50
           },
           {
-            "name": "format",
+            "name": "cursor",
             "in": "query",
             "required": false,
             "schema": {
               "type": "string"
             },
             "style": "form",
-            "example": "json"
+            "example": "v1.eyJyb3dfaWQiOjF9"
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 256
+            },
+            "style": "form",
+            "example": "standup"
+          },
+          {
+            "name": "calendar_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "style": "form"
+          },
+          {
+            "name": "account_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "style": "form"
+          },
+          {
+            "name": "start",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "style": "form",
+            "example": 1704067200
+          },
+          {
+            "name": "end",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "style": "form",
+            "example": 1735689600
+          },
+          {
+            "name": "include_hidden",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            },
+            "style": "form"
+          },
+          {
+            "name": "include_cancelled",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            },
+            "style": "form"
           }
         ],
         "responses": {
           "200": {
-            "description": "CalDAV resource",
+            "description": "iCalendar feed",
             "content": {
-              "application/caldav+xml": {}
+              "text/calendar": {}
+            }
+          },
+          "400": {
+            "description": "Invalid query parameters",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Calendar database is unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/events/{event_id}": {
+      "get": {
+        "tags": [
+          "events"
+        ],
+        "summary": "Get an event as JSON",
+        "operationId": "getEvent",
+        "parameters": [
+          {
+            "name": "event_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Event detail",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EventDetailDto"
+                }
+              }
             }
           },
           "404": {
@@ -1458,6 +1850,100 @@
           },
           "404": {
             "description": "Attachment not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Calendar database is unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/events/{event_id}/caldav": {
+      "get": {
+        "tags": [
+          "events"
+        ],
+        "summary": "Get an event as CalDAV XML",
+        "operationId": "getEventCaldav",
+        "parameters": [
+          {
+            "name": "event_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "CalDAV resource",
+            "content": {
+              "application/caldav+xml": {}
+            }
+          },
+          "404": {
+            "description": "Event not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Calendar database is unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/events/{event_id}/iCal": {
+      "get": {
+        "tags": [
+          "events"
+        ],
+        "summary": "Get an event as iCalendar",
+        "operationId": "getEventIcal",
+        "parameters": [
+          {
+            "name": "event_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "iCalendar document",
+            "content": {
+              "text/calendar": {}
+            }
+          },
+          "404": {
+            "description": "Event not found",
             "content": {
               "application/json": {
                 "schema": {
@@ -4408,12 +4894,6 @@
               "null"
             ],
             "format": "int64"
-          },
-          "format": {
-            "type": [
-              "string",
-              "null"
-            ]
           },
           "include_cancelled": {
             "type": [

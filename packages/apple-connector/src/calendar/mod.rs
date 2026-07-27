@@ -17,7 +17,7 @@ pub use discovery::{
 pub use inventory::{CalendarInventory, load_inventory};
 pub use model::{
     CalendarAccount, CalendarDetail, CalendarSummary, Event, EventAttachment, EventDetail,
-    EventLocation, EventParticipant, EventSummary, InterchangeStatus, RecurrenceRule,
+    EventLocation, EventParticipant, EventSummary, RecurrenceRule,
 };
-pub use repository::{CalendarRepository, unix_to_core_data_secs};
+pub use repository::{CalendarRepository, Page, unix_to_core_data_secs};
 pub use search::{EventFilters, EventFiltersSnapshot};

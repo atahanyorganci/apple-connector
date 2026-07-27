@@ -327,9 +327,22 @@ mod tests {
             "/v1/calendars/{calendar_id}/events",
             "listCalendarEvents",
         ),
+        (
+            "get",
+            "/v1/calendars/{calendar_id}/events/iCal",
+            "listCalendarEventsIcal",
+        ),
+        (
+            "get",
+            "/v1/calendars/{calendar_id}/events/caldav",
+            "listCalendarEventsCaldav",
+        ),
         ("get", "/v1/events", "listEvents"),
+        ("get", "/v1/events/iCal", "listEventsIcal"),
+        ("get", "/v1/events/caldav", "listEventsCaldav"),
         ("get", "/v1/events/{event_id}", "getEvent"),
-        ("post", "/v1/events/parse", "parseEvent"),
+        ("get", "/v1/events/{event_id}/iCal", "getEventIcal"),
+        ("get", "/v1/events/{event_id}/caldav", "getEventCaldav"),
         (
             "get",
             "/v1/events/{event_id}/attachments/{attachment_id}",
