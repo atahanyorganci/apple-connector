@@ -4,6 +4,13 @@ use super::{
     dto::{
         attachment::{AttachmentDetailDto, AttachmentKindDto, AttachmentSummaryDto},
         chat::{ChatDetailDto, ChatPageDto, ChatSummaryDto},
+        calendar::{
+            AvailabilityDto, CalendarAccountDto, CalendarAccountPageDto, CalendarDetailDto,
+            CalendarPageDto, CalendarSummaryDto, EventAlarmDto, EventAttachmentDetailDto,
+            EventAttachmentSummaryDto, EventClassDto, EventDetailDto, EventLocationDto,
+            EventPageDto, EventParticipantDto, EventStatusDto, EventSummaryDto,
+            InvitationStatusDto, PrivacyLevelDto, RecurrenceRuleDto, StoreTypeDto,
+        },
         common::{DirectionDto, HandleDto, HealthStatus, HealthStatusDto, TransportDto},
         content::{
             AppBalloonContentDto, AppBalloonKindDto, AttachmentContentDto, AttributedBodyErrorDto,
@@ -31,16 +38,17 @@ use super::{
     },
     error::{ErrorBody, ErrorCode, ErrorResponse},
     params::{
-        AttachmentGuidPath, ChatIdPath, ConditionalRequestHeaders, ContentTypeFilterDto,
-        DirectionFilterDto, MessageGuidPath, MessageListParams, NoteAttachmentIdPath,
+        AttachmentGuidPath, CalendarIdPath, ChatIdPath, ConditionalRequestHeaders, ContentTypeFilterDto,
+        DirectionFilterDto, EventAttachmentIdPath, EventIdPath, EventListParams, MessageGuidPath, MessageListParams, NoteAttachmentIdPath,
         NoteFolderIdPath, NoteIdPath, NoteListParams, PageParams, RangeRequestHeader,
         ReminderAttachmentIdPath, ReminderIdPath, ReminderListIdPath, ReminderListParams,
         TransportFilterDto,
     },
 };
 use crate::apple_types::{
-    AttachmentId, ChatId, MessageId, NoteAttachmentId, NoteFolderId, NoteId, ReminderAttachmentId,
-    ReminderId, ReminderListId, SectionId, UnixTimestamp,
+    AttachmentId, CalendarAccountId, CalendarAttachmentId, CalendarId, ChatId, EventId,
+    MessageId, NoteAttachmentId, NoteFolderId, NoteId, ReminderAttachmentId, ReminderId,
+    ReminderListId, SectionId, UnixTimestamp,
 };
 
 struct SecurityAddon;
@@ -71,7 +79,7 @@ impl Modify for SecurityAddon {
     info(
         title = "Apple Connector API",
         version = "1.0.0",
-        description = "Read-only HTTP API for Messages.app, Reminders.app, and Notes.app data backed by live SQLite connections.\n\n\
+        description = "Read-only HTTP API for Messages.app, Reminders.app, Notes.app, and Calendar.app data backed by live SQLite connections.\n\n\
             Pagination uses keyset cursors only (default limit 50, maximum 200, newest first). \
             Offsets are not supported.\n\n\
             Authentication, TLS, and network exposure controls are expected to be enforced by an \
@@ -94,11 +102,18 @@ impl Modify for SecurityAddon {
         (name = "note-folders", description = "Note folder listing and folder-scoped notes"),
         (name = "notes", description = "Global note listing and lookup"),
         (name = "note-attachments", description = "Note attachment metadata and byte streaming"),
+        (name = "calendars", description = "Calendar account and calendar listing"),
+        (name = "events", description = "Global event listing, lookup, and interchange parsing"),
+        (name = "event-attachments", description = "Event attachment byte streaming"),
         (name = "meta", description = "API metadata and contract export")
     ),
     components(schemas(
         AttachmentId,
+        CalendarAccountId,
+        CalendarAttachmentId,
+        CalendarId,
         ChatId,
+        EventId,
         MessageId,
         NoteAttachmentId,
         NoteFolderId,
@@ -131,8 +146,32 @@ impl Modify for SecurityAddon {
         ParagraphStyleKindDto,
         AlarmDto,
         AlarmKindDto,
+        AvailabilityDto,
+        CalendarAccountDto,
+        CalendarAccountPageDto,
+        CalendarDetailDto,
+        CalendarIdPath,
+        CalendarPageDto,
+        CalendarSummaryDto,
         DueDto,
+        EventAlarmDto,
+        EventAttachmentDetailDto,
+        EventAttachmentIdPath,
+        EventAttachmentSummaryDto,
+        EventClassDto,
+        EventDetailDto,
+        EventIdPath,
+        EventListParams,
+        EventLocationDto,
+        EventPageDto,
+        EventParticipantDto,
+        EventStatusDto,
+        EventSummaryDto,
+        InvitationStatusDto,
+        PrivacyLevelDto,
         RecurrenceDto,
+        RecurrenceRuleDto,
+        StoreTypeDto,
         AttachmentDetailDto,
         AttachmentGuidPath,
         AttachmentKindDto,
@@ -279,6 +318,22 @@ mod tests {
             "/v1/note-attachments/{id}/content",
             "headNoteAttachmentContent",
         ),
+        ("get", "/v1/calendar-accounts", "listCalendarAccounts"),
+        ("get", "/v1/calendars", "listCalendars"),
+        ("get", "/v1/calendars/{calendar_id}", "getCalendar"),
+        (
+            "get",
+            "/v1/calendars/{calendar_id}/events",
+            "listCalendarEvents",
+        ),
+        ("get", "/v1/events", "listEvents"),
+        ("get", "/v1/events/{event_id}", "getEvent"),
+        ("post", "/v1/events/parse", "parseEvent"),
+        (
+            "get",
+            "/v1/events/{event_id}/attachments/{attachment_id}",
+            "getEventAttachmentContent",
+        ),
         ("get", "/openapi.json", "getOpenApiSpec"),
     ];
 
@@ -341,6 +396,7 @@ mod tests {
         match method {
             "get" => item.get.as_ref(),
             "head" => item.head.as_ref(),
+            "post" => item.post.as_ref(),
             _ => None,
         }
         .unwrap_or_else(|| panic!("missing `{method} {path}`"))

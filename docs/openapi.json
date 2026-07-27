@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Apple Connector API",
-    "description": "Read-only HTTP API for Messages.app, Reminders.app, and Notes.app data backed by live SQLite connections.\n\nPagination uses keyset cursors only (default limit 50, maximum 200, newest first). Offsets are not supported.\n\nAuthentication, TLS, and network exposure controls are expected to be enforced by an external reverse proxy or firewall. This service does not implement authentication or TLS.",
+    "description": "Read-only HTTP API for Messages.app, Reminders.app, Notes.app, and Calendar.app data backed by live SQLite connections.\n\nPagination uses keyset cursors only (default limit 50, maximum 200, newest first). Offsets are not supported.\n\nAuthentication, TLS, and network exposure controls are expected to be enforced by an external reverse proxy or firewall. This service does not implement authentication or TLS.",
     "license": {
       "name": "MIT",
       "identifier": "MIT"
@@ -22,7 +22,7 @@
           "health"
         ],
         "summary": "Health check",
-        "description": "Reports whether the read-only Messages, Reminders, and Notes database pools are healthy.",
+        "description": "Reports whether the read-only Messages, Reminders, Notes, and Calendar database pools are healthy.",
         "operationId": "getHealth",
         "responses": {
           "200": {
@@ -505,6 +505,307 @@
         }
       }
     },
+    "/v1/calendar-accounts": {
+      "get": {
+        "tags": [
+          "calendar-accounts"
+        ],
+        "summary": "List calendar accounts",
+        "operationId": "listCalendarAccounts",
+        "responses": {
+          "200": {
+            "description": "Calendar accounts",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CalendarAccountPageDto"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Calendar database is unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/calendars": {
+      "get": {
+        "tags": [
+          "calendars"
+        ],
+        "summary": "List calendars",
+        "operationId": "listCalendars",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "Maximum number of items to return. Defaults to 50. Keyset pagination only; no offsets.",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 50,
+              "maximum": 200,
+              "minimum": 1
+            },
+            "style": "form",
+            "example": 50
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "description": "URL-safe versioned cursor for the next page. Results are ordered newest first.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "style": "form",
+            "example": "v1.eyJkYXRlIjoxNzA0MDk2MDAwfQ"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Paginated calendars",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CalendarPageDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid query parameters",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Calendar database is unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/calendars/{calendar_id}": {
+      "get": {
+        "tags": [
+          "calendars"
+        ],
+        "summary": "Get a calendar",
+        "operationId": "getCalendar",
+        "parameters": [
+          {
+            "name": "calendar_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Calendar detail",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CalendarDetailDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Calendar not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Calendar database is unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/calendars/{calendar_id}/events": {
+      "get": {
+        "tags": [
+          "events"
+        ],
+        "summary": "List events for a calendar",
+        "operationId": "listCalendarEvents",
+        "parameters": [
+          {
+            "name": "calendar_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 50,
+              "maximum": 200,
+              "minimum": 1
+            },
+            "style": "form",
+            "example": 50
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "style": "form",
+            "example": "v1.eyJyb3dfaWQiOjF9"
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 256
+            },
+            "style": "form",
+            "example": "standup"
+          },
+          {
+            "name": "calendar_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "style": "form"
+          },
+          {
+            "name": "account_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "style": "form"
+          },
+          {
+            "name": "start",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "style": "form",
+            "example": 1704067200
+          },
+          {
+            "name": "end",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "style": "form",
+            "example": 1735689600
+          },
+          {
+            "name": "include_hidden",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            },
+            "style": "form"
+          },
+          {
+            "name": "include_cancelled",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            },
+            "style": "form"
+          },
+          {
+            "name": "format",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "style": "form",
+            "example": "json"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "CalDAV multistatus",
+            "content": {
+              "application/caldav+xml": {}
+            }
+          },
+          "400": {
+            "description": "Invalid query parameters",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Calendar database is unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/chats": {
       "get": {
         "tags": [
@@ -740,6 +1041,433 @@
           },
           "503": {
             "description": "Messages database is unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/events": {
+      "get": {
+        "tags": [
+          "events"
+        ],
+        "summary": "List events globally",
+        "operationId": "listEvents",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 50,
+              "maximum": 200,
+              "minimum": 1
+            },
+            "style": "form",
+            "example": 50
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "style": "form",
+            "example": "v1.eyJyb3dfaWQiOjF9"
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 256
+            },
+            "style": "form",
+            "example": "standup"
+          },
+          {
+            "name": "calendar_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "style": "form"
+          },
+          {
+            "name": "account_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "style": "form"
+          },
+          {
+            "name": "start",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "style": "form",
+            "example": 1704067200
+          },
+          {
+            "name": "end",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "style": "form",
+            "example": 1735689600
+          },
+          {
+            "name": "include_hidden",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            },
+            "style": "form"
+          },
+          {
+            "name": "include_cancelled",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            },
+            "style": "form"
+          },
+          {
+            "name": "format",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "style": "form",
+            "example": "json"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "CalDAV multistatus",
+            "content": {
+              "application/caldav+xml": {}
+            }
+          },
+          "400": {
+            "description": "Invalid query parameters",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Calendar database is unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/events/parse": {
+      "post": {
+        "tags": [
+          "events"
+        ],
+        "summary": "Parse an ICS or CalDAV payload into a JSON event DTO (no database writes).",
+        "operationId": "parseEvent",
+        "requestBody": {
+          "content": {
+            "text/calendar": {
+              "schema": {
+                "type": "string"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Parsed event",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EventDetailDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid payload",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/events/{event_id}": {
+      "get": {
+        "tags": [
+          "events"
+        ],
+        "summary": "Get an event",
+        "operationId": "getEvent",
+        "parameters": [
+          {
+            "name": "event_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 50,
+              "maximum": 200,
+              "minimum": 1
+            },
+            "style": "form",
+            "example": 50
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "style": "form",
+            "example": "v1.eyJyb3dfaWQiOjF9"
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 256
+            },
+            "style": "form",
+            "example": "standup"
+          },
+          {
+            "name": "calendar_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "style": "form"
+          },
+          {
+            "name": "account_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "style": "form"
+          },
+          {
+            "name": "start",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "style": "form",
+            "example": 1704067200
+          },
+          {
+            "name": "end",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "style": "form",
+            "example": 1735689600
+          },
+          {
+            "name": "include_hidden",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            },
+            "style": "form"
+          },
+          {
+            "name": "include_cancelled",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            },
+            "style": "form"
+          },
+          {
+            "name": "format",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "style": "form",
+            "example": "json"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "CalDAV resource",
+            "content": {
+              "application/caldav+xml": {}
+            }
+          },
+          "404": {
+            "description": "Event not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Calendar database is unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/events/{event_id}/attachments/{attachment_id}": {
+      "get": {
+        "tags": [
+          "event-attachments"
+        ],
+        "summary": "Stream event attachment bytes",
+        "operationId": "getEventAttachmentContent",
+        "parameters": [
+          {
+            "name": "event_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "attachment_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "If-None-Match",
+            "in": "header",
+            "description": "Validator for conditional GET/HEAD requests.",
+            "required": false,
+            "schema": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "example": "\"abc123\""
+          },
+          {
+            "name": "If-Modified-Since",
+            "in": "header",
+            "description": "Timestamp validator for conditional GET/HEAD requests.",
+            "required": false,
+            "schema": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "example": "Mon, 01 Jan 2024 12:00:00 GMT"
+          },
+          {
+            "name": "Range",
+            "in": "header",
+            "description": "Byte range for partial content requests.",
+            "required": false,
+            "schema": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "example": "bytes=0-1023"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Attachment bytes",
+            "content": {
+              "application/octet-stream": {}
+            }
+          },
+          "404": {
+            "description": "Attachment not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Calendar database is unavailable",
             "content": {
               "application/json": {
                 "schema": {
@@ -2945,6 +3673,165 @@
           }
         }
       },
+      "AvailabilityDto": {
+        "type": "string",
+        "enum": [
+          "busy",
+          "free",
+          "tentative",
+          "unavailable"
+        ]
+      },
+      "CalendarAccountDto": {
+        "type": "object",
+        "required": [
+          "id",
+          "row_id",
+          "store_type",
+          "disabled"
+        ],
+        "properties": {
+          "disabled": {
+            "type": "boolean"
+          },
+          "id": {
+            "$ref": "#/components/schemas/CalendarAccountId"
+          },
+          "name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "row_id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "store_type": {
+            "$ref": "#/components/schemas/StoreTypeDto"
+          }
+        }
+      },
+      "CalendarAccountId": {
+        "type": "string",
+        "description": "Stable identifier for a calendar account (store external id).",
+        "example": "store-icloud"
+      },
+      "CalendarAccountPageDto": {
+        "type": "object",
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CalendarAccountDto"
+            }
+          }
+        }
+      },
+      "CalendarAttachmentId": {
+        "type": "string",
+        "description": "Stable identifier for a calendar event attachment (its UUID).",
+        "example": "dddddddd-dddd-dddd-dddd-dddddddddddd"
+      },
+      "CalendarDetailDto": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/CalendarSummaryDto"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "notes": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "sharing_status": {
+                "type": [
+                  "integer",
+                  "null"
+                ],
+                "format": "int64"
+              }
+            }
+          }
+        ]
+      },
+      "CalendarId": {
+        "type": "string",
+        "description": "Stable identifier for a calendar (its UUID).",
+        "example": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"
+      },
+      "CalendarIdPath": {
+        "type": "object",
+        "required": [
+          "calendar_id"
+        ],
+        "properties": {
+          "calendar_id": {
+            "type": "string"
+          }
+        }
+      },
+      "CalendarPageDto": {
+        "type": "object",
+        "required": [
+          "items",
+          "page"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CalendarSummaryDto"
+            }
+          },
+          "page": {
+            "$ref": "#/components/schemas/PageMetaDto"
+          }
+        }
+      },
+      "CalendarSummaryDto": {
+        "type": "object",
+        "required": [
+          "id",
+          "row_id",
+          "account_id",
+          "account_row_id"
+        ],
+        "properties": {
+          "account_id": {
+            "$ref": "#/components/schemas/CalendarAccountId"
+          },
+          "account_row_id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "color": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "id": {
+            "$ref": "#/components/schemas/CalendarId"
+          },
+          "row_id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "title": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
       "ChatDetailDto": {
         "type": "object",
         "required": [
@@ -3201,6 +4088,566 @@
           }
         }
       },
+      "EventAlarmDto": {
+        "type": "object",
+        "required": [
+          "id",
+          "alarm_type",
+          "disabled"
+        ],
+        "properties": {
+          "alarm_type": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "disabled": {
+            "type": "boolean"
+          },
+          "id": {
+            "type": "string"
+          },
+          "trigger_date": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/UnixTimestamp"
+              }
+            ]
+          },
+          "trigger_interval_seconds": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64"
+          }
+        }
+      },
+      "EventAttachmentDetailDto": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/EventAttachmentSummaryDto"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "local_path": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            }
+          }
+        ]
+      },
+      "EventAttachmentIdPath": {
+        "type": "object",
+        "required": [
+          "event_id",
+          "attachment_id"
+        ],
+        "properties": {
+          "attachment_id": {
+            "type": "string"
+          },
+          "event_id": {
+            "type": "string"
+          }
+        }
+      },
+      "EventAttachmentSummaryDto": {
+        "type": "object",
+        "required": [
+          "id",
+          "row_id"
+        ],
+        "properties": {
+          "file_size": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64"
+          },
+          "filename": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "format": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "id": {
+            "$ref": "#/components/schemas/CalendarAttachmentId"
+          },
+          "row_id": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      },
+      "EventClassDto": {
+        "type": "string",
+        "enum": [
+          "standard",
+          "birthday",
+          "special_day"
+        ]
+      },
+      "EventDetailDto": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/EventSummaryDto"
+          },
+          {
+            "type": "object",
+            "required": [
+              "attendees",
+              "exception_dates",
+              "alarms",
+              "attachments",
+              "invitation_status",
+              "availability",
+              "privacy_level",
+              "has_structured_data",
+              "has_app_link"
+            ],
+            "properties": {
+              "alarms": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/EventAlarmDto"
+                }
+              },
+              "attachments": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/EventAttachmentSummaryDto"
+                }
+              },
+              "attendees": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/EventParticipantDto"
+                }
+              },
+              "availability": {
+                "$ref": "#/components/schemas/AvailabilityDto"
+              },
+              "conference_url": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "creation_date": {
+                "oneOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "$ref": "#/components/schemas/UnixTimestamp"
+                  }
+                ]
+              },
+              "description": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "exception_dates": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/UnixTimestamp"
+                }
+              },
+              "has_app_link": {
+                "type": "boolean"
+              },
+              "has_structured_data": {
+                "type": "boolean"
+              },
+              "invitation_status": {
+                "$ref": "#/components/schemas/InvitationStatusDto"
+              },
+              "last_modified": {
+                "oneOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "$ref": "#/components/schemas/UnixTimestamp"
+                  }
+                ]
+              },
+              "location": {
+                "oneOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "$ref": "#/components/schemas/EventLocationDto"
+                  }
+                ]
+              },
+              "organizer": {
+                "oneOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "$ref": "#/components/schemas/EventParticipantDto"
+                  }
+                ]
+              },
+              "original_start": {
+                "oneOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "$ref": "#/components/schemas/UnixTimestamp"
+                  }
+                ]
+              },
+              "privacy_level": {
+                "$ref": "#/components/schemas/PrivacyLevelDto"
+              },
+              "recurrence": {
+                "oneOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "$ref": "#/components/schemas/RecurrenceRuleDto"
+                  }
+                ]
+              },
+              "series_id": {
+                "oneOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "$ref": "#/components/schemas/EventId"
+                  }
+                ]
+              },
+              "series_row_id": {
+                "type": [
+                  "integer",
+                  "null"
+                ],
+                "format": "int64"
+              },
+              "travel_time_seconds": {
+                "type": [
+                  "integer",
+                  "null"
+                ],
+                "format": "int64"
+              },
+              "url": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            }
+          }
+        ]
+      },
+      "EventId": {
+        "type": "string",
+        "description": "Stable identifier for a calendar event (its UUID).",
+        "example": "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"
+      },
+      "EventIdPath": {
+        "type": "object",
+        "required": [
+          "event_id"
+        ],
+        "properties": {
+          "event_id": {
+            "type": "string"
+          }
+        }
+      },
+      "EventListParams": {
+        "type": "object",
+        "properties": {
+          "account_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "calendar_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "cursor": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "end": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64"
+          },
+          "format": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "include_cancelled": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "include_hidden": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "limit": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "minimum": 0
+          },
+          "q": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "start": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64"
+          }
+        }
+      },
+      "EventLocationDto": {
+        "type": "object",
+        "properties": {
+          "address": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "latitude": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "format": "double"
+          },
+          "longitude": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "format": "double"
+          },
+          "title": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "EventPageDto": {
+        "type": "object",
+        "required": [
+          "items",
+          "page"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/EventSummaryDto"
+            }
+          },
+          "page": {
+            "$ref": "#/components/schemas/PageMetaDto"
+          }
+        }
+      },
+      "EventParticipantDto": {
+        "type": "object",
+        "required": [
+          "id",
+          "is_self",
+          "status"
+        ],
+        "properties": {
+          "comment": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "email": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "id": {
+            "type": "string"
+          },
+          "is_self": {
+            "type": "boolean"
+          },
+          "name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "phone_number": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "role": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64"
+          },
+          "status": {
+            "$ref": "#/components/schemas/InvitationStatusDto"
+          }
+        }
+      },
+      "EventStatusDto": {
+        "type": "string",
+        "enum": [
+          "confirmed",
+          "tentative",
+          "cancelled"
+        ]
+      },
+      "EventSummaryDto": {
+        "type": "object",
+        "required": [
+          "id",
+          "row_id",
+          "calendar_id",
+          "calendar_row_id",
+          "all_day",
+          "status",
+          "hidden",
+          "is_recurring",
+          "event_class"
+        ],
+        "properties": {
+          "all_day": {
+            "type": "boolean"
+          },
+          "calendar_id": {
+            "$ref": "#/components/schemas/CalendarId"
+          },
+          "calendar_row_id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "end": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/UnixTimestamp"
+              }
+            ]
+          },
+          "event_class": {
+            "$ref": "#/components/schemas/EventClassDto"
+          },
+          "hidden": {
+            "type": "boolean"
+          },
+          "id": {
+            "$ref": "#/components/schemas/EventId"
+          },
+          "is_recurring": {
+            "type": "boolean"
+          },
+          "occurrence_end": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/UnixTimestamp"
+              }
+            ]
+          },
+          "occurrence_start": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/UnixTimestamp"
+              }
+            ]
+          },
+          "row_id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "start": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/UnixTimestamp"
+              }
+            ]
+          },
+          "status": {
+            "$ref": "#/components/schemas/EventStatusDto"
+          },
+          "summary": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
       "FolderKindDto": {
         "type": "string",
         "enum": [
@@ -3274,9 +4721,13 @@
         "required": [
           "messages",
           "reminders",
-          "notes"
+          "notes",
+          "calendar"
         ],
         "properties": {
+          "calendar": {
+            "$ref": "#/components/schemas/HealthStatus"
+          },
           "messages": {
             "$ref": "#/components/schemas/HealthStatus"
           },
@@ -3287,6 +4738,16 @@
             "$ref": "#/components/schemas/HealthStatus"
           }
         }
+      },
+      "InvitationStatusDto": {
+        "type": "string",
+        "enum": [
+          "unknown",
+          "accepted",
+          "declined",
+          "tentative",
+          "needs_action"
+        ]
       },
       "MessageBodyDto": {
         "type": "object",
@@ -4672,6 +6133,14 @@
           }
         }
       },
+      "PrivacyLevelDto": {
+        "type": "string",
+        "enum": [
+          "default",
+          "public",
+          "private"
+        ]
+      },
       "RangeRequestHeader": {
         "type": "object",
         "properties": {
@@ -4798,6 +6267,50 @@
               "null"
             ],
             "format": "int64"
+          }
+        }
+      },
+      "RecurrenceRuleDto": {
+        "type": "object",
+        "required": [
+          "frequency",
+          "interval",
+          "raw_specifier"
+        ],
+        "properties": {
+          "count": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64"
+          },
+          "end_date": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/UnixTimestamp"
+              }
+            ]
+          },
+          "frequency": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "interval": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "raw_specifier": {
+            "type": "string"
+          },
+          "specifier": {
+            "type": [
+              "string",
+              "null"
+            ]
           }
         }
       },
@@ -5500,6 +7013,16 @@
           "raw": {}
         }
       },
+      "StoreTypeDto": {
+        "type": "string",
+        "enum": [
+          "local",
+          "cal_dav",
+          "exchange",
+          "subscription",
+          "birthday"
+        ]
+      },
       "SystemContentDto": {
         "type": "object",
         "required": [
@@ -5684,6 +7207,18 @@
     {
       "name": "note-attachments",
       "description": "Note attachment metadata and byte streaming"
+    },
+    {
+      "name": "calendars",
+      "description": "Calendar account and calendar listing"
+    },
+    {
+      "name": "events",
+      "description": "Global event listing, lookup, and interchange parsing"
+    },
+    {
+      "name": "event-attachments",
+      "description": "Event attachment byte streaming"
     },
     {
       "name": "meta",
