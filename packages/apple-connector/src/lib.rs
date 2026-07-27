@@ -98,7 +98,37 @@ pub async fn run(cli: Cli) -> Result<(), Box<dyn Error>> {
     };
     let calendar_attachment_root = resolve_calendar_attachment_root(&cli, &calendar_path);
     let eventkit = match apple_eventkit::EventKitStore::new() {
-        Ok(store) => Some(Arc::new(store)),
+        Ok(store) => {
+            let store = Arc::new(store);
+            let auth_store = Arc::clone(&store);
+            info!("Requesting EventKit permissions; approve the macOS prompts when they appear");
+            tokio::spawn(async move {
+                match auth_store.request_access().await {
+                    Ok(()) => {
+                        let status = auth_store.auth_status().await;
+                        if status.reminders == apple_eventkit::AuthStatus::NotDetermined
+                            || status.events == apple_eventkit::AuthStatus::NotDetermined
+                        {
+                            warn!(
+                                reminders = ?status.reminders,
+                                events = ?status.events,
+                                "EventKit access not granted yet; enable access in System Settings → Privacy & Security"
+                            );
+                        } else {
+                            info!(
+                                reminders = ?status.reminders,
+                                events = ?status.events,
+                                "EventKit access ready"
+                            );
+                        }
+                    }
+                    Err(error) => {
+                        warn!(error = %error, "EventKit access request failed; write routes may be unavailable");
+                    }
+                }
+            });
+            Some(store)
+        }
         Err(error) => {
             warn!(error = %error, "EventKit store could not be initialized; write routes will report unavailable");
             None

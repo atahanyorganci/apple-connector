@@ -1,7 +1,8 @@
-use std::sync::{Mutex, mpsc};
+use std::sync::Mutex;
 
 use objc2::rc::Retained;
 use objc2_event_kit::EKEventStore;
+use tokio::task::JoinError;
 
 use crate::{
     auth::{AuthSnapshot, EntityAuthStatus, ensure_events_authorized, ensure_reminders_authorized},
@@ -47,6 +48,46 @@ impl EventKitStore {
         self.auth.refresh().await;
     }
 
+    async fn run_blocking<F, T>(&self, f: F) -> EventKitResult<T>
+    where
+        F: FnOnce(&EKEventStore) -> EventKitResult<T> + Send + 'static,
+        T: Send + 'static,
+    {
+        let store_ptr = {
+            let store = self
+                .inner
+                .lock()
+                .map_err(|_| EventKitError::Framework("EventKit store lock poisoned".into()))?;
+            Retained::as_ptr(&store) as usize
+        };
+        tokio::task::spawn_blocking(move || {
+            let store = unsafe { &*(store_ptr as *const EKEventStore) };
+            f(store)
+        })
+        .await
+        .map_err(join_error)?
+    }
+
+    /// Prompt for Reminders and Calendar access when status is `NotDetermined`.
+    pub async fn request_access(&self) -> EventKitResult<()> {
+        self.run_blocking(crate::auth::request_pending_access)
+            .await?;
+        self.refresh_auth_status().await;
+        Ok(())
+    }
+
+    pub async fn ensure_reminders_access(&self) -> EventKitResult<()> {
+        self.run_blocking(ensure_reminders_authorized).await?;
+        self.refresh_auth_status().await;
+        Ok(())
+    }
+
+    pub async fn ensure_events_access(&self) -> EventKitResult<()> {
+        self.run_blocking(ensure_events_authorized).await?;
+        self.refresh_auth_status().await;
+        Ok(())
+    }
+
     pub(crate) fn ensure_reminders(&self) -> EventKitResult<()> {
         self.with_store(ensure_reminders_authorized)
     }
@@ -60,29 +101,14 @@ impl EventKitStore {
         F: FnOnce(&EKEventStore) -> EventKitResult<T> + Send + 'static,
         T: Send + 'static,
     {
-        let store_ptr = {
-            let store = self
-                .inner
-                .lock()
-                .map_err(|_| EventKitError::Framework("EventKit store lock poisoned".into()))?;
-            Retained::as_ptr(&store) as usize
-        };
-        tokio::time::timeout(
-            OPERATION_TIMEOUT,
-            tokio::task::spawn_blocking(move || {
-                let (tx, rx) = mpsc::sync_channel(1);
-                dispatch2::DispatchQueue::main().exec_async(move || {
-                    let store = unsafe { &*(store_ptr as *const EKEventStore) };
-                    let _ = tx.send(f(store));
-                });
-                rx.recv()
-                    .map_err(|_| EventKitError::Framework("main queue callback dropped".into()))?
-            }),
-        )
-        .await
-        .map_err(|_| EventKitError::Timeout)?
-        .map_err(|_| EventKitError::Framework("blocking task failed".into()))?
+        tokio::time::timeout(OPERATION_TIMEOUT, self.run_blocking(f))
+            .await
+            .map_err(|_| EventKitError::Timeout)?
     }
+}
+
+fn join_error(_: JoinError) -> EventKitError {
+    EventKitError::Framework("blocking task failed".into())
 }
 
 impl Clone for EventKitStore {

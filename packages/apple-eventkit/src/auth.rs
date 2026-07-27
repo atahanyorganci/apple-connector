@@ -1,9 +1,15 @@
-use std::sync::{Mutex, mpsc};
+use std::{
+    sync::{Mutex, mpsc},
+    time::{Duration, Instant},
+};
 
 use objc2_event_kit::{EKAuthorizationStatus, EKEntityType, EKEventStore};
+use objc2_foundation::{NSDate, NSDefaultRunLoopMode, NSRunLoop};
 use tokio::sync::RwLock;
 
 use crate::error::{EventKitError, EventKitResult};
+
+const AUTH_TIMEOUT: Duration = Duration::from_secs(120);
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum AuthStatus {
@@ -51,6 +57,16 @@ pub(crate) fn current_auth_status() -> EntityAuthStatus {
     EntityAuthStatus { reminders, events }
 }
 
+pub(crate) fn request_pending_access(store: &EKEventStore) -> EventKitResult<()> {
+    if current_auth_status().reminders == AuthStatus::NotDetermined {
+        let _ = request_reminders_access(store);
+    }
+    if current_auth_status().events == AuthStatus::NotDetermined {
+        let _ = request_events_access(store);
+    }
+    Ok(())
+}
+
 pub(crate) fn ensure_reminders_authorized(store: &EKEventStore) -> EventKitResult<()> {
     match current_auth_status().reminders {
         AuthStatus::Authorized | AuthStatus::WriteOnly => Ok(()),
@@ -72,7 +88,7 @@ pub(crate) fn ensure_events_authorized(store: &EKEventStore) -> EventKitResult<(
 }
 
 fn request_reminders_access(store: &EKEventStore) -> EventKitResult<()> {
-    let (tx, rx) = mpsc::channel();
+    let (tx, rx) = mpsc::sync_channel(1);
     let slot = Mutex::new(Some(tx));
     let block = block2::RcBlock::new(move |granted: objc2::runtime::Bool, _| {
         if let Some(tx) = slot.lock().expect("auth slot").take() {
@@ -82,15 +98,11 @@ fn request_reminders_access(store: &EKEventStore) -> EventKitResult<()> {
     unsafe {
         store.requestFullAccessToRemindersWithCompletion(block2::RcBlock::as_ptr(&block));
     }
-    match rx.recv() {
-        Ok(true) => Ok(()),
-        Ok(false) => Err(EventKitError::AccessDenied),
-        Err(_) => Err(EventKitError::Timeout),
-    }
+    wait_for_auth(rx)
 }
 
 fn request_events_access(store: &EKEventStore) -> EventKitResult<()> {
-    let (tx, rx) = mpsc::channel();
+    let (tx, rx) = mpsc::sync_channel(1);
     let slot = Mutex::new(Some(tx));
     let block = block2::RcBlock::new(move |granted: objc2::runtime::Bool, _| {
         if let Some(tx) = slot.lock().expect("auth slot").take() {
@@ -100,10 +112,29 @@ fn request_events_access(store: &EKEventStore) -> EventKitResult<()> {
     unsafe {
         store.requestFullAccessToEventsWithCompletion(block2::RcBlock::as_ptr(&block));
     }
-    match rx.recv() {
-        Ok(true) => Ok(()),
-        Ok(false) => Err(EventKitError::AccessDenied),
-        Err(_) => Err(EventKitError::Timeout),
+    wait_for_auth(rx)
+}
+
+fn wait_for_auth(rx: mpsc::Receiver<bool>) -> EventKitResult<()> {
+    let deadline = Instant::now() + AUTH_TIMEOUT;
+    loop {
+        match rx.try_recv() {
+            Ok(true) => return Ok(()),
+            Ok(false) => return Err(EventKitError::AccessDenied),
+            Err(mpsc::TryRecvError::Empty) => {}
+            Err(mpsc::TryRecvError::Disconnected) => {
+                return Err(EventKitError::Framework(
+                    "EventKit auth callback dropped".into(),
+                ));
+            }
+        }
+        if Instant::now() >= deadline {
+            return Err(EventKitError::Timeout);
+        }
+        let until = NSDate::dateWithTimeIntervalSinceNow(0.05);
+        unsafe {
+            NSRunLoop::currentRunLoop().runMode_beforeDate(NSDefaultRunLoopMode, &until);
+        }
     }
 }
 

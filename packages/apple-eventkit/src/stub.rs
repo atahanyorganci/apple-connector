@@ -31,4 +31,16 @@ impl EventKitStore {
     }
 
     pub async fn refresh_auth_status(&self) {}
+
+    pub async fn request_access(&self) -> EventKitResult<()> {
+        Ok(())
+    }
+
+    pub async fn ensure_reminders_access(&self) -> EventKitResult<()> {
+        Ok(())
+    }
+
+    pub async fn ensure_events_access(&self) -> EventKitResult<()> {
+        Ok(())
+    }
 }
