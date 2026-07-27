@@ -1,0 +1,15 @@
+[package]
+name = "serde-caldav"
+version = "0.1.0"
+edition = "2024"
+license = "MIT"
+description = "Serde Serializer and Deserializer for RFC 4791 CalDAV XML"
+
+[dependencies]
+quick-xml = { version = "0.37", features = ["serialize"] }
+serde = { version = "1", features = ["derive"] }
+serde-icalendar = { path = "../serde-icalendar" }
+serde_json = "1"
+
+[dev-dependencies]
+serde_json = "1"
