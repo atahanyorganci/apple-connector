@@ -23,7 +23,7 @@ use super::{
     },
 };
 use crate::api::cursor::{
-    CalendarEventCursor, CalendarListCursor, EventSearchCursor, GlobalEventCursor, encode,
+    CalendarEventCursor, CalendarListCursor, EventSearchCursor, GlobalEventCursor, decode, encode,
 };
 
 #[derive(Debug, Clone)]
@@ -238,7 +238,12 @@ impl<'a> CalendarRepository<'a> {
             modified_at: c.start_at,
             row_id: c.row_id,
         });
-        self.list_events(&scoped, limit, global_cursor).await
+        let page = self.list_events(&scoped, limit, global_cursor).await?;
+        Ok(Page {
+            items: page.items,
+            has_more: page.has_more,
+            next_cursor: reencode_calendar_event_cursor(page.next_cursor),
+        })
     }
 
     pub async fn search_events(
@@ -361,6 +366,18 @@ impl<'a> CalendarRepository<'a> {
     }
 }
 
+fn reencode_calendar_event_cursor(cursor: Option<String>) -> Option<String> {
+    cursor.and_then(|value| {
+        decode::<GlobalEventCursor>(&value).ok().and_then(|global| {
+            encode(&CalendarEventCursor {
+                start_at: global.modified_at,
+                row_id: global.row_id,
+            })
+            .ok()
+        })
+    })
+}
+
 fn split_page<T>(mut rows: Vec<T>, limit: u32) -> (Vec<T>, bool) {
     let has_more = rows.len() > limit as usize;
     if has_more {
@@ -378,6 +395,7 @@ pub fn unix_to_core_data_secs(unix: i64) -> f64 {
 mod tests {
     use super::{CalendarRepository, unix_to_core_data_secs};
     use crate::{
+        api::cursor::decode,
         connect_pool,
         fixtures::{CalendarFixtureDb, SEED_EVENT_ID},
     };
@@ -392,6 +410,33 @@ mod tests {
             .await
             .expect("list");
         assert!(!page.items.is_empty());
+    }
+
+    #[tokio::test]
+    async fn calendar_event_cursor_round_trips_through_pagination() {
+        let fixture = CalendarFixtureDb::seeded().await.expect("fixture");
+        let pool = connect_pool(fixture.path()).await.expect("pool");
+        let repo = CalendarRepository::new(&pool);
+        let calendars = repo.list_calendars(1, None).await.expect("calendars");
+        let calendar_id = calendars.items[0].id.clone();
+
+        let first = repo
+            .list_calendar_events(&calendar_id, &Default::default(), 1, None)
+            .await
+            .expect("first page");
+        assert!(first.has_more);
+        let cursor = first.next_cursor.expect("next cursor");
+
+        let second = repo
+            .list_calendar_events(
+                &calendar_id,
+                &Default::default(),
+                1,
+                Some(decode(&cursor).expect("decode calendar cursor")),
+            )
+            .await
+            .expect("second page");
+        assert_ne!(first.items[0].id, second.items[0].id);
     }
 
     #[tokio::test]
