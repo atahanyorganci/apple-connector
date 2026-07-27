@@ -371,6 +371,7 @@ mod tests {
                 PathBuf::from("/var/empty/reminders-attachments"),
                 PathBuf::from("/var/empty/notes-attachments"),
                 PathBuf::from("/var/empty/calendar-attachments"),
+                None,
             ))
         }
 

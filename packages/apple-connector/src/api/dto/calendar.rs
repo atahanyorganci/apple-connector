@@ -1,5 +1,5 @@
-use serde::Serialize;
-use utoipa::ToSchema;
+use serde::{Deserialize, Serialize};
+use utoipa::{IntoParams, ToSchema};
 
 use super::pagination::PageMetaDto;
 use crate::apple_types::{
@@ -201,4 +201,83 @@ pub struct EventDetailDto {
 pub struct EventPageDto {
     pub items: Vec<EventSummaryDto>,
     pub page: PageMetaDto,
+}
+
+#[derive(Debug, Clone, Copy, Deserialize, ToSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum EventSpanDto {
+    This,
+    Future,
+    All,
+}
+
+#[derive(Debug, Clone, Copy, Deserialize, ToSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum EventStatusInputDto {
+    Confirmed,
+    Tentative,
+    Cancelled,
+}
+
+#[derive(Debug, Clone, Deserialize, ToSchema)]
+pub struct CreateEventRequest {
+    pub summary: String,
+    #[serde(default)]
+    pub description: Option<String>,
+    pub start: UnixTimestamp,
+    pub end: UnixTimestamp,
+    #[serde(default)]
+    pub all_day: bool,
+    #[serde(default)]
+    pub url: Option<String>,
+    #[serde(default)]
+    pub status: Option<EventStatusInputDto>,
+    #[serde(default)]
+    pub location: Option<super::reminder::LocationInputDto>,
+    #[serde(default)]
+    pub alarms: Vec<super::reminder::AlarmInputDto>,
+    #[serde(default)]
+    pub recurrence: Option<super::reminder::RecurrenceInputDto>,
+}
+
+#[derive(Debug, Clone, Default, Deserialize, ToSchema)]
+pub struct UpdateEventRequest {
+    #[serde(default)]
+    pub summary: Option<String>,
+    #[serde(default)]
+    pub description: Option<Option<String>>,
+    #[serde(default)]
+    pub start: Option<UnixTimestamp>,
+    #[serde(default)]
+    pub end: Option<UnixTimestamp>,
+    #[serde(default)]
+    pub all_day: Option<bool>,
+    #[serde(default)]
+    pub url: Option<Option<String>>,
+    #[serde(default)]
+    pub status: Option<EventStatusInputDto>,
+    #[serde(default)]
+    pub calendar_id: Option<CalendarId>,
+    #[serde(default)]
+    pub location: Option<Option<super::reminder::LocationInputDto>>,
+    #[serde(default)]
+    pub alarms: Option<Vec<super::reminder::AlarmInputDto>>,
+    #[serde(default)]
+    pub recurrence: Option<Option<super::reminder::RecurrenceInputDto>>,
+    #[serde(default)]
+    pub span: Option<EventSpanDto>,
+}
+
+#[derive(Debug, Clone, Deserialize, ToSchema, IntoParams)]
+pub struct DeleteEventParams {
+    #[serde(default)]
+    pub span: Option<EventSpanDto>,
+    #[serde(default)]
+    pub occurrence_start: Option<UnixTimestamp>,
+}
+
+#[derive(Debug, Clone, Deserialize, ToSchema, IntoParams)]
+pub struct UpdateEventParams {
+    #[serde(default)]
+    pub occurrence_start: Option<UnixTimestamp>,
 }

@@ -29,6 +29,16 @@ pub struct Page<T> {
     pub next_cursor: Option<String>,
 }
 
+#[derive(Debug, Clone)]
+pub struct ReminderListResolveMetadata {
+    pub api_id: String,
+    pub external_id: Option<String>,
+    pub title: String,
+    pub is_smart_list: bool,
+}
+
+type ReminderListResolveRow = (String, Option<String>, String, i64, Option<String>);
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ListLookupError {
     NotFound,
@@ -333,6 +343,51 @@ impl<'a> ReminderRepository<'a> {
         .fetch_optional(self.pool)
         .await?;
         Ok(id.map(|row| row.0))
+    }
+
+    pub async fn get_list_resolve_metadata(
+        &self,
+        list_id: &str,
+    ) -> Result<Option<ReminderListResolveMetadata>, sqlx::Error> {
+        let row: Option<ReminderListResolveRow> = sqlx::query_as(
+            "SELECT \
+                lower(substr(hex(l.ZIDENTIFIER), 1, 8) || '-' || substr(hex(l.ZIDENTIFIER), 9, 4) || '-' || substr(hex(l.ZIDENTIFIER), 13, 4) || '-' || substr(hex(l.ZIDENTIFIER), 17, 4) || '-' || substr(hex(l.ZIDENTIFIER), 21, 12)), \
+                l.ZEXTERNALIDENTIFIER, \
+                l.ZNAME, \
+                l.Z_ENT, \
+                l.ZSMARTLISTTYPE \
+             FROM ZREMCDBASELIST l \
+             WHERE lower(substr(hex(l.ZIDENTIFIER), 1, 8) || '-' || substr(hex(l.ZIDENTIFIER), 9, 4) || '-' || substr(hex(l.ZIDENTIFIER), 13, 4) || '-' || substr(hex(l.ZIDENTIFIER), 17, 4) || '-' || substr(hex(l.ZIDENTIFIER), 21, 12)) = ?",
+        )
+        .bind(list_id.to_lowercase())
+        .fetch_optional(self.pool)
+        .await?;
+
+        Ok(
+            row.map(|(api_id, external_id, title, ent, smart_list_type)| {
+                ReminderListResolveMetadata {
+                    api_id,
+                    external_id,
+                    title,
+                    is_smart_list: ent == 4 || smart_list_type.is_some(),
+                }
+            }),
+        )
+    }
+
+    pub async fn get_reminder_external_id(
+        &self,
+        reminder_id: &str,
+    ) -> Result<Option<String>, sqlx::Error> {
+        let row: Option<(Option<String>,)> = sqlx::query_as(
+            "SELECT r.ZEXTERNALIDENTIFIER \
+             FROM ZREMCDREMINDER r \
+             WHERE lower(substr(hex(r.ZIDENTIFIER), 1, 8) || '-' || substr(hex(r.ZIDENTIFIER), 9, 4) || '-' || substr(hex(r.ZIDENTIFIER), 13, 4) || '-' || substr(hex(r.ZIDENTIFIER), 17, 4) || '-' || substr(hex(r.ZIDENTIFIER), 21, 12)) = ?",
+        )
+        .bind(reminder_id.to_lowercase())
+        .fetch_optional(self.pool)
+        .await?;
+        Ok(row.and_then(|(external_id,)| external_id))
     }
 
     pub async fn search_reminders(

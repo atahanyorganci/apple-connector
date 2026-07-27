@@ -33,6 +33,16 @@ pub struct Page<T> {
     pub next_cursor: Option<String>,
 }
 
+#[derive(Debug, Clone)]
+pub struct CalendarResolveMetadata {
+    pub api_id: String,
+    pub external_id: Option<String>,
+    pub title: Option<String>,
+    pub store_type: i64,
+}
+
+type CalendarResolveRow = (String, Option<String>, Option<String>, Option<i64>);
+
 pub struct CalendarRepository<'a> {
     pool: &'a SqlitePool,
 }
@@ -105,6 +115,42 @@ impl<'a> CalendarRepository<'a> {
             Ok(row.map(calendar_detail_from_row))
         })
         .await
+    }
+
+    pub async fn get_calendar_resolve_metadata(
+        &self,
+        calendar_id: &str,
+    ) -> Result<Option<CalendarResolveMetadata>, sqlx::Error> {
+        let row: Option<CalendarResolveRow> = sqlx::query_as(
+            "SELECT lower(c.UUID), c.external_id, c.title, s.type \
+             FROM Calendar c \
+             JOIN Store s ON s.ROWID = c.store_id \
+             WHERE lower(c.UUID) = lower(?)",
+        )
+        .bind(calendar_id.to_owned())
+        .fetch_optional(self.pool)
+        .await?;
+
+        Ok(row.map(
+            |(api_id, external_id, title, store_type)| CalendarResolveMetadata {
+                api_id,
+                external_id,
+                title,
+                store_type: store_type.unwrap_or(0),
+            },
+        ))
+    }
+
+    pub async fn get_event_external_id(
+        &self,
+        event_id: &str,
+    ) -> Result<Option<String>, sqlx::Error> {
+        let row: Option<(Option<String>,)> =
+            sqlx::query_as("SELECT external_id FROM CalendarItem WHERE lower(UUID) = lower(?)")
+                .bind(event_id.to_owned())
+                .fetch_optional(self.pool)
+                .await?;
+        Ok(row.and_then(|(external_id,)| external_id))
     }
 
     pub async fn list_events(

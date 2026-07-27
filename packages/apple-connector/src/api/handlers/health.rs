@@ -4,6 +4,7 @@ use sqlx::SqlitePool;
 use crate::{
     api::{
         dto::common::{HealthStatus, HealthStatusDto},
+        eventkit::{eventkit_events_status, eventkit_reminders_status},
         params::PageParams,
         router::AppState,
     },
@@ -79,7 +80,8 @@ async fn calendar_status(pool: &Option<SqlitePool>) -> HealthStatus {
 
 /// Health check
 ///
-/// Reports whether the read-only Messages, Reminders, Notes, and Calendar database pools are healthy.
+/// Reports whether the read-only Messages, Reminders, Notes, and Calendar database pools are healthy,
+/// plus EventKit authorization status for write operations.
 #[utoipa::path(
     get,
     path = "/healthz",
@@ -97,11 +99,15 @@ pub async fn healthz(
     let reminders = reminders_status(&state.reminders_db).await;
     let notes = notes_status(&state.notes_db).await;
     let calendar = calendar_status(&state.calendar_db).await;
+    let eventkit_reminders = eventkit_reminders_status(&state.eventkit).await;
+    let eventkit_events = eventkit_events_status(&state.eventkit).await;
     let body = HealthStatusDto {
         messages,
         reminders,
         notes,
         calendar,
+        eventkit_reminders,
+        eventkit_events,
     };
     let all_ok = messages == HealthStatus::Ok
         && reminders == HealthStatus::Ok
@@ -124,7 +130,7 @@ mod tests {
 
     use crate::{
         api::{
-            dto::common::HealthStatus,
+            dto::common::{EventKitAuthStatusDto, HealthStatus},
             router::{AppState, router},
         },
         db::connect_pool,
@@ -170,7 +176,14 @@ mod tests {
             .to_bytes();
         assert_eq!(
             serde_json::from_slice::<serde_json::Value>(&body).expect("json"),
-            serde_json::json!({ "messages": "ok", "reminders": "ok", "notes": "unavailable", "calendar": "unavailable" })
+            serde_json::json!({
+                "messages": "ok",
+                "reminders": "ok",
+                "notes": "unavailable",
+                "calendar": "unavailable",
+                "eventkit_reminders": "unavailable",
+                "eventkit_events": "unavailable",
+            })
         );
     }
 
@@ -199,7 +212,14 @@ mod tests {
         let payload = String::from_utf8(body.to_vec()).expect("utf-8");
         assert_eq!(
             serde_json::from_str::<serde_json::Value>(&payload).expect("json"),
-            serde_json::json!({ "messages": "unavailable", "reminders": "unavailable", "notes": "unavailable", "calendar": "unavailable" })
+            serde_json::json!({
+                "messages": "unavailable",
+                "reminders": "unavailable",
+                "notes": "unavailable",
+                "calendar": "unavailable",
+                "eventkit_reminders": "unavailable",
+                "eventkit_events": "unavailable",
+            })
         );
         assert!(!payload.contains("chat.db"));
         assert!(!payload.contains("Library/Messages"));
@@ -211,6 +231,10 @@ mod tests {
         assert_eq!(
             serde_json::to_string(&HealthStatus::Ok).expect("serialize"),
             "\"ok\""
+        );
+        assert_eq!(
+            serde_json::to_string(&EventKitAuthStatusDto::Authorized).expect("serialize"),
+            "\"authorized\""
         );
     }
 }

@@ -1,5 +1,6 @@
 use std::{path::PathBuf, sync::Arc};
 
+use apple_eventkit::EventKitStore;
 use axum::{Router, middleware::from_fn};
 use sqlx::SqlitePool;
 use utoipa::{OpenApi, openapi::OpenApi as OpenApiSpec};
@@ -22,6 +23,7 @@ pub struct AppState {
     pub reminders_attachment_root: Arc<PathBuf>,
     pub notes_attachment_root: Arc<PathBuf>,
     pub calendar_attachment_root: Arc<PathBuf>,
+    pub eventkit: Option<Arc<EventKitStore>>,
     pub openapi: Arc<OpenApiSpec>,
 }
 
@@ -41,6 +43,28 @@ impl AppState {
             PathBuf::from("/var/empty/apple-connector-reminders-attachments-unconfigured"),
             PathBuf::from("/var/empty/apple-connector-notes-attachments-unconfigured"),
             PathBuf::from("/var/empty/apple-connector-calendar-attachments-unconfigured"),
+            None,
+        )
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    pub fn with_eventkit(
+        messages_db: Option<SqlitePool>,
+        reminders_db: Option<SqlitePool>,
+        notes_db: Option<SqlitePool>,
+        calendar_db: Option<SqlitePool>,
+        eventkit: Option<Arc<EventKitStore>>,
+    ) -> Self {
+        Self::with_attachment_roots(
+            messages_db,
+            reminders_db,
+            notes_db,
+            calendar_db,
+            PathBuf::from("/var/empty/apple-connector-attachments-unconfigured"),
+            PathBuf::from("/var/empty/apple-connector-reminders-attachments-unconfigured"),
+            PathBuf::from("/var/empty/apple-connector-notes-attachments-unconfigured"),
+            PathBuf::from("/var/empty/apple-connector-calendar-attachments-unconfigured"),
+            eventkit,
         )
     }
 
@@ -54,6 +78,7 @@ impl AppState {
         reminders_attachment_root: PathBuf,
         notes_attachment_root: PathBuf,
         calendar_attachment_root: PathBuf,
+        eventkit: Option<Arc<EventKitStore>>,
     ) -> Self {
         let attachment_root =
             canonicalize_attachment_root(&attachment_root).unwrap_or(attachment_root);
@@ -73,6 +98,7 @@ impl AppState {
             reminders_attachment_root: Arc::new(reminders_attachment_root),
             notes_attachment_root: Arc::new(notes_attachment_root),
             calendar_attachment_root: Arc::new(calendar_attachment_root),
+            eventkit,
             openapi,
         }
     }
@@ -116,6 +142,15 @@ fn openapi_router() -> OpenApiRouter<AppState> {
         ))
         .routes(routes!(crate::api::handlers::reminders::list_reminders))
         .routes(routes!(crate::api::handlers::reminders::get_reminder))
+        .routes(routes!(
+            crate::api::handlers::reminder_mutations::create_reminder
+        ))
+        .routes(routes!(
+            crate::api::handlers::reminder_mutations::update_reminder
+        ))
+        .routes(routes!(
+            crate::api::handlers::reminder_mutations::delete_reminder
+        ))
         .routes(routes!(
             crate::api::handlers::reminder_attachments::get_reminder_attachment
         ))
@@ -163,6 +198,9 @@ fn openapi_router() -> OpenApiRouter<AppState> {
         .routes(routes!(crate::api::handlers::events::get_event_ical))
         .routes(routes!(crate::api::handlers::events::get_event_caldav))
         .routes(routes!(crate::api::handlers::events::get_event))
+        .routes(routes!(crate::api::handlers::event_mutations::create_event))
+        .routes(routes!(crate::api::handlers::event_mutations::update_event))
+        .routes(routes!(crate::api::handlers::event_mutations::delete_event))
         .routes(routes!(crate::api::handlers::openapi::get_openapi_spec))
 }
 
@@ -189,6 +227,9 @@ mod tests {
         ("GET", "/v1/reminder-lists/1/reminders"),
         ("GET", "/v1/reminders"),
         ("GET", "/v1/reminders/test-id"),
+        ("POST", "/v1/reminder-lists/1/reminders"),
+        ("PATCH", "/v1/reminders/test-id"),
+        ("DELETE", "/v1/reminders/test-id"),
         ("GET", "/v1/reminder-attachments/test-id"),
         ("GET", "/v1/reminder-attachments/test-id/content"),
         ("HEAD", "/v1/reminder-attachments/test-id/content"),
@@ -211,6 +252,9 @@ mod tests {
         ("GET", "/v1/events/iCal"),
         ("GET", "/v1/events/caldav"),
         ("GET", "/v1/events/test-id"),
+        ("POST", "/v1/calendars/test-id/events"),
+        ("PATCH", "/v1/events/test-id"),
+        ("DELETE", "/v1/events/test-id"),
         ("GET", "/v1/events/test-id/iCal"),
         ("GET", "/v1/events/test-id/caldav"),
         ("GET", "/v1/events/test-id/attachments/test-id"),

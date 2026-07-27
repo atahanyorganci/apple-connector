@@ -35,12 +35,25 @@ pub enum HealthStatus {
     Unavailable,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, ToSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum EventKitAuthStatusDto {
+    NotDetermined,
+    Restricted,
+    Denied,
+    Authorized,
+    WriteOnly,
+    Unavailable,
+}
+
 #[derive(Debug, Clone, Serialize, ToSchema)]
 pub struct HealthStatusDto {
     pub messages: HealthStatus,
     pub reminders: HealthStatus,
     pub notes: HealthStatus,
     pub calendar: HealthStatus,
+    pub eventkit_reminders: EventKitAuthStatusDto,
+    pub eventkit_events: EventKitAuthStatusDto,
 }
 
 pub fn direction_to_dto(direction: Direction) -> DirectionDto {

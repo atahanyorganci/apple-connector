@@ -17,6 +17,8 @@ pub enum ErrorCode {
     NotFound,
     RangeNotSatisfiable,
     ServiceUnavailable,
+    Forbidden,
+    Conflict,
     InternalError,
 }
 
@@ -93,6 +95,59 @@ impl ApiError {
                 details: None,
             },
         }
+    }
+
+    pub fn forbidden(message: impl Into<String>) -> Self {
+        Self {
+            status: StatusCode::FORBIDDEN,
+            body: ErrorBody {
+                code: ErrorCode::Forbidden,
+                message: message.into(),
+                details: None,
+            },
+        }
+    }
+
+    pub fn conflict(message: impl Into<String>) -> Self {
+        Self {
+            status: StatusCode::CONFLICT,
+            body: ErrorBody {
+                code: ErrorCode::Conflict,
+                message: message.into(),
+                details: None,
+            },
+        }
+    }
+
+    pub fn unprocessable(message: impl Into<String>) -> Self {
+        Self {
+            status: StatusCode::UNPROCESSABLE_ENTITY,
+            body: ErrorBody {
+                code: ErrorCode::ValidationError,
+                message: message.into(),
+                details: None,
+            },
+        }
+    }
+
+    pub fn unprocessable_with_details(
+        message: impl Into<String>,
+        details: serde_json::Value,
+    ) -> Self {
+        Self {
+            status: StatusCode::UNPROCESSABLE_ENTITY,
+            body: ErrorBody {
+                code: ErrorCode::ValidationError,
+                message: message.into(),
+                details: Some(details),
+            },
+        }
+    }
+
+    pub fn eventkit_unavailable() -> Self {
+        Self::service_unavailable(
+            "EventKit is unavailable on this platform or could not be initialized",
+        )
     }
 
     pub fn internal(message: impl Into<String>) -> Self {

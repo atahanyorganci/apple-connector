@@ -5,13 +5,18 @@ use super::{
         attachment::{AttachmentDetailDto, AttachmentKindDto, AttachmentSummaryDto},
         calendar::{
             AvailabilityDto, CalendarAccountDto, CalendarAccountPageDto, CalendarDetailDto,
-            CalendarPageDto, CalendarSummaryDto, EventAlarmDto, EventAttachmentDetailDto,
-            EventAttachmentSummaryDto, EventClassDto, EventDetailDto, EventLocationDto,
-            EventPageDto, EventParticipantDto, EventStatusDto, EventSummaryDto,
-            InvitationStatusDto, PrivacyLevelDto, RecurrenceRuleDto, StoreTypeDto,
+            CalendarPageDto, CalendarSummaryDto, CreateEventRequest, DeleteEventParams,
+            EventAlarmDto, EventAttachmentDetailDto, EventAttachmentSummaryDto, EventClassDto,
+            EventDetailDto, EventLocationDto, EventPageDto, EventParticipantDto, EventSpanDto,
+            EventStatusDto, EventStatusInputDto, EventSummaryDto, InvitationStatusDto,
+            PrivacyLevelDto, RecurrenceRuleDto, StoreTypeDto, UpdateEventParams,
+            UpdateEventRequest,
         },
         chat::{ChatDetailDto, ChatPageDto, ChatSummaryDto},
-        common::{DirectionDto, HandleDto, HealthStatus, HealthStatusDto, TransportDto},
+        common::{
+            DirectionDto, EventKitAuthStatusDto, HandleDto, HealthStatus, HealthStatusDto,
+            TransportDto,
+        },
         content::{
             AppBalloonContentDto, AppBalloonKindDto, AttachmentContentDto, AttributedBodyErrorDto,
             AudioContentDto, GroupActionKindDto, GroupEventContentDto, MessageBodyDto,
@@ -29,14 +34,16 @@ use super::{
         },
         pagination::PageMetaDto,
         reminder::{
-            AlarmDto, AlarmKindDto, DueDto, RecurrenceDto, ReminderAttachmentDetailDto,
-            ReminderAttachmentKindDto, ReminderAttachmentSummaryDto, ReminderDetailDto,
-            ReminderListDetailDto, ReminderListKindDto, ReminderListPageDto,
+            AlarmDto, AlarmInputDto, AlarmKindDto, CreateReminderRequest, DueDto, DueInputDto,
+            LocationInputDto, RecurrenceDto, RecurrenceFrequencyDto, RecurrenceInputDto,
+            ReminderAttachmentDetailDto, ReminderAttachmentKindDto, ReminderAttachmentSummaryDto,
+            ReminderDetailDto, ReminderListDetailDto, ReminderListKindDto, ReminderListPageDto,
             ReminderListSummaryDto, ReminderPageDto, ReminderSummaryDto, SectionSummaryDto,
-            SmartFilterDto,
+            SmartFilterDto, UpdateReminderRequest,
         },
     },
     error::{ErrorBody, ErrorCode, ErrorResponse},
+    hydrate::{SyncPendingEventDetailDto, SyncPendingReminderDetailDto},
     params::{
         AttachmentGuidPath, CalendarIdPath, ChatIdPath, ConditionalRequestHeaders,
         ContentTypeFilterDto, DirectionFilterDto, EventAttachmentIdPath, EventIdPath,
@@ -80,7 +87,12 @@ impl Modify for SecurityAddon {
     info(
         title = "Apple Connector API",
         version = "1.0.0",
-        description = "Read-only HTTP API for Messages.app, Reminders.app, Notes.app, and Calendar.app data backed by live SQLite connections.\n\n\
+        description = "Hybrid HTTP API for Messages.app, Reminders.app, Notes.app, and Calendar.app.\n\n\
+            **Reads** use live SQLite connections (requires Full Disk Access).\n\n\
+            **Writes** for Reminders and Calendar events use EventKit (requires Reminders and Calendars \
+            permissions in System Settings). Unsupported fields return `422`; smart lists and read-only \
+            calendars return `403`. Post-save responses hydrate from SQLite with up to 5×100ms retries; \
+            `sync_pending: true` indicates the SQLite read path has not caught up yet.\n\n\
             Pagination uses keyset cursors only (default limit 50, maximum 200, newest first). \
             Offsets are not supported.\n\n\
             Authentication, TLS, and network exposure controls are expected to be enforced by an \
@@ -198,6 +210,22 @@ impl Modify for SecurityAddon {
         HandleDto,
         HealthStatus,
         HealthStatusDto,
+        EventKitAuthStatusDto,
+        CreateReminderRequest,
+        UpdateReminderRequest,
+        DueInputDto,
+        AlarmInputDto,
+        RecurrenceInputDto,
+        RecurrenceFrequencyDto,
+        LocationInputDto,
+        SyncPendingReminderDetailDto,
+        CreateEventRequest,
+        UpdateEventRequest,
+        UpdateEventParams,
+        DeleteEventParams,
+        EventSpanDto,
+        EventStatusInputDto,
+        SyncPendingEventDetailDto,
         MessageBodyDto,
         MessageContentDto,
         MessageDetailDto,
@@ -284,6 +312,13 @@ mod tests {
         ("get", "/v1/reminders", "listReminders"),
         ("get", "/v1/reminders/{reminder_id}", "getReminder"),
         (
+            "post",
+            "/v1/reminder-lists/{list_id}/reminders",
+            "createReminder",
+        ),
+        ("patch", "/v1/reminders/{reminder_id}", "updateReminder"),
+        ("delete", "/v1/reminders/{reminder_id}", "deleteReminder"),
+        (
             "get",
             "/v1/reminder-attachments/{id}",
             "getReminderAttachment",
@@ -341,6 +376,9 @@ mod tests {
         ("get", "/v1/events/iCal", "listEventsIcal"),
         ("get", "/v1/events/caldav", "listEventsCaldav"),
         ("get", "/v1/events/{event_id}", "getEvent"),
+        ("post", "/v1/calendars/{calendar_id}/events", "createEvent"),
+        ("patch", "/v1/events/{event_id}", "updateEvent"),
+        ("delete", "/v1/events/{event_id}", "deleteEvent"),
         ("get", "/v1/events/{event_id}/iCal", "getEventIcal"),
         ("get", "/v1/events/{event_id}/caldav", "getEventCaldav"),
         (
@@ -411,6 +449,8 @@ mod tests {
             "get" => item.get.as_ref(),
             "head" => item.head.as_ref(),
             "post" => item.post.as_ref(),
+            "patch" => item.patch.as_ref(),
+            "delete" => item.delete.as_ref(),
             _ => None,
         }
         .unwrap_or_else(|| panic!("missing `{method} {path}`"))

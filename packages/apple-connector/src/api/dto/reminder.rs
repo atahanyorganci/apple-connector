@@ -1,4 +1,4 @@
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 
 use super::{common::timestamp_to_unix, pagination::PageMetaDto};
@@ -84,7 +84,7 @@ pub struct ReminderSummaryDto {
     pub tags: Vec<String>,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, ToSchema)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum AlarmKindDto {
     Absolute,
@@ -208,4 +208,113 @@ pub fn due_to_dto(due: &crate::reminders::Due) -> DueDto {
         at: timestamp_to_unix(due.at),
         all_day: due.all_day,
     }
+}
+
+#[derive(Debug, Clone, Deserialize, ToSchema)]
+pub struct DueInputDto {
+    pub at: UnixTimestamp,
+    pub all_day: bool,
+}
+
+#[derive(Debug, Clone, Deserialize, ToSchema)]
+pub struct AlarmInputDto {
+    pub kind: AlarmKindDto,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub at: Option<UnixTimestamp>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub offset_seconds: Option<i64>,
+}
+
+#[derive(Debug, Clone, Deserialize, ToSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum RecurrenceFrequencyDto {
+    Daily,
+    Weekly,
+    Monthly,
+    Yearly,
+}
+
+#[derive(Debug, Clone, Deserialize, ToSchema)]
+pub struct RecurrenceInputDto {
+    pub frequency: RecurrenceFrequencyDto,
+    pub interval: i64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub count: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub end_date: Option<UnixTimestamp>,
+}
+
+#[derive(Debug, Clone, Deserialize, ToSchema)]
+pub struct LocationInputDto {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub title: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub latitude: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub longitude: Option<f64>,
+}
+
+#[derive(Debug, Clone, Deserialize, ToSchema)]
+pub struct CreateReminderRequest {
+    pub title: String,
+    #[serde(default)]
+    pub notes: Option<String>,
+    #[serde(default)]
+    pub due: Option<DueInputDto>,
+    #[serde(default)]
+    pub completed: Option<bool>,
+    #[serde(default)]
+    pub priority: Option<i64>,
+    #[serde(default)]
+    pub url: Option<String>,
+    #[serde(default)]
+    pub location: Option<LocationInputDto>,
+    #[serde(default)]
+    pub alarms: Vec<AlarmInputDto>,
+    #[serde(default)]
+    pub recurrence: Option<RecurrenceInputDto>,
+    #[serde(default)]
+    pub section_id: Option<SectionId>,
+    #[serde(default)]
+    pub parent_id: Option<ReminderId>,
+    #[serde(default)]
+    pub tags: Vec<String>,
+    #[serde(default)]
+    pub attachments: Vec<ReminderAttachmentId>,
+    #[serde(default)]
+    pub flagged: Option<bool>,
+}
+
+#[derive(Debug, Clone, Default, Deserialize, ToSchema)]
+pub struct UpdateReminderRequest {
+    #[serde(default)]
+    pub title: Option<String>,
+    #[serde(default)]
+    pub notes: Option<Option<String>>,
+    #[serde(default)]
+    pub due: Option<Option<DueInputDto>>,
+    #[serde(default)]
+    pub completed: Option<bool>,
+    #[serde(default)]
+    pub priority: Option<i64>,
+    #[serde(default)]
+    pub url: Option<Option<String>>,
+    #[serde(default)]
+    pub list_id: Option<ReminderListId>,
+    #[serde(default)]
+    pub location: Option<Option<LocationInputDto>>,
+    #[serde(default)]
+    pub alarms: Option<Vec<AlarmInputDto>>,
+    #[serde(default)]
+    pub recurrence: Option<Option<RecurrenceInputDto>>,
+    #[serde(default)]
+    pub section_id: Option<SectionId>,
+    #[serde(default)]
+    pub parent_id: Option<ReminderId>,
+    #[serde(default)]
+    pub tags: Vec<String>,
+    #[serde(default)]
+    pub attachments: Vec<ReminderAttachmentId>,
+    #[serde(default)]
+    pub flagged: Option<bool>,
 }

@@ -8,7 +8,7 @@ mod messages;
 mod notes;
 mod reminders;
 
-use std::{error::Error, io::Error as IoError, net::SocketAddr, path::PathBuf};
+use std::{error::Error, io::Error as IoError, net::SocketAddr, path::PathBuf, sync::Arc};
 
 pub use api::{AppState, build_openapi_spec, router};
 pub use calendar::{CalendarInventory, load_inventory as load_calendar_inventory};
@@ -97,6 +97,13 @@ pub async fn run(cli: Cli) -> Result<(), Box<dyn Error>> {
         }
     };
     let calendar_attachment_root = resolve_calendar_attachment_root(&cli, &calendar_path);
+    let eventkit = match apple_eventkit::EventKitStore::new() {
+        Ok(store) => Some(Arc::new(store)),
+        Err(error) => {
+            warn!(error = %error, "EventKit store could not be initialized; write routes will report unavailable");
+            None
+        }
+    };
     let app = router(AppState::with_attachment_roots(
         messages_db,
         reminders_db,
@@ -106,6 +113,7 @@ pub async fn run(cli: Cli) -> Result<(), Box<dyn Error>> {
         reminders_attachment_root,
         notes_attachment_root,
         calendar_attachment_root,
+        eventkit,
     ));
     let address: SocketAddr = cli
         .socket_addr()
