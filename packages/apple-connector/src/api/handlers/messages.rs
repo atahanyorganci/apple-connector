@@ -175,7 +175,7 @@ mod tests {
     async fn get_message_returns_seeded_message() {
         let fixture = FixtureDb::seeded().await.expect("seeded fixture");
         let pool = connect_pool(fixture.path()).await.expect("connect pool");
-        let app = router(AppState::new(Some(pool), None, None));
+        let app = router(AppState::new(Some(pool), None, None, None));
 
         let (status, payload) = response_json(app, "/v1/messages/fixture-message-guid").await;
         assert_eq!(status, StatusCode::OK);
@@ -189,7 +189,7 @@ mod tests {
     async fn search_finds_attributed_body_only_text() {
         let fixture = seed_search_fixture().await;
         let pool = connect_pool(fixture.path()).await.expect("connect pool");
-        let app = router(AppState::new(Some(pool), None, None));
+        let app = router(AppState::new(Some(pool), None, None, None));
 
         let (status, payload) = response_json(app, "/v1/messages?q=noter").await;
         assert_eq!(status, StatusCode::OK);
@@ -206,7 +206,7 @@ mod tests {
     async fn metadata_filters_work_alone_and_in_combination() {
         let fixture = seed_search_fixture().await;
         let pool = connect_pool(fixture.path()).await.expect("connect pool");
-        let app = router(AppState::new(Some(pool), None, None));
+        let app = router(AppState::new(Some(pool), None, None, None));
 
         let (status, payload) = response_json(app.clone(), "/v1/messages?direction=sent").await;
         assert_eq!(status, StatusCode::OK);
@@ -254,7 +254,7 @@ mod tests {
     async fn invalid_filters_return_structured_400() {
         let fixture = seed_search_fixture().await;
         let pool = connect_pool(fixture.path()).await.expect("connect pool");
-        let app = router(AppState::new(Some(pool), None, None));
+        let app = router(AppState::new(Some(pool), None, None, None));
 
         let (status, payload) = response_json(
             app.clone(),
@@ -276,7 +276,7 @@ mod tests {
     async fn sparse_search_is_resumable() {
         let fixture = seed_search_fixture().await;
         let pool = connect_pool(fixture.path()).await.expect("connect pool");
-        let app = router(AppState::new(Some(pool), None, None));
+        let app = router(AppState::new(Some(pool), None, None, None));
 
         let (status, first) = response_json(app.clone(), "/v1/messages?q=noise&limit=1").await;
         assert_eq!(status, StatusCode::OK);
@@ -301,7 +301,7 @@ mod tests {
     async fn cursor_filter_mismatch_returns_400() {
         let fixture = seed_search_fixture().await;
         let pool = connect_pool(fixture.path()).await.expect("connect pool");
-        let app = router(AppState::new(Some(pool), None, None));
+        let app = router(AppState::new(Some(pool), None, None, None));
 
         let (_, first) = response_json(
             app.clone(),
@@ -325,7 +325,7 @@ mod tests {
     async fn new_matching_row_visible_without_restart() {
         let fixture = seed_search_fixture().await;
         let pool = connect_pool(fixture.path()).await.expect("connect pool");
-        let app = router(AppState::new(Some(pool), None, None));
+        let app = router(AppState::new(Some(pool), None, None, None));
 
         let (_, before) = response_json(app.clone(), "/v1/messages?q=brand-new-term").await;
         assert!(before["items"].as_array().unwrap().is_empty());

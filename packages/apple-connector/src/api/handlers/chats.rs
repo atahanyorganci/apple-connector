@@ -166,7 +166,7 @@ mod tests {
     async fn list_chats_returns_seeded_chat() {
         let fixture = FixtureDb::seeded().await.expect("seeded fixture");
         let pool = connect_pool(fixture.path()).await.expect("connect pool");
-        let app = router(AppState::new(Some(pool), None, None));
+        let app = router(AppState::new(Some(pool), None, None, None));
 
         let response = app
             .oneshot(

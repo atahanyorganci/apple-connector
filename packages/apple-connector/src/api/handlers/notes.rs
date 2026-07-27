@@ -191,7 +191,7 @@ mod tests {
     async fn get_note_contents_returns_markdown_with_tags() {
         let fixture = NotesFixtureDb::seeded().await.expect("fixture");
         let pool = connect_pool(fixture.path()).await.expect("pool");
-        let app = router(AppState::new(None, None, Some(pool)));
+        let app = router(AppState::new(None, None, Some(pool), None));
 
         let response = app
             .oneshot(
@@ -234,7 +234,7 @@ mod tests {
     async fn get_note_contents_locked_note_has_empty_body() {
         let fixture = NotesFixtureDb::seeded().await.expect("fixture");
         let pool = connect_pool(fixture.path()).await.expect("pool");
-        let app = router(AppState::new(None, None, Some(pool)));
+        let app = router(AppState::new(None, None, Some(pool), None));
 
         let response = app
             .oneshot(

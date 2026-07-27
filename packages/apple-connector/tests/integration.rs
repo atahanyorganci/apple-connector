@@ -91,6 +91,7 @@ async fn integration_health_and_unavailable_errors() {
         Some(messages_pool),
         Some(reminders_pool),
         None,
+        None,
     ));
 
     let (status, payload) = response_json(healthy_app, "/healthz").await;
@@ -98,13 +99,15 @@ async fn integration_health_and_unavailable_errors() {
     assert_eq!(payload["messages"], "ok");
     assert_eq!(payload["reminders"], "ok");
     assert_eq!(payload["notes"], "unavailable");
+    assert_eq!(payload["calendar"], "unavailable");
 
-    let unavailable_app = router(AppState::new(None, None, None));
+    let unavailable_app = router(AppState::new(None, None, None, None));
     let (status, payload) = response_json(unavailable_app.clone(), "/healthz").await;
     assert_eq!(status, StatusCode::SERVICE_UNAVAILABLE);
     assert_eq!(payload["messages"], "unavailable");
     assert_eq!(payload["reminders"], "unavailable");
     assert_eq!(payload["notes"], "unavailable");
+    assert_eq!(payload["calendar"], "unavailable");
 
     let (status, payload) = response_json(unavailable_app, "/v1/messages").await;
     assert_eq!(status, StatusCode::SERVICE_UNAVAILABLE);
@@ -115,7 +118,7 @@ async fn integration_health_and_unavailable_errors() {
 async fn integration_pagination_search_and_live_updates() {
     let fixture = seeded_search_fixture().await;
     let pool = connect_pool(fixture.path()).await.expect("pool");
-    let app = router(AppState::new(Some(pool), None, None));
+    let app = router(AppState::new(Some(pool), None, None, None));
 
     let (status, first_page) = response_json(app.clone(), "/v1/messages?limit=2").await;
     assert_eq!(status, StatusCode::OK);
@@ -160,7 +163,7 @@ async fn integration_pagination_search_and_live_updates() {
 async fn integration_media_metadata_is_structured_without_paths() {
     let fixture = FixtureDb::empty().await.expect("fixture");
     let pool = connect_pool(fixture.path()).await.expect("pool");
-    let app = router(AppState::new(Some(pool), None, None));
+    let app = router(AppState::new(Some(pool), None, None, None));
 
     let response = app
         .oneshot(
@@ -189,7 +192,7 @@ async fn integration_media_metadata_is_structured_without_paths() {
 async fn integration_wrong_method_returns_json_405() {
     let fixture = FixtureDb::empty().await.expect("fixture");
     let pool = connect_pool(fixture.path()).await.expect("pool");
-    let app = router(AppState::new(Some(pool), None, None));
+    let app = router(AppState::new(Some(pool), None, None, None));
 
     let response = app
         .oneshot(
@@ -266,7 +269,7 @@ async fn smoke_real_database_and_attachment_range() {
     let pool = connect_pool(std::path::Path::new(&database))
         .await
         .expect("connect real database");
-    let app = router(AppState::new(Some(pool), None, None));
+    let app = router(AppState::new(Some(pool), None, None, None));
 
     let (status, payload) = response_json(app.clone(), "/healthz").await;
     assert_eq!(status, StatusCode::OK);
@@ -323,7 +326,7 @@ async fn smoke_real_database_and_attachment_range() {
 async fn integration_reminders_fixture_endpoints() {
     let fixture = RemindersFixtureDb::seeded().await.expect("fixture");
     let pool = connect_pool(fixture.path()).await.expect("pool");
-    let app = router(AppState::new(None, Some(pool), None));
+    let app = router(AppState::new(None, Some(pool), None, None));
 
     let (status, lists) = response_json(app.clone(), "/v1/reminder-lists?limit=10").await;
     assert_eq!(status, StatusCode::OK);
@@ -360,7 +363,7 @@ async fn smoke_reminders_real_database() {
     let pool = connect_pool(std::path::Path::new(&database))
         .await
         .expect("connect real database");
-    let app = router(AppState::new(None, Some(pool), None));
+    let app = router(AppState::new(None, Some(pool), None, None));
 
     let (status, payload) = response_json(app.clone(), "/healthz").await;
     assert_eq!(status, StatusCode::OK);
@@ -380,7 +383,7 @@ async fn smoke_reminders_real_database() {
 async fn integration_notes_fixture_endpoints() {
     let fixture = NotesFixtureDb::seeded().await.expect("fixture");
     let pool = connect_pool(fixture.path()).await.expect("pool");
-    let app = router(AppState::new(None, None, Some(pool)));
+    let app = router(AppState::new(None, None, Some(pool), None));
 
     let (status, folders) = response_json(app.clone(), "/v1/note-folders?limit=10").await;
     assert_eq!(status, StatusCode::OK);
@@ -472,7 +475,7 @@ async fn integration_notes_fixture_endpoints() {
 async fn integration_notes_search_filters() {
     let fixture = NotesFixtureDb::seeded().await.expect("fixture");
     let pool = connect_pool(fixture.path()).await.expect("pool");
-    let app = router(AppState::new(None, None, Some(pool)));
+    let app = router(AppState::new(None, None, Some(pool), None));
 
     let (status, results) = response_json(app.clone(), "/v1/notes?q=IBAN&limit=10").await;
     assert_eq!(status, StatusCode::OK);
@@ -496,7 +499,7 @@ async fn smoke_notes_real_database() {
     let pool = connect_pool(std::path::Path::new(&database))
         .await
         .expect("connect real database");
-    let app = router(AppState::new(None, None, Some(pool)));
+    let app = router(AppState::new(None, None, Some(pool), None));
 
     let (status, payload) = response_json(app.clone(), "/healthz").await;
     assert_eq!(status, StatusCode::OK);
