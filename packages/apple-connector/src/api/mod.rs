@@ -1,4 +1,5 @@
 pub(crate) mod cursor;
+pub(crate) mod format;
 mod doc;
 mod dto;
 mod error;

@@ -750,3 +750,113 @@ impl NoteListParams {
         })
     }
 }
+
+#[derive(Debug, Clone, Deserialize, IntoParams, ToSchema)]
+#[into_params(parameter_in = Query, style = Form)]
+pub struct EventListParams {
+    #[param(minimum = 1, maximum = 200, default = 50, example = 50)]
+    pub limit: Option<u32>,
+    #[param(example = "v1.eyJyb3dfaWQiOjF9")]
+    pub cursor: Option<String>,
+    #[param(max_length = 256, example = "standup")]
+    pub q: Option<String>,
+    pub calendar_id: Option<String>,
+    pub account_id: Option<String>,
+    #[param(example = 1704067200)]
+    pub start: Option<i64>,
+    #[param(example = 1735689600)]
+    pub end: Option<i64>,
+    pub include_hidden: Option<bool>,
+    pub include_cancelled: Option<bool>,
+    #[param(example = "json")]
+    pub format: Option<String>,
+}
+
+impl EventListParams {
+    pub fn validated_limit(&self) -> Result<u32, ApiError> {
+        let limit = self.limit.unwrap_or(DEFAULT_PAGE_LIMIT);
+        if !(1..=MAX_PAGE_LIMIT).contains(&limit) {
+            return Err(ApiError::validation_with_details(
+                format!("limit must be between 1 and {MAX_PAGE_LIMIT}"),
+                serde_json::json!({
+                    "field": "limit",
+                    "minimum": 1,
+                    "maximum": MAX_PAGE_LIMIT,
+                    "default": DEFAULT_PAGE_LIMIT,
+                }),
+            ));
+        }
+        Ok(limit)
+    }
+
+    pub fn validated_cursor(&self) -> Result<Option<&str>, ApiError> {
+        match &self.cursor {
+            None => Ok(None),
+            Some(cursor) if cursor.starts_with(&format!("{CURSOR_VERSION}.")) => Ok(Some(cursor)),
+            Some(_) => Err(ApiError::validation_with_details(
+                format!("cursor must start with `{CURSOR_VERSION}.`"),
+                serde_json::json!({
+                    "field": "cursor",
+                    "expected_prefix": format!("{CURSOR_VERSION}."),
+                }),
+            )),
+        }
+    }
+
+    pub fn validated_filters(&self) -> Result<crate::calendar::EventFilters, ApiError> {
+        let q = match self.q.as_deref().map(str::trim) {
+            None | Some("") => None,
+            Some(query) if query.len() > MAX_SEARCH_QUERY_LEN => {
+                return Err(ApiError::validation_with_details(
+                    format!("q must be at most {MAX_SEARCH_QUERY_LEN} characters"),
+                    serde_json::json!({
+                        "field": "q",
+                        "maximum": MAX_SEARCH_QUERY_LEN,
+                    }),
+                ));
+            }
+            Some(query) => Some(query.to_owned()),
+        };
+
+        if let (Some(start), Some(end)) = (self.start, self.end)
+            && start > end
+        {
+            return Err(ApiError::validation_with_details(
+                "start must be before or equal to end",
+                serde_json::json!({
+                    "field": "start",
+                    "related_field": "end",
+                }),
+            ));
+        }
+
+        Ok(crate::calendar::EventFilters {
+            q,
+            calendar_id: self.calendar_id.clone(),
+            account_id: self.account_id.clone(),
+            start_after: self.start.map(crate::calendar::unix_to_core_data_secs),
+            start_before: self.end.map(crate::calendar::unix_to_core_data_secs),
+            include_hidden: self.include_hidden.unwrap_or(false),
+            include_cancelled: self.include_cancelled.unwrap_or(false),
+        })
+    }
+}
+
+#[derive(Debug, Clone, Deserialize, IntoParams, ToSchema)]
+#[into_params(parameter_in = Path)]
+pub struct CalendarIdPath {
+    pub calendar_id: String,
+}
+
+#[derive(Debug, Clone, Deserialize, IntoParams, ToSchema)]
+#[into_params(parameter_in = Path)]
+pub struct EventIdPath {
+    pub event_id: String,
+}
+
+#[derive(Debug, Clone, Deserialize, IntoParams, ToSchema)]
+#[into_params(parameter_in = Path)]
+pub struct EventAttachmentIdPath {
+    pub event_id: String,
+    pub attachment_id: String,
+}

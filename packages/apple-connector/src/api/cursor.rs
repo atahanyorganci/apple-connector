@@ -3,8 +3,8 @@ use serde::{Deserialize, Serialize};
 
 use super::{error::ApiError, params::CURSOR_VERSION};
 use crate::{
-    messages::search::MessageFiltersSnapshot, notes::search::NoteFiltersSnapshot,
-    reminders::ReminderFiltersSnapshot,
+    calendar::EventFiltersSnapshot, messages::search::MessageFiltersSnapshot,
+    notes::search::NoteFiltersSnapshot, reminders::ReminderFiltersSnapshot,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -180,6 +180,44 @@ pub fn decode_note_search_cursor(
     expected_filters: &NoteFiltersSnapshot,
 ) -> Result<NoteSearchCursor, ApiError> {
     let decoded = decode::<NoteSearchCursor>(cursor)?;
+    if decoded.filters != *expected_filters {
+        return Err(ApiError::validation_with_details(
+            "cursor does not match the active filters",
+            serde_json::json!({ "field": "cursor" }),
+        ));
+    }
+    Ok(decoded)
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CalendarListCursor {
+    pub row_id: i64,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+pub struct GlobalEventCursor {
+    pub modified_at: f64,
+    pub row_id: i64,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+pub struct CalendarEventCursor {
+    pub start_at: f64,
+    pub row_id: i64,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct EventSearchCursor {
+    pub start_at: f64,
+    pub row_id: i64,
+    pub filters: EventFiltersSnapshot,
+}
+
+pub fn decode_event_search_cursor(
+    cursor: &str,
+    expected_filters: &EventFiltersSnapshot,
+) -> Result<EventSearchCursor, ApiError> {
+    let decoded = decode::<EventSearchCursor>(cursor)?;
     if decoded.filters != *expected_filters {
         return Err(ApiError::validation_with_details(
             "cursor does not match the active filters",

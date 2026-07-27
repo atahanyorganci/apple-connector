@@ -17,9 +17,11 @@ pub struct AppState {
     pub messages_db: Option<SqlitePool>,
     pub reminders_db: Option<SqlitePool>,
     pub notes_db: Option<SqlitePool>,
+    pub calendar_db: Option<SqlitePool>,
     pub attachment_root: Arc<PathBuf>,
     pub reminders_attachment_root: Arc<PathBuf>,
     pub notes_attachment_root: Arc<PathBuf>,
+    pub calendar_attachment_root: Arc<PathBuf>,
     pub openapi: Arc<OpenApiSpec>,
 }
 
@@ -28,24 +30,30 @@ impl AppState {
         messages_db: Option<SqlitePool>,
         reminders_db: Option<SqlitePool>,
         notes_db: Option<SqlitePool>,
+        calendar_db: Option<SqlitePool>,
     ) -> Self {
         Self::with_attachment_roots(
             messages_db,
             reminders_db,
             notes_db,
+            calendar_db,
             PathBuf::from("/var/empty/apple-connector-attachments-unconfigured"),
             PathBuf::from("/var/empty/apple-connector-reminders-attachments-unconfigured"),
             PathBuf::from("/var/empty/apple-connector-notes-attachments-unconfigured"),
+            PathBuf::from("/var/empty/apple-connector-calendar-attachments-unconfigured"),
         )
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub fn with_attachment_roots(
         messages_db: Option<SqlitePool>,
         reminders_db: Option<SqlitePool>,
         notes_db: Option<SqlitePool>,
+        calendar_db: Option<SqlitePool>,
         attachment_root: PathBuf,
         reminders_attachment_root: PathBuf,
         notes_attachment_root: PathBuf,
+        calendar_attachment_root: PathBuf,
     ) -> Self {
         let attachment_root =
             canonicalize_attachment_root(&attachment_root).unwrap_or(attachment_root);
@@ -53,14 +61,18 @@ impl AppState {
             .unwrap_or(reminders_attachment_root);
         let notes_attachment_root =
             canonicalize_attachment_root(&notes_attachment_root).unwrap_or(notes_attachment_root);
+        let calendar_attachment_root = canonicalize_attachment_root(&calendar_attachment_root)
+            .unwrap_or(calendar_attachment_root);
         let openapi = Arc::new(build_openapi_spec());
         Self {
             messages_db,
             reminders_db,
             notes_db,
+            calendar_db,
             attachment_root: Arc::new(attachment_root),
             reminders_attachment_root: Arc::new(reminders_attachment_root),
             notes_attachment_root: Arc::new(notes_attachment_root),
+            calendar_attachment_root: Arc::new(calendar_attachment_root),
             openapi,
         }
     }
@@ -128,6 +140,20 @@ fn openapi_router() -> OpenApiRouter<AppState> {
             crate::api::handlers::note_attachments::get_note_attachment_content,
             crate::api::handlers::note_attachments::head_note_attachment_content,
         ))
+        .routes(routes!(
+            crate::api::handlers::calendars::list_calendar_accounts
+        ))
+        .routes(routes!(crate::api::handlers::calendars::list_calendars))
+        .routes(routes!(crate::api::handlers::calendars::get_calendar))
+        .routes(routes!(
+            crate::api::handlers::calendars::list_calendar_events
+        ))
+        .routes(routes!(crate::api::handlers::events::list_events))
+        .routes(routes!(crate::api::handlers::events::get_event))
+        .routes(routes!(crate::api::handlers::events::parse_event))
+        .routes(routes!(
+            crate::api::handlers::event_attachments::get_event_attachment_content
+        ))
         .routes(routes!(crate::api::handlers::openapi::get_openapi_spec))
 }
 
@@ -166,12 +192,20 @@ mod tests {
         ("GET", "/v1/note-attachments/test-id"),
         ("GET", "/v1/note-attachments/test-id/content"),
         ("HEAD", "/v1/note-attachments/test-id/content"),
+        ("GET", "/v1/calendar-accounts"),
+        ("GET", "/v1/calendars"),
+        ("GET", "/v1/calendars/test-id"),
+        ("GET", "/v1/calendars/test-id/events"),
+        ("GET", "/v1/events"),
+        ("GET", "/v1/events/test-id"),
+        ("POST", "/v1/events/parse"),
+        ("GET", "/v1/events/test-id/attachments/test-id"),
         ("GET", "/openapi.json"),
     ];
 
     #[tokio::test]
     async fn router_registers_every_contract_route() {
-        let app = router(AppState::new(None, None, None));
+        let app = router(AppState::new(None, None, None, None));
 
         for (method, path) in ROUTES {
             let response = app
@@ -196,7 +230,7 @@ mod tests {
 
     #[tokio::test]
     async fn unknown_route_returns_json_404_with_security_headers() {
-        let app = router(AppState::new(None, None, None));
+        let app = router(AppState::new(None, None, None, None));
 
         let response = app
             .oneshot(
@@ -223,7 +257,7 @@ mod tests {
 
     #[tokio::test]
     async fn unsupported_method_returns_json_405() {
-        let app = router(AppState::new(None, None, None));
+        let app = router(AppState::new(None, None, None, None));
 
         let response = app
             .oneshot(
@@ -241,7 +275,7 @@ mod tests {
 
     #[tokio::test]
     async fn api_docs_are_served_at_docs() {
-        let app = router(AppState::new(None, None, None));
+        let app = router(AppState::new(None, None, None, None));
 
         let response = app
             .oneshot(
