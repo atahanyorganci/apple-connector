@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Apple Connector API",
-    "description": "Read-only HTTP API for Messages.app, Reminders.app, Notes.app, and Calendar.app data backed by live SQLite connections.\n\nPagination uses keyset cursors only (default limit 50, maximum 200, newest first). Offsets are not supported.\n\nAuthentication, TLS, and network exposure controls are expected to be enforced by an external reverse proxy or firewall. This service does not implement authentication or TLS.",
+    "description": "Hybrid HTTP API for Messages.app, Reminders.app, Notes.app, and Calendar.app.\n\n**Reads** use live SQLite connections (requires Full Disk Access).\n\n**Writes** for Reminders and Calendar events use EventKit (requires Reminders and Calendars permissions in System Settings). Unsupported fields return `422`; smart lists and read-only calendars return `403`. Post-save responses hydrate from SQLite with up to 5×100ms retries; `sync_pending: true` indicates the SQLite read path has not caught up yet.\n\nPagination uses keyset cursors only (default limit 50, maximum 200, newest first). Offsets are not supported.\n\nAuthentication, TLS, and network exposure controls are expected to be enforced by an external reverse proxy or firewall. This service does not implement authentication or TLS.",
     "license": {
       "name": "MIT",
       "identifier": "MIT"
@@ -22,7 +22,7 @@
           "health"
         ],
         "summary": "Health check",
-        "description": "Reports whether the read-only Messages, Reminders, Notes, and Calendar database pools are healthy.",
+        "description": "Reports whether the read-only Messages, Reminders, Notes, and Calendar database pools are healthy,\nplus EventKit authorization status for write operations.",
         "operationId": "getHealth",
         "responses": {
           "200": {
@@ -789,6 +789,65 @@
           },
           "503": {
             "description": "Calendar database is unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "events"
+        ],
+        "summary": "Create a calendar event",
+        "operationId": "createEvent",
+        "parameters": [
+          {
+            "name": "calendar_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateEventRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Event created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SyncPendingEventDetailDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Read-only calendar",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Calendar or EventKit unavailable",
             "content": {
               "application/json": {
                 "schema": {
@@ -1766,6 +1825,152 @@
           },
           "503": {
             "description": "Calendar database is unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "events"
+        ],
+        "summary": "Delete a calendar event",
+        "operationId": "deleteEvent",
+        "parameters": [
+          {
+            "name": "event_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "span",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "oneOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "$ref": "#/components/schemas/EventSpanDto"
+                }
+              ]
+            }
+          },
+          {
+            "name": "occurrence_start",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "oneOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "$ref": "#/components/schemas/UnixTimestamp"
+                }
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Event deleted"
+          },
+          "404": {
+            "description": "Event not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Calendar or EventKit unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "events"
+        ],
+        "summary": "Update a calendar event",
+        "operationId": "updateEvent",
+        "parameters": [
+          {
+            "name": "event_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "occurrence_start",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "oneOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "$ref": "#/components/schemas/UnixTimestamp"
+                }
+              ]
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateEventRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Event updated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SyncPendingEventDetailDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Event not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Calendar or EventKit unavailable",
             "content": {
               "application/json": {
                 "schema": {
@@ -3480,6 +3685,85 @@
             }
           }
         }
+      },
+      "post": {
+        "tags": [
+          "reminders"
+        ],
+        "summary": "Create a reminder in a list",
+        "operationId": "createReminder",
+        "parameters": [
+          {
+            "name": "list_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateReminderRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Reminder created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SyncPendingReminderDetailDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Smart list or read-only target",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unsupported field",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Reminders or EventKit unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/v1/reminders": {
@@ -3722,6 +4006,117 @@
             }
           }
         }
+      },
+      "delete": {
+        "tags": [
+          "reminders"
+        ],
+        "summary": "Delete a reminder",
+        "operationId": "deleteReminder",
+        "parameters": [
+          {
+            "name": "reminder_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Reminder deleted"
+          },
+          "404": {
+            "description": "Reminder not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Reminders or EventKit unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "reminders"
+        ],
+        "summary": "Update a reminder",
+        "operationId": "updateReminder",
+        "parameters": [
+          {
+            "name": "reminder_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateReminderRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Reminder updated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SyncPendingReminderDetailDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Reminder not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unsupported field",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Reminders or EventKit unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
       }
     }
   },
@@ -3775,6 +4170,34 @@
               "string",
               "null"
             ]
+          }
+        }
+      },
+      "AlarmInputDto": {
+        "type": "object",
+        "required": [
+          "kind"
+        ],
+        "properties": {
+          "at": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/UnixTimestamp"
+              }
+            ]
+          },
+          "kind": {
+            "$ref": "#/components/schemas/AlarmKindDto"
+          },
+          "offset_seconds": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64"
           }
         }
       },
@@ -4491,6 +4914,211 @@
           "unknown"
         ]
       },
+      "CreateEventRequest": {
+        "type": "object",
+        "required": [
+          "summary",
+          "start",
+          "end"
+        ],
+        "properties": {
+          "alarms": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AlarmInputDto"
+            }
+          },
+          "all_day": {
+            "type": "boolean"
+          },
+          "description": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "end": {
+            "$ref": "#/components/schemas/UnixTimestamp"
+          },
+          "location": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/LocationInputDto"
+              }
+            ]
+          },
+          "recurrence": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/RecurrenceInputDto"
+              }
+            ]
+          },
+          "start": {
+            "$ref": "#/components/schemas/UnixTimestamp"
+          },
+          "status": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/EventStatusInputDto"
+              }
+            ]
+          },
+          "summary": {
+            "type": "string"
+          },
+          "url": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "CreateReminderRequest": {
+        "type": "object",
+        "required": [
+          "title"
+        ],
+        "properties": {
+          "alarms": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AlarmInputDto"
+            }
+          },
+          "attachments": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ReminderAttachmentId"
+            }
+          },
+          "completed": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "due": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/DueInputDto"
+              }
+            ]
+          },
+          "flagged": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "location": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/LocationInputDto"
+              }
+            ]
+          },
+          "notes": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "parent_id": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/ReminderId"
+              }
+            ]
+          },
+          "priority": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64"
+          },
+          "recurrence": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/RecurrenceInputDto"
+              }
+            ]
+          },
+          "section_id": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/SectionId"
+              }
+            ]
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "title": {
+            "type": "string"
+          },
+          "url": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "DeleteEventParams": {
+        "type": "object",
+        "properties": {
+          "occurrence_start": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/UnixTimestamp"
+              }
+            ]
+          },
+          "span": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/EventSpanDto"
+              }
+            ]
+          }
+        }
+      },
       "DirectionDto": {
         "type": "string",
         "enum": [
@@ -4506,6 +5134,21 @@
         ]
       },
       "DueDto": {
+        "type": "object",
+        "required": [
+          "at",
+          "all_day"
+        ],
+        "properties": {
+          "all_day": {
+            "type": "boolean"
+          },
+          "at": {
+            "$ref": "#/components/schemas/UnixTimestamp"
+          }
+        }
+      },
+      "DueInputDto": {
         "type": "object",
         "required": [
           "at",
@@ -4560,6 +5203,8 @@
           "not_found",
           "range_not_satisfiable",
           "service_unavailable",
+          "forbidden",
+          "conflict",
           "internal_error"
         ]
       },
@@ -4867,6 +5512,17 @@
           }
         }
       },
+      "EventKitAuthStatusDto": {
+        "type": "string",
+        "enum": [
+          "not_determined",
+          "restricted",
+          "denied",
+          "authorized",
+          "write_only",
+          "unavailable"
+        ]
+      },
       "EventListParams": {
         "type": "object",
         "properties": {
@@ -5029,7 +5685,23 @@
           }
         }
       },
+      "EventSpanDto": {
+        "type": "string",
+        "enum": [
+          "this",
+          "future",
+          "all"
+        ]
+      },
       "EventStatusDto": {
+        "type": "string",
+        "enum": [
+          "confirmed",
+          "tentative",
+          "cancelled"
+        ]
+      },
+      "EventStatusInputDto": {
         "type": "string",
         "enum": [
           "confirmed",
@@ -5202,11 +5874,19 @@
           "messages",
           "reminders",
           "notes",
-          "calendar"
+          "calendar",
+          "eventkit_reminders",
+          "eventkit_events"
         ],
         "properties": {
           "calendar": {
             "$ref": "#/components/schemas/HealthStatus"
+          },
+          "eventkit_events": {
+            "$ref": "#/components/schemas/EventKitAuthStatusDto"
+          },
+          "eventkit_reminders": {
+            "$ref": "#/components/schemas/EventKitAuthStatusDto"
           },
           "messages": {
             "$ref": "#/components/schemas/HealthStatus"
@@ -5228,6 +5908,31 @@
           "tentative",
           "needs_action"
         ]
+      },
+      "LocationInputDto": {
+        "type": "object",
+        "properties": {
+          "latitude": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "format": "double"
+          },
+          "longitude": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "format": "double"
+          },
+          "title": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
       },
       "MessageBodyDto": {
         "type": "object",
@@ -6750,6 +7455,48 @@
           }
         }
       },
+      "RecurrenceFrequencyDto": {
+        "type": "string",
+        "enum": [
+          "daily",
+          "weekly",
+          "monthly",
+          "yearly"
+        ]
+      },
+      "RecurrenceInputDto": {
+        "type": "object",
+        "required": [
+          "frequency",
+          "interval"
+        ],
+        "properties": {
+          "count": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64"
+          },
+          "end_date": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/UnixTimestamp"
+              }
+            ]
+          },
+          "frequency": {
+            "$ref": "#/components/schemas/RecurrenceFrequencyDto"
+          },
+          "interval": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      },
       "RecurrenceRuleDto": {
         "type": "object",
         "required": [
@@ -7503,6 +8250,42 @@
           "birthday"
         ]
       },
+      "SyncPendingEventDetailDto": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/EventDetailDto"
+          },
+          {
+            "type": "object",
+            "required": [
+              "sync_pending"
+            ],
+            "properties": {
+              "sync_pending": {
+                "type": "boolean"
+              }
+            }
+          }
+        ]
+      },
+      "SyncPendingReminderDetailDto": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/ReminderDetailDto"
+          },
+          {
+            "type": "object",
+            "required": [
+              "sync_pending"
+            ],
+            "properties": {
+              "sync_pending": {
+                "type": "boolean"
+              }
+            }
+          }
+        ]
+      },
       "SystemContentDto": {
         "type": "object",
         "required": [
@@ -7602,6 +8385,252 @@
             "format": "int64"
           },
           "text": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "UpdateEventParams": {
+        "type": "object",
+        "properties": {
+          "occurrence_start": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/UnixTimestamp"
+              }
+            ]
+          }
+        }
+      },
+      "UpdateEventRequest": {
+        "type": "object",
+        "properties": {
+          "alarms": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/AlarmInputDto"
+            }
+          },
+          "all_day": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "calendar_id": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/CalendarId"
+              }
+            ]
+          },
+          "description": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "end": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/UnixTimestamp"
+              }
+            ]
+          },
+          "location": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/LocationInputDto"
+              }
+            ]
+          },
+          "recurrence": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/RecurrenceInputDto"
+              }
+            ]
+          },
+          "span": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/EventSpanDto"
+              }
+            ]
+          },
+          "start": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/UnixTimestamp"
+              }
+            ]
+          },
+          "status": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/EventStatusInputDto"
+              }
+            ]
+          },
+          "summary": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "url": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "UpdateReminderRequest": {
+        "type": "object",
+        "properties": {
+          "alarms": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/AlarmInputDto"
+            }
+          },
+          "attachments": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ReminderAttachmentId"
+            }
+          },
+          "completed": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "due": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/DueInputDto"
+              }
+            ]
+          },
+          "flagged": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "list_id": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/ReminderListId"
+              }
+            ]
+          },
+          "location": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/LocationInputDto"
+              }
+            ]
+          },
+          "notes": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "parent_id": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/ReminderId"
+              }
+            ]
+          },
+          "priority": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64"
+          },
+          "recurrence": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/RecurrenceInputDto"
+              }
+            ]
+          },
+          "section_id": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/SectionId"
+              }
+            ]
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "title": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "url": {
             "type": [
               "string",
               "null"

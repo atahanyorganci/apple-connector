@@ -1,14 +1,22 @@
 # apple-connector
 
-Rust monorepo that exposes a **read-only HTTP API** over Apple Messages, Reminders, and Notes data on macOS. It reads live SQLite databases (`~/Library/Messages/chat.db`, the Reminders Group Containers store, and `~/Library/Group Containers/group.com.apple.notes/NoteStore.sqlite`) and serves JSON plus attachment bytes.
+Rust monorepo that exposes a **hybrid HTTP API** over Apple Messages, Reminders, Notes, and Calendar data on macOS. Reads use live SQLite databases; Reminders and Calendar **writes** go through EventKit.
+
+| Database | Read path | Write path |
+| --- | --- | --- |
+| Messages | `~/Library/Messages/chat.db` | — |
+| Reminders | Group Containers SQLite store | EventKit (`EKReminder`) |
+| Notes | `~/Library/Group Containers/group.com.apple.notes/NoteStore.sqlite` | — |
+| Calendar | Calendar Group Containers SQLite store | EventKit (`EKEvent`) |
 
 ## Crates
 
-| Crate                   | Path                            | Role                                                               |
+| Crate | Path | Role |
 | ----------------------- | ------------------------------- | ------------------------------------------------------------------ |
-| `apple-connector`       | `packages/apple-connector/`     | Axum HTTP server, SQLx queries, OpenAPI (`/docs`, `/openapi.json`) |
-| `apple-notes-protobuf`  | `packages/apple-notes-protobuf/`| Gzip + protobuf decoder for Apple Notes body blobs                 |
-| `apple-typedstream`     | `packages/apple-typedstream/`   | Parser for Apple typedstream / attributed message bodies           |
+| `apple-connector` | `packages/apple-connector/` | Axum HTTP server, SQLx queries, OpenAPI (`/docs`, `/openapi.json`) |
+| `apple-eventkit` | `packages/apple-eventkit/` | EventKit wrapper for Reminders/Calendar writes (macOS-only) |
+| `apple-notes-protobuf` | `packages/apple-notes-protobuf/`| Gzip + protobuf decoder for Apple Notes body blobs |
+| `apple-typedstream` | `packages/apple-typedstream/` | Parser for Apple typedstream / attributed message bodies |
 
 ## Layout
 
@@ -16,8 +24,10 @@ Rust monorepo that exposes a **read-only HTTP API** over Apple Messages, Reminde
 - `packages/apple-connector/src/messages/` — Messages DB access, classification, attachments
 - `packages/apple-connector/src/reminders/` — Reminders DB access and assembly
 - `packages/apple-connector/src/notes/` — Notes DB access, body decoding, attachments
+- `packages/apple-connector/src/calendar/` — Calendar DB access and assembly
+- `packages/apple-eventkit/src/` — EventKit store, auth, reminder/event mutations
 - `packages/apple-connector/src/apple_types/` — shared ID and timestamp types
-- `packages/apple-connector/fixtures/` — empty Messages/Reminders/Notes schemas for offline SQLx
+- `packages/apple-connector/fixtures/` — empty Messages/Reminders/Notes/Calendar schemas for offline SQLx
 - `docs/openapi.json` — committed OpenAPI contract (regenerate after API changes)
 
 ## Run & test
@@ -26,12 +36,13 @@ Rust monorepo that exposes a **read-only HTTP API** over Apple Messages, Reminde
 nix develop
 cargo run -p apple-connector # http://127.0.0.1:3000
 cargo test -p apple-connector
-cargo test -p apple-notes-protobuf
+cargo test -p apple-eventkit
+cargo test -p apple-connector --test eventkit_integration -- --ignored  # macOS + permissions
 cargo fmt --all && cargo clippy -p apple-connector --all-targets -- -D warnings
 nix flake check
 ```
 
-Requires **Apple Silicon macOS**, **Full Disk Access**, and Nix with flakes. The API is unauthenticated and defaults to loopback only.
+Requires **Apple Silicon macOS**, **Full Disk Access** (SQLite reads), **Reminders** and **Calendars** TCC grants (EventKit writes), and Nix with flakes. The API is unauthenticated and defaults to loopback only.
 
 ## Planning
 
