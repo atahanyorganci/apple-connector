@@ -334,6 +334,22 @@ mod tests {
     }
 
     #[test]
+    fn note_folder_key_accepts_row_id_and_identifier() {
+        use super::NoteFolderKey;
+
+        assert!(matches!(
+            NoteFolderKey::parse("42").expect("row id"),
+            NoteFolderKey::Row(42)
+        ));
+        assert!(matches!(
+            NoteFolderKey::parse("DefaultFolder-CloudKit").expect("identifier"),
+            NoteFolderKey::Id(id) if id == "DefaultFolder-CloudKit"
+        ));
+        assert!(NoteFolderKey::parse("").is_err());
+        assert!(NoteFolderKey::parse("0").is_err());
+    }
+
+    #[test]
     fn cursor_must_be_versioned_and_url_safe_prefix() {
         let valid = PageParams {
             limit: None,
@@ -594,22 +610,23 @@ pub enum NoteFolderKey {
 
 impl NoteFolderKey {
     pub fn parse(raw: &str) -> Result<Self, ApiError> {
+        let raw = raw.trim();
+        if raw.is_empty() {
+            return Err(ApiError::validation_with_details(
+                "folder_id must be a positive integer or Notes folder identifier",
+                serde_json::json!({ "field": "folder_id" }),
+            ));
+        }
         if let Ok(row_id) = raw.parse::<i64>() {
             if row_id <= 0 {
                 return Err(ApiError::validation_with_details(
-                    "folder_id must be a positive integer or UUID",
+                    "folder_id must be a positive integer or Notes folder identifier",
                     serde_json::json!({ "field": "folder_id" }),
                 ));
             }
             return Ok(Self::Row(row_id));
         }
-        if is_uuid(raw) {
-            return Ok(Self::Id(raw.to_lowercase()));
-        }
-        Err(ApiError::validation_with_details(
-            "folder_id must be a positive integer or UUID",
-            serde_json::json!({ "field": "folder_id" }),
-        ))
+        Ok(Self::Id(raw.to_owned()))
     }
 }
 
@@ -703,15 +720,7 @@ impl NoteListParams {
             Some(value) if value.parse::<i64>().is_ok() => Some(
                 crate::notes::FolderIdFilter::RowId(value.parse().expect("parsed")),
             ),
-            Some(value) if is_uuid(value) => {
-                Some(crate::notes::FolderIdFilter::Uuid(value.to_lowercase()))
-            }
-            Some(_) => {
-                return Err(ApiError::validation_with_details(
-                    "folder_id must be a positive integer or UUID",
-                    serde_json::json!({ "field": "folder_id" }),
-                ));
-            }
+            Some(value) => Some(crate::notes::FolderIdFilter::Identifier(value.to_owned())),
         };
 
         let modified_before = self

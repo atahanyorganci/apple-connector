@@ -25,7 +25,7 @@ pub struct NoteFilters {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum FolderIdFilter {
     RowId(i64),
-    Uuid(String),
+    Identifier(String),
 }
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
@@ -85,7 +85,7 @@ impl NoteFilters {
 fn folder_id_filter_key(filter: &FolderIdFilter) -> String {
     match filter {
         FolderIdFilter::RowId(id) => format!("row:{id}"),
-        FolderIdFilter::Uuid(id) => format!("uuid:{id}"),
+        FolderIdFilter::Identifier(id) => format!("id:{id}"),
     }
 }
 
@@ -117,7 +117,7 @@ pub fn apply_filters(
                 builder.push(" AND n.ZFOLDER = ");
                 builder.push_bind(*id);
             }
-            FolderIdFilter::Uuid(id) => {
+            FolderIdFilter::Identifier(id) => {
                 builder.push(" AND lower(f.ZIDENTIFIER) = ");
                 builder.push_bind(id.to_lowercase());
             }
