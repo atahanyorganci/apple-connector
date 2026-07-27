@@ -3,5 +3,7 @@ members = [
   "packages/apple-connector",
   "packages/apple-notes-protobuf",
   "packages/apple-typedstream",
+  "packages/serde-icalendar",
+  "packages/serde-caldav",
 ]
 resolver = "3"
