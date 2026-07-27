@@ -163,8 +163,8 @@ VALUES
     1,
     'Conference Room A',
     '123 Main St, San Francisco, CA',
-    37774900,
-    -122419400,
+    37.7749,
+    -122.4194,
     1
   );
 

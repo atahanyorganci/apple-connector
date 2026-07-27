@@ -65,8 +65,8 @@ pub struct LocationRow {
     pub row_id: i64,
     pub title: Option<String>,
     pub address: Option<String>,
-    pub latitude: Option<i64>,
-    pub longitude: Option<i64>,
+    pub latitude: Option<f64>,
+    pub longitude: Option<f64>,
 }
 
 #[derive(Debug, sqlx::FromRow, Clone)]
@@ -131,8 +131,4 @@ pub fn parse_core_data_timestamp(secs: Option<f64>) -> Option<DateTime<Utc>> {
 pub fn core_data_secs_from_timestamp(dt: DateTime<Utc>) -> f64 {
     (dt.timestamp() - CORE_DATA_EPOCH_UNIX_SECS) as f64
         + f64::from(dt.timestamp_subsec_nanos()) / 1_000_000_000.0
-}
-
-pub fn microdegrees_to_degrees(value: Option<i64>) -> Option<f64> {
-    value.map(|v| f64::from(v as i32) / 1_000_000.0)
 }

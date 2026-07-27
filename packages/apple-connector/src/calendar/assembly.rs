@@ -6,7 +6,7 @@ use super::{
     },
     row::{
         AlarmRow, AttachmentRow, CalendarRow, EventRow, LocationRow, ParticipantRow, RecurrenceRow,
-        StoreRow, microdegrees_to_degrees, parse_core_data_timestamp,
+        StoreRow, parse_core_data_timestamp,
     },
 };
 
@@ -111,8 +111,8 @@ fn location_from_row(row: LocationRow) -> EventLocation {
     EventLocation {
         title: row.title,
         address: row.address,
-        latitude: microdegrees_to_degrees(row.latitude),
-        longitude: microdegrees_to_degrees(row.longitude),
+        latitude: row.latitude,
+        longitude: row.longitude,
     }
 }
 
