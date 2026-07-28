@@ -14,6 +14,8 @@ const INFO_PLIST: &str = r#"<?xml version="1.0" encoding="UTF-8"?>
   <string>apple-connector creates, updates, and deletes reminders through the HTTP API.</string>
   <key>NSCalendarsUsageDescription</key>
   <string>apple-connector creates, updates, and deletes calendar events through the HTTP API.</string>
+  <key>NSContactsUsageDescription</key>
+  <string>apple-connector creates, updates, and deletes contacts and groups through the HTTP API.</string>
 </dict>
 </plist>
 "#;
