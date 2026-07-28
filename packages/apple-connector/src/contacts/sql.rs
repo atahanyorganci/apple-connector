@@ -61,7 +61,7 @@ WHERE r.Z_ENT = 22 AND lower(r.ZUNIQUEID) LIKE lower(?) || '%' \
 LIMIT 1";
 
 pub const CONTAINER_RESOLVE_SELECT: &str = "\
-SELECT lower(substr(r.ZUNIQUEID, 1, instr(r.ZUNIQUEID, ':') - 1)), r.ZNAME, r.ZTYPE \
+SELECT lower(substr(r.ZUNIQUEID, 1, instr(r.ZUNIQUEID, ':') - 1)), r.ZUNIQUEID, r.ZNAME, r.ZTYPE \
 FROM ZABCDRECORD r \
 WHERE r.Z_ENT = 25 AND lower(substr(r.ZUNIQUEID, 1, instr(r.ZUNIQUEID, ':') - 1)) = lower(?)";
 
@@ -70,7 +70,14 @@ SELECT lower(substr(r.ZUNIQUEID, 1, instr(r.ZUNIQUEID, ':') - 1)), r.ZNAME, r.ZT
 FROM ZABCDRECORD r \
 WHERE r.Z_ENT = 19 AND lower(substr(r.ZUNIQUEID, 1, instr(r.ZUNIQUEID, ':') - 1)) = lower(?)";
 
+/// Full AddressBook unique id (`UUID:ABPerson`) for CNContactStore lookups.
 pub const CONTACT_EXTERNAL_ID_SELECT: &str = "\
-SELECT substr(r.ZUNIQUEID, 1, instr(r.ZUNIQUEID, ':') - 1) \
+SELECT r.ZUNIQUEID \
 FROM ZABCDRECORD r \
 WHERE r.Z_ENT = 22 AND lower(substr(r.ZUNIQUEID, 1, instr(r.ZUNIQUEID, ':') - 1)) = lower(?)";
+
+/// Full AddressBook unique id (`UUID:ABGroup`) for CNContactStore lookups.
+pub const GROUP_EXTERNAL_ID_SELECT: &str = "\
+SELECT r.ZUNIQUEID \
+FROM ZABCDRECORD r \
+WHERE r.Z_ENT = 19 AND lower(substr(r.ZUNIQUEID, 1, instr(r.ZUNIQUEID, ':') - 1)) = lower(?)";

@@ -8,13 +8,13 @@ use super::{
     model::{ContactDetail, ContactGroup, ContactSummary, Container},
     row::{
         AddressRow, ContactRow, ContainerRow, EmailRow, GroupIdRow, GroupRow, PhoneRow,
-        PhotoRow, SocialRow, UrlRow,
+        PhotoRow, SocialRow, UrlRow, api_id_from_unique_id,
     },
     search::{ContactFilters, apply_contact_filters},
     sql::{
         ADDRESS_SELECT, CONTACT_EXTERNAL_ID_SELECT, CONTACT_SELECT, CONTAINER_RESOLVE_SELECT,
-        CONTAINER_SELECT, EMAIL_SELECT, GROUP_IDS_FOR_CONTACT, GROUP_RESOLVE_SELECT, GROUP_SELECT,
-        PHONE_SELECT, PHOTO_SELECT, SOCIAL_SELECT, URL_SELECT,
+        CONTAINER_SELECT, EMAIL_SELECT, GROUP_EXTERNAL_ID_SELECT, GROUP_IDS_FOR_CONTACT,
+        GROUP_RESOLVE_SELECT, GROUP_SELECT, PHONE_SELECT, PHOTO_SELECT, SOCIAL_SELECT, URL_SELECT,
     },
 };
 use crate::{
@@ -32,6 +32,8 @@ pub struct Page<T> {
 #[derive(Debug, Clone)]
 pub struct ContainerResolveMetadata {
     pub api_id: String,
+    /// Full AddressBook unique id (`UUID:ABContainer`) for CNContactStore.
+    pub external_id: String,
     pub name: Option<String>,
     pub container_type: i64,
 }
@@ -187,15 +189,19 @@ impl<'a> ContactsRepository<'a> {
         &self,
         container_id: &str,
     ) -> Result<Option<ContainerResolveMetadata>, sqlx::Error> {
-        let row: Option<(String, Option<String>, Option<i64>)> =
+        let api_id = api_id_from_unique_id(container_id);
+        let row: Option<(String, String, Option<String>, Option<i64>)> =
             sqlx::query_as(CONTAINER_RESOLVE_SELECT)
-                .bind(container_id.to_owned())
+                .bind(api_id)
                 .fetch_optional(self.pool)
                 .await?;
-        Ok(row.map(|(api_id, name, container_type)| ContainerResolveMetadata {
-            api_id,
-            name,
-            container_type: container_type.unwrap_or(0),
+        Ok(row.map(|(api_id, external_id, name, container_type)| {
+            ContainerResolveMetadata {
+                api_id,
+                external_id,
+                name,
+                container_type: container_type.unwrap_or(0),
+            }
         }))
     }
 
@@ -204,10 +210,11 @@ impl<'a> ContactsRepository<'a> {
         group_id: &str,
     ) -> Result<Option<GroupResolveMetadata>, sqlx::Error> {
         type Row = (String, Option<String>, Option<i64>, Option<i64>);
+        let api_id = api_id_from_unique_id(group_id);
         let row: Option<Row> = sqlx::query_as(GROUP_RESOLVE_SELECT)
-                .bind(group_id.to_owned())
-                .fetch_optional(self.pool)
-                .await?;
+            .bind(api_id)
+            .fetch_optional(self.pool)
+            .await?;
         Ok(row.map(
             |(api_id, name, group_type, container_id)| GroupResolveMetadata {
                 api_id,
@@ -222,8 +229,21 @@ impl<'a> ContactsRepository<'a> {
         &self,
         contact_id: &str,
     ) -> Result<Option<String>, sqlx::Error> {
+        let api_id = api_id_from_unique_id(contact_id);
         let row: Option<(String,)> = sqlx::query_as(CONTACT_EXTERNAL_ID_SELECT)
-            .bind(contact_id.to_owned())
+            .bind(api_id)
+            .fetch_optional(self.pool)
+            .await?;
+        Ok(row.map(|(id,)| id))
+    }
+
+    pub async fn get_group_external_id(
+        &self,
+        group_id: &str,
+    ) -> Result<Option<String>, sqlx::Error> {
+        let api_id = api_id_from_unique_id(group_id);
+        let row: Option<(String,)> = sqlx::query_as(GROUP_EXTERNAL_ID_SELECT)
+            .bind(api_id)
             .fetch_optional(self.pool)
             .await?;
         Ok(row.map(|(id,)| id))

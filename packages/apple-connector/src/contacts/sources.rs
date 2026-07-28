@@ -179,6 +179,34 @@ impl ContactsSources {
         Ok(None)
     }
 
+    /// Resolve the CNContactStore identifier (`UUID:ABPerson`) for an API contact id.
+    pub async fn get_contact_framework_id(
+        &self,
+        contact_id: &str,
+    ) -> Result<Option<String>, sqlx::Error> {
+        for (source_id, pool) in &self.pools {
+            let repo = ContactsRepository::new(pool, source_id.clone());
+            if let Some(external_id) = repo.get_contact_external_id(contact_id).await? {
+                return Ok(Some(external_id));
+            }
+        }
+        Ok(None)
+    }
+
+    /// Resolve the CNContactStore identifier (`UUID:ABGroup`) for an API group id.
+    pub async fn get_group_framework_id(
+        &self,
+        group_id: &str,
+    ) -> Result<Option<String>, sqlx::Error> {
+        for (source_id, pool) in &self.pools {
+            let repo = ContactsRepository::new(pool, source_id.clone());
+            if let Some(external_id) = repo.get_group_external_id(group_id).await? {
+                return Ok(Some(external_id));
+            }
+        }
+        Ok(None)
+    }
+
     pub async fn get_container_resolve_metadata(
         &self,
         container_id: &str,

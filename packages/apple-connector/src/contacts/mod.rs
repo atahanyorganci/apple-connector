@@ -21,5 +21,6 @@ pub use model::{
 pub use repository::{
     ContactsRepository, ContainerResolveMetadata, GroupResolveMetadata, Page,
 };
+pub use row::api_id_from_unique_id;
 pub use search::ContactFilters;
 pub use sources::ContactsSources;

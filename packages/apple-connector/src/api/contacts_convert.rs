@@ -39,7 +39,7 @@ pub fn map_contacts_error(error: ContactsError) -> ApiError {
 pub fn container_hint(container: &Container, metadata: ContainerResolveMetadata) -> ContainerResolveHint {
     ContainerResolveHint {
         api_id: metadata.api_id,
-        external_id: Some(container.id.as_str().to_owned()),
+        external_id: Some(metadata.external_id),
         name: metadata.name.or(container.name.clone()),
         read_only: container.read_only,
     }

@@ -96,8 +96,10 @@ pub async fn hydrate_contact(
     sources: &ContactsSources,
     external_id: &str,
 ) -> Result<SyncPendingContactDetailDto, ApiError> {
+    // CNContact identifiers are `UUID:ABPerson`; SQLite reads use the UUID prefix.
+    let api_id = crate::contacts::api_id_from_unique_id(external_id);
     for attempt in 0..HYDRATE_ATTEMPTS {
-        if let Some(contact) = sources.get_contact(external_id).await.map_err(|error| {
+        if let Some(contact) = sources.get_contact(&api_id).await.map_err(|error| {
             ApiError::internal(error.to_string())
         })? {
             return Ok(SyncPendingContactDetailDto {
@@ -111,7 +113,7 @@ pub async fn hydrate_contact(
     }
 
     Ok(SyncPendingContactDetailDto {
-        detail: fallback_contact_detail(external_id),
+        detail: fallback_contact_detail(&api_id),
         sync_pending: true,
     })
 }
