@@ -14,8 +14,15 @@ use super::{
         },
         chat::{ChatDetailDto, ChatPageDto, ChatSummaryDto},
         common::{
-            DirectionDto, EventKitAuthStatusDto, HandleDto, HealthStatus, HealthStatusDto,
-            TransportDto,
+            ContactsAuthStatusDto, DirectionDto, EventKitAuthStatusDto, HandleDto, HealthStatus,
+            HealthStatusDto, TransportDto,
+        },
+        contacts::{
+            ContactAddressDto, ContactDetailDto, ContactEmailDto, ContactPageDto, ContactPhoneDto,
+            ContactSocialProfileDto, ContactSummaryDto, ContactUrlDto, ContainerDetailDto,
+            ContainerPageDto, ContainerSummaryDto, CreateContactRequest, CreateGroupRequest,
+            GroupDetailDto, GroupPageDto, GroupSummaryDto, LabeledStringDto, PostalAddressDto,
+            UpdateContactRequest, UpdateGroupRequest,
         },
         content::{
             AppBalloonContentDto, AppBalloonKindDto, AttachmentContentDto, AttributedBodyErrorDto,
@@ -43,20 +50,20 @@ use super::{
         },
     },
     error::{ErrorBody, ErrorCode, ErrorResponse},
-    hydrate::{SyncPendingEventDetailDto, SyncPendingReminderDetailDto},
+    hydrate::{SyncPendingContactDetailDto, SyncPendingEventDetailDto, SyncPendingReminderDetailDto},
     params::{
         AttachmentGuidPath, CalendarIdPath, ChatIdPath, ConditionalRequestHeaders,
-        ContentTypeFilterDto, DirectionFilterDto, EventAttachmentIdPath, EventIdPath,
-        EventListParams, MessageGuidPath, MessageListParams, NoteAttachmentIdPath,
-        NoteFolderIdPath, NoteIdPath, NoteListParams, PageParams, RangeRequestHeader,
-        ReminderAttachmentIdPath, ReminderIdPath, ReminderListIdPath, ReminderListParams,
-        TransportFilterDto,
+        ContactGroupPath, ContactIdPath, ContactListParams, ContainerIdPath, ContentTypeFilterDto,
+        DirectionFilterDto, EventAttachmentIdPath, EventIdPath, EventListParams, GroupIdPath,
+        MessageGuidPath, MessageListParams, NoteAttachmentIdPath, NoteFolderIdPath, NoteIdPath,
+        NoteListParams, PageParams, RangeRequestHeader, ReminderAttachmentIdPath, ReminderIdPath,
+        ReminderListIdPath, ReminderListParams, TransportFilterDto,
     },
 };
 use crate::apple_types::{
-    AttachmentId, CalendarAccountId, CalendarAttachmentId, CalendarId, ChatId, EventId, MessageId,
-    NoteAttachmentId, NoteFolderId, NoteId, ReminderAttachmentId, ReminderId, ReminderListId,
-    SectionId, UnixTimestamp,
+    AttachmentId, CalendarAccountId, CalendarAttachmentId, CalendarId, ChatId, ContactId,
+    ContainerId, EventId, GroupId, MessageId, NoteAttachmentId, NoteFolderId, NoteId,
+    ReminderAttachmentId, ReminderId, ReminderListId, SectionId, SourceId, UnixTimestamp,
 };
 
 struct SecurityAddon;
@@ -87,12 +94,13 @@ impl Modify for SecurityAddon {
     info(
         title = "Apple Connector API",
         version = "1.0.0",
-        description = "Hybrid HTTP API for Messages.app, Reminders.app, Notes.app, and Calendar.app.\n\n\
+        description = "Hybrid HTTP API for Messages.app, Reminders.app, Notes.app, Calendar.app, and Contacts.\n\n\
             **Reads** use live SQLite connections (requires Full Disk Access).\n\n\
-            **Writes** for Reminders and Calendar events use EventKit (requires Reminders and Calendars \
-            permissions in System Settings). Unsupported fields return `422`; smart lists and read-only \
-            calendars return `403`. Post-save responses hydrate from SQLite with up to 5×100ms retries; \
-            `sync_pending: true` indicates the SQLite read path has not caught up yet.\n\n\
+            **Writes** for Reminders, Calendar events, and Contacts use EventKit / Contacts framework \
+            (requires Reminders, Calendars, and Contacts permissions in System Settings). Unsupported \
+            fields return `422`; smart lists, read-only calendars/containers return `403`. Post-save \
+            responses hydrate from SQLite with up to 5×100ms retries; `sync_pending: true` indicates \
+            the SQLite read path has not caught up yet.\n\n\
             Pagination uses keyset cursors only (default limit 50, maximum 200, newest first). \
             Offsets are not supported.\n\n\
             Authentication, TLS, and network exposure controls are expected to be enforced by an \
@@ -118,6 +126,9 @@ impl Modify for SecurityAddon {
         (name = "calendars", description = "Calendar account and calendar listing"),
         (name = "events", description = "Global event listing, lookup, and interchange parsing"),
         (name = "event-attachments", description = "Event attachment byte streaming"),
+        (name = "containers", description = "Contact container listing"),
+        (name = "groups", description = "Contact group listing and membership"),
+        (name = "contacts", description = "Global contact listing, lookup, vCard/CardDAV, and mutations"),
         (name = "meta", description = "API metadata and contract export")
     ),
     components(schemas(
@@ -126,7 +137,10 @@ impl Modify for SecurityAddon {
         CalendarAttachmentId,
         CalendarId,
         ChatId,
+        ContactId,
+        ContainerId,
         EventId,
+        GroupId,
         MessageId,
         NoteAttachmentId,
         NoteFolderId,
@@ -135,6 +149,7 @@ impl Modify for SecurityAddon {
         ReminderId,
         ReminderListId,
         SectionId,
+        SourceId,
         UnixTimestamp,
         ChecklistItemDto,
         EmbeddedObjectDto,
@@ -211,6 +226,7 @@ impl Modify for SecurityAddon {
         HealthStatus,
         HealthStatusDto,
         EventKitAuthStatusDto,
+        ContactsAuthStatusDto,
         CreateReminderRequest,
         UpdateReminderRequest,
         DueInputDto,
@@ -226,6 +242,32 @@ impl Modify for SecurityAddon {
         EventSpanDto,
         EventStatusInputDto,
         SyncPendingEventDetailDto,
+        SyncPendingContactDetailDto,
+        ContactAddressDto,
+        ContactDetailDto,
+        ContactEmailDto,
+        ContactGroupPath,
+        ContactIdPath,
+        ContactListParams,
+        ContactPageDto,
+        ContactPhoneDto,
+        ContactSocialProfileDto,
+        ContactSummaryDto,
+        ContactUrlDto,
+        ContainerDetailDto,
+        ContainerIdPath,
+        ContainerPageDto,
+        ContainerSummaryDto,
+        CreateContactRequest,
+        CreateGroupRequest,
+        GroupDetailDto,
+        GroupIdPath,
+        GroupPageDto,
+        GroupSummaryDto,
+        LabeledStringDto,
+        PostalAddressDto,
+        UpdateContactRequest,
+        UpdateGroupRequest,
         MessageBodyDto,
         MessageContentDto,
         MessageDetailDto,
@@ -385,6 +427,45 @@ mod tests {
             "get",
             "/v1/events/{event_id}/attachments/{attachment_id}",
             "getEventAttachmentContent",
+        ),
+        ("get", "/v1/containers", "listContainers"),
+        ("get", "/v1/containers/{container_id}", "getContainer"),
+        ("get", "/v1/groups", "listGroups"),
+        ("get", "/v1/groups/{group_id}", "getGroup"),
+        ("get", "/v1/groups/{group_id}/contacts", "listGroupContacts"),
+        (
+            "get",
+            "/v1/groups/{group_id}/contacts/vcard",
+            "listGroupContactsVcard",
+        ),
+        (
+            "get",
+            "/v1/groups/{group_id}/contacts/carddav",
+            "listGroupContactsCarddav",
+        ),
+        ("get", "/v1/contacts", "listContacts"),
+        ("get", "/v1/contacts/vcard", "listContactsVcard"),
+        ("get", "/v1/contacts/carddav", "listContactsCarddav"),
+        ("get", "/v1/contacts/search", "searchContacts"),
+        ("get", "/v1/contacts/{contact_id}", "getContact"),
+        ("get", "/v1/contacts/{contact_id}/vcard", "getContactVcard"),
+        ("get", "/v1/contacts/{contact_id}/carddav", "getContactCarddav"),
+        ("get", "/v1/contacts/{contact_id}/photo", "getContactPhoto"),
+        ("post", "/v1/containers/{container_id}/contacts", "createContact"),
+        ("patch", "/v1/contacts/{contact_id}", "updateContact"),
+        ("delete", "/v1/contacts/{contact_id}", "deleteContact"),
+        ("post", "/v1/containers/{container_id}/groups", "createGroup"),
+        ("patch", "/v1/groups/{group_id}", "updateGroup"),
+        ("delete", "/v1/groups/{group_id}", "deleteGroup"),
+        (
+            "post",
+            "/v1/groups/{group_id}/contacts/{contact_id}",
+            "addContactToGroup",
+        ),
+        (
+            "delete",
+            "/v1/groups/{group_id}/contacts/{contact_id}",
+            "removeContactFromGroup",
         ),
         ("get", "/openapi.json", "getOpenApiSpec"),
     ];

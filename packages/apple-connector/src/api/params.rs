@@ -867,3 +867,114 @@ pub struct EventAttachmentIdPath {
     pub event_id: String,
     pub attachment_id: String,
 }
+
+#[derive(Debug, Clone, Deserialize, IntoParams, ToSchema)]
+#[into_params(parameter_in = Path)]
+pub struct ContainerIdPath {
+    pub container_id: String,
+}
+
+#[derive(Debug, Clone, Deserialize, IntoParams, ToSchema)]
+#[into_params(parameter_in = Path)]
+pub struct GroupIdPath {
+    pub group_id: String,
+}
+
+#[derive(Debug, Clone, Deserialize, IntoParams, ToSchema)]
+#[into_params(parameter_in = Path)]
+pub struct ContactIdPath {
+    pub contact_id: String,
+}
+
+#[derive(Debug, Clone, Deserialize, IntoParams, ToSchema)]
+#[into_params(parameter_in = Path)]
+pub struct ContactGroupPath {
+    pub group_id: String,
+    pub contact_id: String,
+}
+
+#[derive(Debug, Clone, Deserialize, IntoParams, ToSchema)]
+#[into_params(parameter_in = Query, style = Form)]
+pub struct ContactListParams {
+    #[param(minimum = 1, maximum = 200, default = 50, example = 50)]
+    pub limit: Option<u32>,
+    #[param(example = "v1.eyJyb3dfaWQiOjF9")]
+    pub cursor: Option<String>,
+    #[param(max_length = 256, example = "jane")]
+    pub q: Option<String>,
+    pub container_id: Option<String>,
+    pub group_id: Option<String>,
+}
+
+impl ContactListParams {
+    pub fn validated_limit(&self) -> Result<u32, ApiError> {
+        let limit = self.limit.unwrap_or(DEFAULT_PAGE_LIMIT);
+        if !(1..=MAX_PAGE_LIMIT).contains(&limit) {
+            return Err(ApiError::validation_with_details(
+                format!("limit must be between 1 and {MAX_PAGE_LIMIT}"),
+                serde_json::json!({
+                    "field": "limit",
+                    "minimum": 1,
+                    "maximum": MAX_PAGE_LIMIT,
+                    "default": DEFAULT_PAGE_LIMIT,
+                }),
+            ));
+        }
+        Ok(limit)
+    }
+
+    pub fn validated_cursor(&self) -> Result<Option<&str>, ApiError> {
+        match &self.cursor {
+            None => Ok(None),
+            Some(cursor) if cursor.starts_with(&format!("{CURSOR_VERSION}.")) => Ok(Some(cursor)),
+            Some(_) => Err(ApiError::validation_with_details(
+                format!("cursor must start with `{CURSOR_VERSION}.`"),
+                serde_json::json!({
+                    "field": "cursor",
+                    "expected_prefix": format!("{CURSOR_VERSION}."),
+                }),
+            )),
+        }
+    }
+
+    pub fn validated_search_query(&self) -> Result<String, ApiError> {
+        match self.q.as_deref().map(str::trim) {
+            None | Some("") => Err(ApiError::validation_with_details(
+                "q is required",
+                serde_json::json!({ "field": "q" }),
+            )),
+            Some(query) if query.len() > MAX_SEARCH_QUERY_LEN => {
+                Err(ApiError::validation_with_details(
+                    format!("q must be at most {MAX_SEARCH_QUERY_LEN} characters"),
+                    serde_json::json!({
+                        "field": "q",
+                        "maximum": MAX_SEARCH_QUERY_LEN,
+                    }),
+                ))
+            }
+            Some(query) => Ok(query.to_owned()),
+        }
+    }
+
+    pub fn validated_filters(&self) -> Result<crate::contacts::ContactFilters, ApiError> {
+        let q = match self.q.as_deref().map(str::trim) {
+            None | Some("") => None,
+            Some(query) if query.len() > MAX_SEARCH_QUERY_LEN => {
+                return Err(ApiError::validation_with_details(
+                    format!("q must be at most {MAX_SEARCH_QUERY_LEN} characters"),
+                    serde_json::json!({
+                        "field": "q",
+                        "maximum": MAX_SEARCH_QUERY_LEN,
+                    }),
+                ));
+            }
+            Some(query) => Some(query.to_owned()),
+        };
+
+        Ok(crate::contacts::ContactFilters {
+            q,
+            container_id: self.container_id.clone(),
+            group_id: self.group_id.clone(),
+        })
+    }
+}

@@ -1,5 +1,6 @@
-use std::{path::PathBuf, sync::Arc};
+use std::{collections::HashMap, path::PathBuf, sync::Arc};
 
+use apple_contacts::ContactsStore;
 use apple_eventkit::EventKitStore;
 use axum::{Router, middleware::from_fn};
 use sqlx::SqlitePool;
@@ -11,7 +12,10 @@ use super::{
     doc::ApiDoc,
     middleware::{method_not_allowed, not_found, request_timeout, security_headers, trace_request},
 };
-use crate::messages::attachment_path::canonicalize_attachment_root;
+use crate::{
+    contacts::ContactsSources,
+    messages::attachment_path::canonicalize_attachment_root,
+};
 
 #[derive(Clone)]
 pub struct AppState {
@@ -19,11 +23,13 @@ pub struct AppState {
     pub reminders_db: Option<SqlitePool>,
     pub notes_db: Option<SqlitePool>,
     pub calendar_db: Option<SqlitePool>,
+    pub contacts_sources: ContactsSources,
     pub attachment_root: Arc<PathBuf>,
     pub reminders_attachment_root: Arc<PathBuf>,
     pub notes_attachment_root: Arc<PathBuf>,
     pub calendar_attachment_root: Arc<PathBuf>,
     pub eventkit: Option<Arc<EventKitStore>>,
+    pub contacts_store: Option<Arc<ContactsStore>>,
     pub openapi: Arc<OpenApiSpec>,
 }
 
@@ -34,20 +40,39 @@ impl AppState {
         notes_db: Option<SqlitePool>,
         calendar_db: Option<SqlitePool>,
     ) -> Self {
+        Self::with_contacts(
+            messages_db,
+            reminders_db,
+            notes_db,
+            calendar_db,
+            ContactsSources::new(HashMap::new()),
+            None,
+        )
+    }
+
+    pub fn with_contacts(
+        messages_db: Option<SqlitePool>,
+        reminders_db: Option<SqlitePool>,
+        notes_db: Option<SqlitePool>,
+        calendar_db: Option<SqlitePool>,
+        contacts_sources: ContactsSources,
+        contacts_store: Option<Arc<ContactsStore>>,
+    ) -> Self {
         Self::with_attachment_roots(
             messages_db,
             reminders_db,
             notes_db,
             calendar_db,
+            contacts_sources,
             PathBuf::from("/var/empty/apple-connector-attachments-unconfigured"),
             PathBuf::from("/var/empty/apple-connector-reminders-attachments-unconfigured"),
             PathBuf::from("/var/empty/apple-connector-notes-attachments-unconfigured"),
             PathBuf::from("/var/empty/apple-connector-calendar-attachments-unconfigured"),
             None,
+            contacts_store,
         )
     }
 
-    #[allow(clippy::too_many_arguments)]
     pub fn with_eventkit(
         messages_db: Option<SqlitePool>,
         reminders_db: Option<SqlitePool>,
@@ -60,11 +85,13 @@ impl AppState {
             reminders_db,
             notes_db,
             calendar_db,
+            ContactsSources::new(HashMap::new()),
             PathBuf::from("/var/empty/apple-connector-attachments-unconfigured"),
             PathBuf::from("/var/empty/apple-connector-reminders-attachments-unconfigured"),
             PathBuf::from("/var/empty/apple-connector-notes-attachments-unconfigured"),
             PathBuf::from("/var/empty/apple-connector-calendar-attachments-unconfigured"),
             eventkit,
+            None,
         )
     }
 
@@ -74,11 +101,13 @@ impl AppState {
         reminders_db: Option<SqlitePool>,
         notes_db: Option<SqlitePool>,
         calendar_db: Option<SqlitePool>,
+        contacts_sources: ContactsSources,
         attachment_root: PathBuf,
         reminders_attachment_root: PathBuf,
         notes_attachment_root: PathBuf,
         calendar_attachment_root: PathBuf,
         eventkit: Option<Arc<EventKitStore>>,
+        contacts_store: Option<Arc<ContactsStore>>,
     ) -> Self {
         let attachment_root =
             canonicalize_attachment_root(&attachment_root).unwrap_or(attachment_root);
@@ -94,11 +123,13 @@ impl AppState {
             reminders_db,
             notes_db,
             calendar_db,
+            contacts_sources,
             attachment_root: Arc::new(attachment_root),
             reminders_attachment_root: Arc::new(reminders_attachment_root),
             notes_attachment_root: Arc::new(notes_attachment_root),
             calendar_attachment_root: Arc::new(calendar_attachment_root),
             eventkit,
+            contacts_store,
             openapi,
         }
     }
@@ -201,6 +232,43 @@ fn openapi_router() -> OpenApiRouter<AppState> {
         .routes(routes!(crate::api::handlers::event_mutations::create_event))
         .routes(routes!(crate::api::handlers::event_mutations::update_event))
         .routes(routes!(crate::api::handlers::event_mutations::delete_event))
+        .routes(routes!(crate::api::handlers::containers::list_containers))
+        .routes(routes!(crate::api::handlers::containers::get_container))
+        .routes(routes!(crate::api::handlers::groups::list_groups))
+        .routes(routes!(crate::api::handlers::groups::get_group))
+        .routes(routes!(
+            crate::api::handlers::groups::list_group_contacts_vcard
+        ))
+        .routes(routes!(
+            crate::api::handlers::groups::list_group_contacts_carddav
+        ))
+        .routes(routes!(crate::api::handlers::groups::list_group_contacts))
+        .routes(routes!(crate::api::handlers::contacts::list_contacts_vcard))
+        .routes(routes!(crate::api::handlers::contacts::list_contacts_carddav))
+        .routes(routes!(crate::api::handlers::contacts::search_contacts))
+        .routes(routes!(crate::api::handlers::contacts::list_contacts))
+        .routes(routes!(crate::api::handlers::contacts::get_contact_vcard))
+        .routes(routes!(crate::api::handlers::contacts::get_contact_carddav))
+        .routes(routes!(crate::api::handlers::contacts::get_contact_photo))
+        .routes(routes!(crate::api::handlers::contacts::get_contact))
+        .routes(routes!(
+            crate::api::handlers::contact_mutations::create_contact
+        ))
+        .routes(routes!(
+            crate::api::handlers::contact_mutations::update_contact
+        ))
+        .routes(routes!(
+            crate::api::handlers::contact_mutations::delete_contact
+        ))
+        .routes(routes!(crate::api::handlers::contact_mutations::create_group))
+        .routes(routes!(crate::api::handlers::contact_mutations::update_group))
+        .routes(routes!(crate::api::handlers::contact_mutations::delete_group))
+        .routes(routes!(
+            crate::api::handlers::contact_mutations::add_contact_to_group
+        ))
+        .routes(routes!(
+            crate::api::handlers::contact_mutations::remove_contact_from_group
+        ))
         .routes(routes!(crate::api::handlers::openapi::get_openapi_spec))
 }
 
@@ -258,6 +326,29 @@ mod tests {
         ("GET", "/v1/events/test-id/iCal"),
         ("GET", "/v1/events/test-id/caldav"),
         ("GET", "/v1/events/test-id/attachments/test-id"),
+        ("GET", "/v1/containers"),
+        ("GET", "/v1/containers/test-id"),
+        ("GET", "/v1/groups"),
+        ("GET", "/v1/groups/test-id"),
+        ("GET", "/v1/groups/test-id/contacts"),
+        ("GET", "/v1/groups/test-id/contacts/vcard"),
+        ("GET", "/v1/groups/test-id/contacts/carddav"),
+        ("GET", "/v1/contacts"),
+        ("GET", "/v1/contacts/vcard"),
+        ("GET", "/v1/contacts/carddav"),
+        ("GET", "/v1/contacts/search"),
+        ("GET", "/v1/contacts/test-id"),
+        ("GET", "/v1/contacts/test-id/vcard"),
+        ("GET", "/v1/contacts/test-id/carddav"),
+        ("GET", "/v1/contacts/test-id/photo"),
+        ("POST", "/v1/containers/test-id/contacts"),
+        ("PATCH", "/v1/contacts/test-id"),
+        ("DELETE", "/v1/contacts/test-id"),
+        ("POST", "/v1/containers/test-id/groups"),
+        ("PATCH", "/v1/groups/test-id"),
+        ("DELETE", "/v1/groups/test-id"),
+        ("POST", "/v1/groups/test-id/contacts/test-id"),
+        ("DELETE", "/v1/groups/test-id/contacts/test-id"),
         ("GET", "/openapi.json"),
     ];
 

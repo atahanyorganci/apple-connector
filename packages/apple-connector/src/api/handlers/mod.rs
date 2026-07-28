@@ -1,9 +1,13 @@
 pub mod attachments;
 pub mod calendars;
 pub mod chats;
+pub mod contact_mutations;
+pub mod contacts;
+pub mod containers;
 pub mod event_attachments;
 pub mod event_mutations;
 pub mod events;
+pub mod groups;
 pub mod health;
 pub mod messages;
 pub mod note_attachments;

@@ -200,6 +200,16 @@ pub struct GlobalEventCursor {
     pub row_id: i64,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ContactListCursor {
+    pub row_id: i64,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub struct GroupContactCursor {
+    pub row_id: i64,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub struct CalendarEventCursor {
     pub start_at: f64,

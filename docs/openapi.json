@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Apple Connector API",
-    "description": "Hybrid HTTP API for Messages.app, Reminders.app, Notes.app, and Calendar.app.\n\n**Reads** use live SQLite connections (requires Full Disk Access).\n\n**Writes** for Reminders and Calendar events use EventKit (requires Reminders and Calendars permissions in System Settings). Unsupported fields return `422`; smart lists and read-only calendars return `403`. Post-save responses hydrate from SQLite with up to 5×100ms retries; `sync_pending: true` indicates the SQLite read path has not caught up yet.\n\nPagination uses keyset cursors only (default limit 50, maximum 200, newest first). Offsets are not supported.\n\nAuthentication, TLS, and network exposure controls are expected to be enforced by an external reverse proxy or firewall. This service does not implement authentication or TLS.",
+    "description": "Hybrid HTTP API for Messages.app, Reminders.app, Notes.app, Calendar.app, and Contacts.\n\n**Reads** use live SQLite connections (requires Full Disk Access).\n\n**Writes** for Reminders, Calendar events, and Contacts use EventKit / Contacts framework (requires Reminders, Calendars, and Contacts permissions in System Settings). Unsupported fields return `422`; smart lists, read-only calendars/containers return `403`. Post-save responses hydrate from SQLite with up to 5×100ms retries; `sync_pending: true` indicates the SQLite read path has not caught up yet.\n\nPagination uses keyset cursors only (default limit 50, maximum 200, newest first). Offsets are not supported.\n\nAuthentication, TLS, and network exposure controls are expected to be enforced by an external reverse proxy or firewall. This service does not implement authentication or TLS.",
     "license": {
       "name": "MIT",
       "identifier": "MIT"
@@ -22,7 +22,7 @@
           "health"
         ],
         "summary": "Health check",
-        "description": "Reports whether the read-only Messages, Reminders, Notes, and Calendar database pools are healthy,\nplus EventKit authorization status for write operations.",
+        "description": "Reports whether the read-only Messages, Reminders, Notes, Calendar, and Contacts database pools are healthy,\nplus EventKit and Contacts authorization status for write operations.",
         "operationId": "getHealth",
         "responses": {
           "200": {
@@ -1385,6 +1385,876 @@
         }
       }
     },
+    "/v1/contacts": {
+      "get": {
+        "tags": [
+          "contacts"
+        ],
+        "summary": "List contacts globally as JSON",
+        "operationId": "listContacts",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 50,
+              "maximum": 200,
+              "minimum": 1
+            },
+            "style": "form",
+            "example": 50
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "style": "form",
+            "example": "v1.eyJyb3dfaWQiOjF9"
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 256
+            },
+            "style": "form",
+            "example": "jane"
+          },
+          {
+            "name": "container_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "style": "form"
+          },
+          {
+            "name": "group_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "style": "form"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Paginated contacts",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContactPageDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid query parameters",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Contacts databases are unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/contacts/carddav": {
+      "get": {
+        "tags": [
+          "contacts"
+        ],
+        "summary": "List contacts globally as CardDAV XML",
+        "operationId": "listContactsCarddav",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 50,
+              "maximum": 200,
+              "minimum": 1
+            },
+            "style": "form",
+            "example": 50
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "style": "form",
+            "example": "v1.eyJyb3dfaWQiOjF9"
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 256
+            },
+            "style": "form",
+            "example": "jane"
+          },
+          {
+            "name": "container_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "style": "form"
+          },
+          {
+            "name": "group_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "style": "form"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "CardDAV multistatus",
+            "content": {
+              "application/carddav+xml": {}
+            }
+          },
+          "400": {
+            "description": "Invalid query parameters",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Contacts databases are unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/contacts/search": {
+      "get": {
+        "tags": [
+          "contacts"
+        ],
+        "summary": "Search contacts",
+        "operationId": "searchContacts",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 50,
+              "maximum": 200,
+              "minimum": 1
+            },
+            "style": "form",
+            "example": 50
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "style": "form",
+            "example": "v1.eyJyb3dfaWQiOjF9"
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 256
+            },
+            "style": "form",
+            "example": "jane"
+          },
+          {
+            "name": "container_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "style": "form"
+          },
+          {
+            "name": "group_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "style": "form"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Matching contacts",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContactPageDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid query parameters",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Contacts databases are unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/contacts/vcard": {
+      "get": {
+        "tags": [
+          "contacts"
+        ],
+        "summary": "List contacts globally as vCard",
+        "operationId": "listContactsVcard",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 50,
+              "maximum": 200,
+              "minimum": 1
+            },
+            "style": "form",
+            "example": 50
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "style": "form",
+            "example": "v1.eyJyb3dfaWQiOjF9"
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 256
+            },
+            "style": "form",
+            "example": "jane"
+          },
+          {
+            "name": "container_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "style": "form"
+          },
+          {
+            "name": "group_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "style": "form"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "vCard feed",
+            "content": {
+              "text/vcard": {}
+            }
+          },
+          "400": {
+            "description": "Invalid query parameters",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Contacts databases are unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/contacts/{contact_id}": {
+      "get": {
+        "tags": [
+          "contacts"
+        ],
+        "summary": "Get a contact as JSON",
+        "operationId": "getContact",
+        "parameters": [
+          {
+            "name": "contact_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Contact detail",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContactDetailDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Contact not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Contacts databases are unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "contacts"
+        ],
+        "summary": "Delete a contact",
+        "operationId": "deleteContact",
+        "parameters": [
+          {
+            "name": "contact_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Contact deleted"
+          },
+          "404": {
+            "description": "Contact not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Contacts databases or Contacts framework unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "contacts"
+        ],
+        "summary": "Update a contact",
+        "operationId": "updateContact",
+        "parameters": [
+          {
+            "name": "contact_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateContactRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Contact updated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SyncPendingContactDetailDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Contact not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Contacts databases or Contacts framework unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/contacts/{contact_id}/carddav": {
+      "get": {
+        "tags": [
+          "contacts"
+        ],
+        "summary": "Get a contact as CardDAV XML",
+        "operationId": "getContactCarddav",
+        "parameters": [
+          {
+            "name": "contact_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "CardDAV resource",
+            "content": {
+              "application/carddav+xml": {}
+            }
+          },
+          "404": {
+            "description": "Contact not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Contacts databases are unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/contacts/{contact_id}/photo": {
+      "get": {
+        "tags": [
+          "contacts"
+        ],
+        "summary": "Get a contact photo",
+        "operationId": "getContactPhoto",
+        "parameters": [
+          {
+            "name": "contact_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Contact photo bytes"
+          },
+          "404": {
+            "description": "Contact or photo not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Contacts databases are unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/contacts/{contact_id}/vcard": {
+      "get": {
+        "tags": [
+          "contacts"
+        ],
+        "summary": "Get a contact as vCard",
+        "operationId": "getContactVcard",
+        "parameters": [
+          {
+            "name": "contact_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "vCard document",
+            "content": {
+              "text/vcard": {}
+            }
+          },
+          "404": {
+            "description": "Contact not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Contacts databases are unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/containers": {
+      "get": {
+        "tags": [
+          "containers"
+        ],
+        "summary": "List contact containers",
+        "operationId": "listContainers",
+        "responses": {
+          "200": {
+            "description": "Contact containers",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContainerPageDto"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Contacts databases are unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/containers/{container_id}": {
+      "get": {
+        "tags": [
+          "containers"
+        ],
+        "summary": "Get a contact container",
+        "operationId": "getContainer",
+        "parameters": [
+          {
+            "name": "container_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Container detail",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContainerSummaryDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Container not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Contacts databases are unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/containers/{container_id}/contacts": {
+      "post": {
+        "tags": [
+          "contacts"
+        ],
+        "summary": "Create a contact in a container",
+        "operationId": "createContact",
+        "parameters": [
+          {
+            "name": "container_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateContactRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Contact created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SyncPendingContactDetailDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Read-only container",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Contacts databases or Contacts framework unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/containers/{container_id}/groups": {
+      "post": {
+        "tags": [
+          "groups"
+        ],
+        "summary": "Create a group in a container",
+        "operationId": "createGroup",
+        "parameters": [
+          {
+            "name": "container_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateGroupRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Group created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupSummaryDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Read-only container",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Contacts databases or Contacts framework unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/events": {
       "get": {
         "tags": [
@@ -2159,6 +3029,582 @@
           },
           "503": {
             "description": "Calendar database is unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/groups": {
+      "get": {
+        "tags": [
+          "groups"
+        ],
+        "summary": "List contact groups",
+        "operationId": "listGroups",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "Maximum number of items to return. Defaults to 50. Keyset pagination only; no offsets.",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 50,
+              "maximum": 200,
+              "minimum": 1
+            },
+            "style": "form",
+            "example": 50
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "description": "URL-safe versioned cursor for the next page. Results are ordered newest first.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "style": "form",
+            "example": "v1.eyJkYXRlIjoxNzA0MDk2MDAwfQ"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Paginated groups",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupPageDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid query parameters",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Contacts databases are unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/groups/{group_id}": {
+      "get": {
+        "tags": [
+          "groups"
+        ],
+        "summary": "Get a contact group",
+        "operationId": "getGroup",
+        "parameters": [
+          {
+            "name": "group_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Group detail",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupSummaryDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Group not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Contacts databases are unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "groups"
+        ],
+        "summary": "Delete a group",
+        "operationId": "deleteGroup",
+        "parameters": [
+          {
+            "name": "group_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Group deleted"
+          },
+          "404": {
+            "description": "Group not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Contacts databases or Contacts framework unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "groups"
+        ],
+        "summary": "Update a group",
+        "operationId": "updateGroup",
+        "parameters": [
+          {
+            "name": "group_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateGroupRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Group updated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupSummaryDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Group not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Contacts databases or Contacts framework unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/groups/{group_id}/contacts": {
+      "get": {
+        "tags": [
+          "contacts"
+        ],
+        "summary": "List contacts in a group as JSON",
+        "operationId": "listGroupContacts",
+        "parameters": [
+          {
+            "name": "group_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "Maximum number of items to return. Defaults to 50. Keyset pagination only; no offsets.",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 50,
+              "maximum": 200,
+              "minimum": 1
+            },
+            "style": "form",
+            "example": 50
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "description": "URL-safe versioned cursor for the next page. Results are ordered newest first.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "style": "form",
+            "example": "v1.eyJkYXRlIjoxNzA0MDk2MDAwfQ"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Paginated contacts",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContactPageDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid query parameters",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Group not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Contacts databases are unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/groups/{group_id}/contacts/carddav": {
+      "get": {
+        "tags": [
+          "contacts"
+        ],
+        "summary": "List contacts in a group as CardDAV XML",
+        "operationId": "listGroupContactsCarddav",
+        "parameters": [
+          {
+            "name": "group_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "Maximum number of items to return. Defaults to 50. Keyset pagination only; no offsets.",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 50,
+              "maximum": 200,
+              "minimum": 1
+            },
+            "style": "form",
+            "example": 50
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "description": "URL-safe versioned cursor for the next page. Results are ordered newest first.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "style": "form",
+            "example": "v1.eyJkYXRlIjoxNzA0MDk2MDAwfQ"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "CardDAV multistatus",
+            "content": {
+              "application/carddav+xml": {}
+            }
+          },
+          "400": {
+            "description": "Invalid query parameters",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Group not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Contacts databases are unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/groups/{group_id}/contacts/vcard": {
+      "get": {
+        "tags": [
+          "contacts"
+        ],
+        "summary": "List contacts in a group as vCard",
+        "operationId": "listGroupContactsVcard",
+        "parameters": [
+          {
+            "name": "group_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "Maximum number of items to return. Defaults to 50. Keyset pagination only; no offsets.",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 50,
+              "maximum": 200,
+              "minimum": 1
+            },
+            "style": "form",
+            "example": 50
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "description": "URL-safe versioned cursor for the next page. Results are ordered newest first.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "style": "form",
+            "example": "v1.eyJkYXRlIjoxNzA0MDk2MDAwfQ"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "vCard feed",
+            "content": {
+              "text/vcard": {}
+            }
+          },
+          "400": {
+            "description": "Invalid query parameters",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Group not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Contacts databases are unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/groups/{group_id}/contacts/{contact_id}": {
+      "post": {
+        "tags": [
+          "groups"
+        ],
+        "summary": "Add a contact to a group",
+        "operationId": "addContactToGroup",
+        "parameters": [
+          {
+            "name": "group_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "contact_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Contact added to group"
+          },
+          "404": {
+            "description": "Contact or group not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Contacts databases or Contacts framework unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "groups"
+        ],
+        "summary": "Remove a contact from a group",
+        "operationId": "removeContactFromGroup",
+        "parameters": [
+          {
+            "name": "group_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "contact_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Contact removed from group"
+          },
+          "404": {
+            "description": "Contact or group not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Contacts databases or Contacts framework unavailable",
             "content": {
               "application/json": {
                 "schema": {
@@ -4899,6 +6345,491 @@
           }
         }
       },
+      "ContactAddressDto": {
+        "type": "object",
+        "required": [
+          "id",
+          "is_primary"
+        ],
+        "properties": {
+          "city": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "country": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "id": {
+            "type": "string"
+          },
+          "is_primary": {
+            "type": "boolean"
+          },
+          "label": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "postal_code": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "state": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "street": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "ContactDetailDto": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/ContactSummaryDto"
+          },
+          {
+            "type": "object",
+            "required": [
+              "phones",
+              "emails",
+              "addresses",
+              "urls",
+              "social_profiles",
+              "group_ids",
+              "has_photo"
+            ],
+            "properties": {
+              "addresses": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/ContactAddressDto"
+                }
+              },
+              "birthday": {
+                "oneOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "$ref": "#/components/schemas/UnixTimestamp"
+                  }
+                ]
+              },
+              "creation_date": {
+                "oneOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "$ref": "#/components/schemas/UnixTimestamp"
+                  }
+                ]
+              },
+              "department": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "emails": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/ContactEmailDto"
+                }
+              },
+              "group_ids": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/GroupId"
+                }
+              },
+              "has_photo": {
+                "type": "boolean"
+              },
+              "job_title": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "middle_name": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "nickname": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "note": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "phones": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/ContactPhoneDto"
+                }
+              },
+              "social_profiles": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/ContactSocialProfileDto"
+                }
+              },
+              "urls": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/ContactUrlDto"
+                }
+              }
+            }
+          }
+        ]
+      },
+      "ContactEmailDto": {
+        "type": "object",
+        "required": [
+          "id",
+          "address",
+          "is_primary"
+        ],
+        "properties": {
+          "address": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "is_primary": {
+            "type": "boolean"
+          },
+          "label": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "ContactGroupPath": {
+        "type": "object",
+        "required": [
+          "group_id",
+          "contact_id"
+        ],
+        "properties": {
+          "contact_id": {
+            "type": "string"
+          },
+          "group_id": {
+            "type": "string"
+          }
+        }
+      },
+      "ContactId": {
+        "type": "string",
+        "description": "Stable identifier for a contact (its UUID).",
+        "example": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"
+      },
+      "ContactIdPath": {
+        "type": "object",
+        "required": [
+          "contact_id"
+        ],
+        "properties": {
+          "contact_id": {
+            "type": "string"
+          }
+        }
+      },
+      "ContactListParams": {
+        "type": "object",
+        "properties": {
+          "container_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "cursor": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "group_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "limit": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "minimum": 0
+          },
+          "q": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "ContactPageDto": {
+        "type": "object",
+        "required": [
+          "items",
+          "page"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ContactSummaryDto"
+            }
+          },
+          "page": {
+            "$ref": "#/components/schemas/PageMetaDto"
+          }
+        }
+      },
+      "ContactPhoneDto": {
+        "type": "object",
+        "required": [
+          "id",
+          "number",
+          "is_primary"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "is_primary": {
+            "type": "boolean"
+          },
+          "label": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "number": {
+            "type": "string"
+          }
+        }
+      },
+      "ContactSocialProfileDto": {
+        "type": "object",
+        "required": [
+          "id",
+          "is_primary"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "is_primary": {
+            "type": "boolean"
+          },
+          "label": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "service": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "url": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "username": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "ContactSummaryDto": {
+        "type": "object",
+        "required": [
+          "id",
+          "source_id",
+          "container_id"
+        ],
+        "properties": {
+          "container_id": {
+            "$ref": "#/components/schemas/ContainerId"
+          },
+          "display_name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "first_name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "id": {
+            "$ref": "#/components/schemas/ContactId"
+          },
+          "last_name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "modification_date": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/UnixTimestamp"
+              }
+            ]
+          },
+          "organization": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "source_id": {
+            "$ref": "#/components/schemas/SourceId"
+          }
+        }
+      },
+      "ContactUrlDto": {
+        "type": "object",
+        "required": [
+          "id",
+          "url",
+          "is_primary"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "is_primary": {
+            "type": "boolean"
+          },
+          "label": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "url": {
+            "type": "string"
+          }
+        }
+      },
+      "ContactsAuthStatusDto": {
+        "type": "string",
+        "enum": [
+          "not_determined",
+          "restricted",
+          "denied",
+          "authorized",
+          "limited",
+          "unavailable"
+        ]
+      },
+      "ContainerId": {
+        "type": "string",
+        "description": "Stable identifier for a contact container (its UUID).",
+        "example": "11111111-1111-1111-1111-111111111111"
+      },
+      "ContainerIdPath": {
+        "type": "object",
+        "required": [
+          "container_id"
+        ],
+        "properties": {
+          "container_id": {
+            "type": "string"
+          }
+        }
+      },
+      "ContainerPageDto": {
+        "type": "object",
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ContainerSummaryDto"
+            }
+          }
+        }
+      },
+      "ContainerSummaryDto": {
+        "type": "object",
+        "required": [
+          "id",
+          "source_id",
+          "container_type",
+          "read_only"
+        ],
+        "properties": {
+          "container_type": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "id": {
+            "$ref": "#/components/schemas/ContainerId"
+          },
+          "name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "read_only": {
+            "type": "boolean"
+          },
+          "source_id": {
+            "$ref": "#/components/schemas/SourceId"
+          }
+        }
+      },
       "ContentTypeFilterDto": {
         "type": "string",
         "enum": [
@@ -4913,6 +6844,83 @@
           "system",
           "unknown"
         ]
+      },
+      "CreateContactRequest": {
+        "type": "object",
+        "properties": {
+          "department_name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "email_addresses": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/LabeledStringDto"
+            }
+          },
+          "family_name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "given_name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "job_title": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "middle_name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "nickname": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "note": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "organization_name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "phone_numbers": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/LabeledStringDto"
+            }
+          },
+          "postal_addresses": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PostalAddressDto"
+            }
+          },
+          "url_addresses": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/LabeledStringDto"
+            }
+          }
+        }
       },
       "CreateEventRequest": {
         "type": "object",
@@ -4981,6 +6989,17 @@
               "string",
               "null"
             ]
+          }
+        }
+      },
+      "CreateGroupRequest": {
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "properties": {
+          "name": {
+            "type": "string"
           }
         }
       },
@@ -5846,6 +7865,73 @@
           }
         }
       },
+      "GroupId": {
+        "type": "string",
+        "description": "Stable identifier for a contact group (its UUID).",
+        "example": "22222222-2222-2222-2222-222222222222"
+      },
+      "GroupIdPath": {
+        "type": "object",
+        "required": [
+          "group_id"
+        ],
+        "properties": {
+          "group_id": {
+            "type": "string"
+          }
+        }
+      },
+      "GroupPageDto": {
+        "type": "object",
+        "required": [
+          "items",
+          "page"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GroupSummaryDto"
+            }
+          },
+          "page": {
+            "$ref": "#/components/schemas/PageMetaDto"
+          }
+        }
+      },
+      "GroupSummaryDto": {
+        "type": "object",
+        "required": [
+          "id",
+          "source_id",
+          "container_id",
+          "is_smart_group",
+          "is_subscribed"
+        ],
+        "properties": {
+          "container_id": {
+            "$ref": "#/components/schemas/ContainerId"
+          },
+          "id": {
+            "$ref": "#/components/schemas/GroupId"
+          },
+          "is_smart_group": {
+            "type": "boolean"
+          },
+          "is_subscribed": {
+            "type": "boolean"
+          },
+          "name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "source_id": {
+            "$ref": "#/components/schemas/SourceId"
+          }
+        }
+      },
       "HandleDto": {
         "type": "object",
         "required": [
@@ -5875,12 +7961,20 @@
           "reminders",
           "notes",
           "calendar",
+          "contacts",
           "eventkit_reminders",
-          "eventkit_events"
+          "eventkit_events",
+          "contacts_auth"
         ],
         "properties": {
           "calendar": {
             "$ref": "#/components/schemas/HealthStatus"
+          },
+          "contacts": {
+            "$ref": "#/components/schemas/HealthStatus"
+          },
+          "contacts_auth": {
+            "$ref": "#/components/schemas/ContactsAuthStatusDto"
           },
           "eventkit_events": {
             "$ref": "#/components/schemas/EventKitAuthStatusDto"
@@ -5908,6 +8002,23 @@
           "tentative",
           "needs_action"
         ]
+      },
+      "LabeledStringDto": {
+        "type": "object",
+        "required": [
+          "value"
+        ],
+        "properties": {
+          "label": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "value": {
+            "type": "string"
+          }
+        }
       },
       "LocationInputDto": {
         "type": "object",
@@ -7318,6 +9429,47 @@
           }
         }
       },
+      "PostalAddressDto": {
+        "type": "object",
+        "properties": {
+          "city": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "country": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "label": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "postal_code": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "state": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "street": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
       "PrivacyLevelDto": {
         "type": "string",
         "enum": [
@@ -8240,6 +10392,11 @@
           "raw": {}
         }
       },
+      "SourceId": {
+        "type": "string",
+        "description": "AddressBook source UUID (directory name under Sources/).",
+        "example": "27fd6c1e-5da5-4340-a31a-1d83c25d3b70"
+      },
       "StoreTypeDto": {
         "type": "string",
         "enum": [
@@ -8248,6 +10405,24 @@
           "exchange",
           "subscription",
           "birthday"
+        ]
+      },
+      "SyncPendingContactDetailDto": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/ContactDetailDto"
+          },
+          {
+            "type": "object",
+            "required": [
+              "sync_pending"
+            ],
+            "properties": {
+              "sync_pending": {
+                "type": "boolean"
+              }
+            }
+          }
         ]
       },
       "SyncPendingEventDetailDto": {
@@ -8392,6 +10567,95 @@
           }
         }
       },
+      "UpdateContactRequest": {
+        "type": "object",
+        "properties": {
+          "department_name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "email_addresses": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/LabeledStringDto"
+            }
+          },
+          "family_name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "given_name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "job_title": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "middle_name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "nickname": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "note": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "organization_name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "phone_numbers": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/LabeledStringDto"
+            }
+          },
+          "postal_addresses": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/PostalAddressDto"
+            }
+          },
+          "url_addresses": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/LabeledStringDto"
+            }
+          }
+        }
+      },
       "UpdateEventParams": {
         "type": "object",
         "properties": {
@@ -8508,6 +10772,17 @@
             ]
           },
           "url": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "UpdateGroupRequest": {
+        "type": "object",
+        "properties": {
+          "name": {
             "type": [
               "string",
               "null"
@@ -8728,6 +11003,18 @@
     {
       "name": "event-attachments",
       "description": "Event attachment byte streaming"
+    },
+    {
+      "name": "containers",
+      "description": "Contact container listing"
+    },
+    {
+      "name": "groups",
+      "description": "Contact group listing and membership"
+    },
+    {
+      "name": "contacts",
+      "description": "Global contact listing, lookup, vCard/CardDAV, and mutations"
     },
     {
       "name": "meta",
