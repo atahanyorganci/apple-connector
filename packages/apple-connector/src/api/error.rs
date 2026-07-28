@@ -150,6 +150,12 @@ impl ApiError {
         )
     }
 
+    pub fn contacts_unavailable() -> Self {
+        Self::service_unavailable(
+            "Contacts framework is unavailable on this platform or could not be initialized",
+        )
+    }
+
     pub fn internal(message: impl Into<String>) -> Self {
         Self {
             status: StatusCode::INTERNAL_SERVER_ERROR,

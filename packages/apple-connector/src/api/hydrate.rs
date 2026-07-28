@@ -5,12 +5,14 @@ use sqlx::SqlitePool;
 use crate::{
     api::{
         dto::{
-            calendar::EventDetailDto, calendar_convert::event_detail_to_dto,
+            contacts::ContactDetailDto, contacts_convert::contact_detail_to_dto,
             reminder::ReminderDetailDto, reminder_convert::reminder_detail_to_dto,
+            calendar::EventDetailDto, calendar_convert::event_detail_to_dto,
         },
         error::ApiError,
     },
     calendar::CalendarRepository,
+    contacts::ContactsSources,
     reminders::ReminderRepository,
 };
 
@@ -28,6 +30,13 @@ pub struct SyncPendingReminderDetailDto {
 pub struct SyncPendingEventDetailDto {
     #[serde(flatten)]
     pub detail: EventDetailDto,
+    pub sync_pending: bool,
+}
+
+#[derive(Debug, Clone, serde::Serialize, utoipa::ToSchema)]
+pub struct SyncPendingContactDetailDto {
+    #[serde(flatten)]
+    pub detail: ContactDetailDto,
     pub sync_pending: bool,
 }
 
@@ -79,6 +88,30 @@ pub async fn hydrate_event(
 
     Ok(SyncPendingEventDetailDto {
         detail: fallback_event_detail(external_id),
+        sync_pending: true,
+    })
+}
+
+pub async fn hydrate_contact(
+    sources: &ContactsSources,
+    external_id: &str,
+) -> Result<SyncPendingContactDetailDto, ApiError> {
+    for attempt in 0..HYDRATE_ATTEMPTS {
+        if let Some(contact) = sources.get_contact(external_id).await.map_err(|error| {
+            ApiError::internal(error.to_string())
+        })? {
+            return Ok(SyncPendingContactDetailDto {
+                detail: contact_detail_to_dto(&contact),
+                sync_pending: false,
+            });
+        }
+        if attempt + 1 < HYDRATE_ATTEMPTS {
+            tokio::time::sleep(HYDRATE_DELAY).await;
+        }
+    }
+
+    Ok(SyncPendingContactDetailDto {
+        detail: fallback_contact_detail(external_id),
         sync_pending: true,
     })
 }
@@ -158,6 +191,40 @@ fn fallback_event_detail(external_id: &str) -> EventDetailDto {
         creation_date: None,
         has_structured_data: false,
         has_app_link: false,
+    }
+}
+
+fn fallback_contact_detail(external_id: &str) -> ContactDetailDto {
+    use crate::{
+        api::dto::contacts::ContactSummaryDto,
+        apple_types::{ContactId, ContainerId, SourceId},
+    };
+
+    ContactDetailDto {
+        summary: ContactSummaryDto {
+            id: ContactId::new(external_id.to_owned()),
+            source_id: SourceId::new(String::new()),
+            container_id: ContainerId::new(String::new()),
+            display_name: None,
+            first_name: None,
+            last_name: None,
+            organization: None,
+            modification_date: None,
+        },
+        middle_name: None,
+        nickname: None,
+        job_title: None,
+        department: None,
+        note: None,
+        birthday: None,
+        creation_date: None,
+        phones: Vec::new(),
+        emails: Vec::new(),
+        addresses: Vec::new(),
+        urls: Vec::new(),
+        social_profiles: Vec::new(),
+        group_ids: Vec::new(),
+        has_photo: false,
     }
 }
 

@@ -1,4 +1,6 @@
 pub(crate) mod cursor;
+pub(crate) mod contacts;
+pub(crate) mod contacts_convert;
 mod doc;
 mod dto;
 mod error;

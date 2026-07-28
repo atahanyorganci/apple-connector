@@ -367,10 +367,12 @@ mod tests {
                 None,
                 None,
                 None,
+                crate::contacts::ContactsSources::new(std::collections::HashMap::new()),
                 root,
                 PathBuf::from("/var/empty/reminders-attachments"),
                 PathBuf::from("/var/empty/notes-attachments"),
                 PathBuf::from("/var/empty/calendar-attachments"),
+                None,
                 None,
             ))
         }
