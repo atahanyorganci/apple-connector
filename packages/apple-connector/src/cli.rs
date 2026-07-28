@@ -55,6 +55,10 @@ pub struct Cli {
     /// Path to the Calendar attachment directory.
     #[arg(long, value_name = "PATH")]
     pub calendar_attachment_root: Option<PathBuf>,
+
+    /// Directory to scan for AddressBook source databases when auto-discovering.
+    #[arg(long, value_name = "PATH")]
+    pub contacts_sources_dir: Option<PathBuf>,
 }
 
 impl Cli {
@@ -103,6 +107,16 @@ impl Cli {
             return Ok(PathBuf::from(path));
         }
         crate::notes::discovery::default_notes_database_path()
+    }
+
+    pub fn contacts_sources_dir_path(&self) -> Result<PathBuf, IoError> {
+        if let Some(path) = &self.contacts_sources_dir {
+            return Ok(path.clone());
+        }
+        if let Ok(path) = std::env::var("APPLE_CONNECTOR_CONTACTS_SOURCES_DIR") {
+            return Ok(PathBuf::from(path));
+        }
+        crate::contacts::default_contacts_sources_dir()
     }
 
     pub fn warns_about_public_binding(&self) -> bool {

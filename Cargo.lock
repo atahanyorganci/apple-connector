@@ -86,6 +86,7 @@ dependencies = [
 name = "apple-connector"
 version = "0.1.0"
 dependencies = [
+ "apple-contacts",
  "apple-eventkit",
  "apple-notes-protobuf",
  "apple-typedstream",
@@ -100,7 +101,9 @@ dependencies = [
  "plist",
  "serde",
  "serde-caldav",
+ "serde-carddav",
  "serde-icalendar",
+ "serde-vcard",
  "serde_json",
  "serde_yaml",
  "sqlx",
@@ -114,6 +117,19 @@ dependencies = [
  "utoipa",
  "utoipa-axum",
  "utoipa-scalar",
+]
+
+[[package]]
+name = "apple-contacts"
+version = "0.1.0"
+dependencies = [
+ "block2",
+ "dispatch2",
+ "objc2",
+ "objc2-contacts",
+ "objc2-foundation",
+ "thiserror 2.0.19",
+ "tokio",
 ]
 
 [[package]]
@@ -1379,6 +1395,7 @@ version = "0.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b034b578389f89a85c055eacc8d8b368be5f04a6c1b07f672bf3aec21d0ef621"
 dependencies = [
+ "block2",
  "objc2",
  "objc2-foundation",
 ]
@@ -1818,6 +1835,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "serde-carddav"
+version = "0.1.0"
+dependencies = [
+ "quick-xml 0.37.5",
+ "serde",
+ "serde-vcard",
+ "serde_json",
+ "thiserror 2.0.19",
+]
+
+[[package]]
 name = "serde-icalendar"
 version = "0.1.0"
 dependencies = [
@@ -1828,6 +1856,17 @@ dependencies = [
  "rrule",
  "serde",
  "serde_json",
+]
+
+[[package]]
+name = "serde-vcard"
+version = "0.1.0"
+dependencies = [
+ "base64",
+ "chrono",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.19",
 ]
 
 [[package]]

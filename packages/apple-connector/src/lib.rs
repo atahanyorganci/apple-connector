@@ -2,13 +2,14 @@ mod api;
 pub mod apple_types;
 mod calendar;
 mod cli;
+pub mod contacts;
 mod db;
 pub mod fixtures;
 mod messages;
 mod notes;
 mod reminders;
 
-use std::{error::Error, io::Error as IoError, net::SocketAddr, path::PathBuf, sync::Arc};
+use std::{collections::HashMap, error::Error, io::Error as IoError, net::SocketAddr, path::PathBuf, sync::Arc};
 
 pub use api::{AppState, build_openapi_spec, router};
 pub use calendar::{CalendarInventory, load_inventory as load_calendar_inventory};
@@ -97,6 +98,7 @@ pub async fn run(cli: Cli) -> Result<(), Box<dyn Error>> {
         }
     };
     let calendar_attachment_root = resolve_calendar_attachment_root(&cli, &calendar_path);
+    let contacts_sources = resolve_contacts_sources(&cli).await;
     let eventkit = match apple_eventkit::EventKitStore::new() {
         Ok(store) => {
             let store = Arc::new(store);
@@ -134,16 +136,48 @@ pub async fn run(cli: Cli) -> Result<(), Box<dyn Error>> {
             None
         }
     };
+    let contacts_store = match apple_contacts::ContactsStore::new() {
+        Ok(store) => {
+            let store = Arc::new(store);
+            let auth_store = Arc::clone(&store);
+            info!("Requesting Contacts permissions; approve the macOS prompt when it appears");
+            tokio::spawn(async move {
+                match auth_store.request_access().await {
+                    Ok(()) => {
+                        let status = auth_store.auth_status().await;
+                        if status == apple_contacts::AuthStatus::NotDetermined {
+                            warn!(
+                                ?status,
+                                "Contacts access not granted yet; enable access in System Settings → Privacy & Security"
+                            );
+                        } else {
+                            info!(?status, "Contacts access ready");
+                        }
+                    }
+                    Err(error) => {
+                        warn!(error = %error, "Contacts access request failed; write routes may be unavailable");
+                    }
+                }
+            });
+            Some(store)
+        }
+        Err(error) => {
+            warn!(error = %error, "Contacts store could not be initialized; write routes will report unavailable");
+            None
+        }
+    };
     let app = router(AppState::with_attachment_roots(
         messages_db,
         reminders_db,
         notes_db,
         calendar_db,
+        contacts_sources,
         attachment_root,
         reminders_attachment_root,
         notes_attachment_root,
         calendar_attachment_root,
         eventkit,
+        contacts_store,
     ));
     let address: SocketAddr = cli
         .socket_addr()
@@ -278,6 +312,40 @@ fn resolve_calendar_attachment_root(cli: &Cli, calendar_path: &Option<PathBuf>) 
                 PathBuf::from("/var/empty/apple-connector-calendar-attachments-unconfigured")
             })
         })
+}
+
+async fn resolve_contacts_sources(cli: &Cli) -> contacts::ContactsSources {
+    let sources_dir = match cli.contacts_sources_dir_path() {
+        Ok(path) => path,
+        Err(error) => {
+            warn!(error = %error, "Contacts sources directory could not be resolved");
+            return contacts::ContactsSources::new(HashMap::new());
+        }
+    };
+
+    match contacts::discover_contacts_sources(&sources_dir).await {
+        Ok(discovered) => {
+            let mut pools = HashMap::new();
+            for source in discovered {
+                match connect_pool(&source.path).await {
+                    Ok(pool) => {
+                        pools.insert(source.source_id, pool);
+                    }
+                    Err(error) => {
+                        warn!(source = %source.source_id, error = ?error, "AddressBook source could not be opened");
+                    }
+                }
+            }
+            if pools.is_empty() {
+                warn!("No AddressBook sources could be opened; Contacts API will report unavailable");
+            }
+            contacts::ContactsSources::new(pools)
+        }
+        Err(error) => {
+            warn!(error = %error.message(), "Contacts auto-discovery failed");
+            contacts::ContactsSources::new(HashMap::new())
+        }
+    }
 }
 
 async fn shutdown_signal() {

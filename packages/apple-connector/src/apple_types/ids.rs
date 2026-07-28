@@ -120,6 +120,26 @@ string_id!(
     CalendarAttachmentId,
     "dddddddd-dddd-dddd-dddd-dddddddddddd"
 );
+string_id!(
+    /// AddressBook source UUID (directory name under Sources/).
+    SourceId,
+    "27fd6c1e-5da5-4340-a31a-1d83c25d3b70"
+);
+string_id!(
+    /// Stable identifier for a contact container (its UUID).
+    ContainerId,
+    "11111111-1111-1111-1111-111111111111"
+);
+string_id!(
+    /// Stable identifier for a contact group (its UUID).
+    GroupId,
+    "22222222-2222-2222-2222-222222222222"
+);
+string_id!(
+    /// Stable identifier for a contact (its UUID).
+    ContactId,
+    "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"
+);
 
 /// Internal chat row identifier.
 ///

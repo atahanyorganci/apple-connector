@@ -16,6 +16,8 @@ const NOTES_SCHEMA: &str = include_str!("../fixtures/notes/notes.schema.sql");
 const NOTES_SEED: &str = include_str!("../fixtures/notes/seed.sql");
 const CALENDAR_SCHEMA: &str = include_str!("../fixtures/calendar/calendar.schema.sql");
 const CALENDAR_SEED: &str = include_str!("../fixtures/calendar/seed.sql");
+const CONTACTS_SCHEMA: &str = include_str!("../fixtures/contacts/contacts.schema.sql");
+const CONTACTS_SEED: &str = include_str!("../fixtures/contacts/seed.sql");
 
 const SEED_HANDLE_ID: &str = "+15551234567";
 const SEED_CHAT_GUID: &str = "fixture-chat-guid";
@@ -37,6 +39,10 @@ pub const SEED_CALENDAR_ID: &str = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa";
 pub const SEED_EVENT_ID: &str = "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb";
 pub const SEED_RECURRING_EVENT_ID: &str = "cccccccc-cccc-cccc-cccc-cccccccccccc";
 pub const SEED_EVENT_ATTACHMENT_ID: &str = "dddddddd-dddd-dddd-dddd-dddddddddddd";
+
+pub const SEED_CONTAINER_ID: &str = "11111111-1111-1111-1111-111111111111";
+pub const SEED_GROUP_ID: &str = "22222222-2222-2222-2222-222222222222";
+pub const SEED_CONTACT_ID: &str = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa";
 
 pub struct FixtureDb {
     _temp_dir: TempDir,
@@ -289,6 +295,60 @@ async fn apply_calendar_schema(path: &Path, seed: bool) -> io::Result<()> {
 
     if seed {
         sqlx::raw_sql(CALENDAR_SEED)
+            .execute(&mut connection)
+            .await
+            .map_err(io::Error::other)?;
+    }
+
+    connection.close().await.ok();
+    Ok(())
+}
+
+pub struct ContactsFixtureDb {
+    _temp_dir: TempDir,
+    path: PathBuf,
+}
+
+impl ContactsFixtureDb {
+    pub async fn empty() -> io::Result<Self> {
+        Self::with_seed(false).await
+    }
+
+    pub async fn seeded() -> io::Result<Self> {
+        Self::with_seed(true).await
+    }
+
+    pub fn path(&self) -> &Path {
+        &self.path
+    }
+
+    async fn with_seed(seed: bool) -> io::Result<Self> {
+        let temp_dir = TempDir::new()?;
+        let path = temp_dir.path().join("AddressBook-v22.abcddb");
+        apply_contacts_schema(&path, seed).await?;
+        Ok(Self {
+            _temp_dir: temp_dir,
+            path,
+        })
+    }
+}
+
+async fn apply_contacts_schema(path: &Path, seed: bool) -> io::Result<()> {
+    let options = SqliteConnectOptions::new()
+        .filename(path)
+        .create_if_missing(true);
+
+    let mut connection = SqliteConnection::connect_with(&options)
+        .await
+        .map_err(io::Error::other)?;
+
+    sqlx::raw_sql(CONTACTS_SCHEMA)
+        .execute(&mut connection)
+        .await
+        .map_err(io::Error::other)?;
+
+    if seed {
+        sqlx::raw_sql(CONTACTS_SEED)
             .execute(&mut connection)
             .await
             .map_err(io::Error::other)?;

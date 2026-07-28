@@ -1,10 +1,13 @@
 [workspace]
 members = [
   "packages/apple-connector",
+  "packages/apple-contacts",
   "packages/apple-eventkit",
   "packages/apple-notes-protobuf",
   "packages/apple-typedstream",
+  "packages/serde-carddav",
   "packages/serde-icalendar",
   "packages/serde-caldav",
+  "packages/serde-vcard",
 ]
 resolver = "3"

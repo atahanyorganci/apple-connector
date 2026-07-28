@@ -48,6 +48,8 @@
         (lib.fileset.maybeMissing (packageRoot + "/fixtures/notes/bodies/acnp"))
         (lib.fileset.maybeMissing (packageRoot + "/fixtures/calendar/calendar.schema.sql"))
         (lib.fileset.maybeMissing (packageRoot + "/fixtures/calendar/seed.sql"))
+        (lib.fileset.maybeMissing (packageRoot + "/fixtures/contacts/contacts.schema.sql"))
+        (lib.fileset.maybeMissing (packageRoot + "/fixtures/contacts/seed.sql"))
         (lib.fileset.maybeMissing (projectRoot + "/packages/apple-typedstream/fixtures"))
         (lib.fileset.maybeMissing (projectRoot + "/packages/apple-typedstream/tests/snapshots"))
         (lib.fileset.maybeMissing (projectRoot + "/docs/openapi.json"))

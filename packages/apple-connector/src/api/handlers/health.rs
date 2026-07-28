@@ -3,6 +3,7 @@ use sqlx::SqlitePool;
 
 use crate::{
     api::{
+        contacts::{contacts_auth_status, contacts_status},
         dto::common::{HealthStatus, HealthStatusDto},
         eventkit::{eventkit_events_status, eventkit_reminders_status},
         params::PageParams,
@@ -80,8 +81,8 @@ async fn calendar_status(pool: &Option<SqlitePool>) -> HealthStatus {
 
 /// Health check
 ///
-/// Reports whether the read-only Messages, Reminders, Notes, and Calendar database pools are healthy,
-/// plus EventKit authorization status for write operations.
+/// Reports whether the read-only Messages, Reminders, Notes, Calendar, and Contacts database pools are healthy,
+/// plus EventKit and Contacts authorization status for write operations.
 #[utoipa::path(
     get,
     path = "/healthz",
@@ -99,20 +100,25 @@ pub async fn healthz(
     let reminders = reminders_status(&state.reminders_db).await;
     let notes = notes_status(&state.notes_db).await;
     let calendar = calendar_status(&state.calendar_db).await;
+    let contacts = contacts_status(&state.contacts_sources).await;
     let eventkit_reminders = eventkit_reminders_status(&state.eventkit).await;
     let eventkit_events = eventkit_events_status(&state.eventkit).await;
+    let contacts_auth = contacts_auth_status(&state.contacts_store).await;
     let body = HealthStatusDto {
         messages,
         reminders,
         notes,
         calendar,
+        contacts,
         eventkit_reminders,
         eventkit_events,
+        contacts_auth,
     };
     let all_ok = messages == HealthStatus::Ok
         && reminders == HealthStatus::Ok
         && notes == HealthStatus::Ok
-        && calendar == HealthStatus::Ok;
+        && calendar == HealthStatus::Ok
+        && contacts == HealthStatus::Ok;
 
     if all_ok {
         Ok((StatusCode::OK, Json(body)))
@@ -181,8 +187,10 @@ mod tests {
                 "reminders": "ok",
                 "notes": "unavailable",
                 "calendar": "unavailable",
+                "contacts": "unavailable",
                 "eventkit_reminders": "unavailable",
                 "eventkit_events": "unavailable",
+                "contacts_auth": "unavailable",
             })
         );
     }
@@ -217,8 +225,10 @@ mod tests {
                 "reminders": "unavailable",
                 "notes": "unavailable",
                 "calendar": "unavailable",
+                "contacts": "unavailable",
                 "eventkit_reminders": "unavailable",
                 "eventkit_events": "unavailable",
+                "contacts_auth": "unavailable",
             })
         );
         assert!(!payload.contains("chat.db"));
