@@ -184,11 +184,13 @@ impl<'a> ReminderRepository<'a> {
         builder.push(REMINDER_FROM_JOIN);
         apply_filters(&mut builder, &effective_filters);
         if let Some(cursor) = cursor {
-            builder
-                .push(" AND (r.ZLASTMODIFIEDDATE < ? OR (r.ZLASTMODIFIEDDATE = ? AND r.Z_PK < ?))");
+            builder.push(" AND (r.ZLASTMODIFIEDDATE < ");
             builder.push_bind(cursor.modified_at);
+            builder.push(" OR (r.ZLASTMODIFIEDDATE = ");
             builder.push_bind(cursor.modified_at);
+            builder.push(" AND r.Z_PK < ");
             builder.push_bind(cursor.row_id);
+            builder.push("))");
         }
         builder.push(" ORDER BY r.ZLASTMODIFIEDDATE DESC, r.Z_PK DESC LIMIT ");
         builder.push_bind(fetch_limit);

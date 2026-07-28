@@ -38,9 +38,9 @@ pub struct ContactRow {
     pub display_name: Option<String>,
     pub container_row_id: Option<i64>,
     pub container_unique_id: Option<String>,
-    pub creation_date: Option<i64>,
-    pub modification_date: Option<i64>,
-    pub birthday: Option<i64>,
+    pub creation_date: Option<f64>,
+    pub modification_date: Option<f64>,
+    pub birthday: Option<f64>,
     pub note_text: Option<String>,
     pub has_photo: Option<i64>,
 }
@@ -121,14 +121,6 @@ pub fn parse_core_data_timestamp(secs: Option<f64>) -> Option<DateTime<Utc>> {
     let whole_secs = secs.trunc() as i64 + CORE_DATA_EPOCH_UNIX_SECS;
     let nanos = ((secs.fract()) * 1_000_000_000.0).round() as u32;
     DateTime::from_timestamp(whole_secs, nanos)
-}
-
-pub fn parse_core_data_secs(secs: Option<i64>) -> Option<DateTime<Utc>> {
-    let secs = secs?;
-    if secs <= 0 {
-        return None;
-    }
-    DateTime::from_timestamp(secs + CORE_DATA_EPOCH_UNIX_SECS, 0)
 }
 
 pub fn api_id_from_unique_id(unique_id: &str) -> String {

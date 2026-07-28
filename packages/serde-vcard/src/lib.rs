@@ -127,4 +127,31 @@ mod tests {
         let decoded: VCard = from_str(&vcf).expect("deserialize");
         assert_eq!(decoded.formatted_name, card.formatted_name);
     }
+
+    #[test]
+    fn folds_long_lines_with_newlines_without_hanging() {
+        let card = VCard {
+            formatted_name: Some("Mehmet Dora".to_owned()),
+            addresses: vec![super::Address {
+                street: Some(
+                    "ODTU-Teknokent\n37-1 SATGEB-2 Titanyum C Blok".to_owned(),
+                ),
+                locality: Some("Ankara".to_owned()),
+                label: Some("Work".to_owned()),
+                preferred: true,
+                ..super::Address::default()
+            }],
+            ..VCard::default()
+        };
+        let vcf = to_string(&card).expect("serialize long ADR");
+        assert!(vcf.contains("BEGIN:VCARD"));
+        assert!(vcf.contains("ADR"));
+        assert!(
+            vcf.lines().all(|line| {
+                let content = line.strip_prefix(' ').unwrap_or(line);
+                content.len() <= 75
+            }),
+            "folded lines must stay within 75 octets: {vcf}"
+        );
+    }
 }

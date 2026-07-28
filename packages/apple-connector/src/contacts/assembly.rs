@@ -8,7 +8,7 @@ use crate::{
         },
         row::{
             AddressRow, ContactRow, ContainerRow, EmailRow, GroupRow, PhoneRow, SocialRow,
-            UrlRow, api_id_from_unique_id, parse_core_data_secs,
+            UrlRow, api_id_from_unique_id, parse_core_data_timestamp,
         },
     },
 };
@@ -65,7 +65,8 @@ pub fn contact_summary_from_row(row: ContactRow, source_id: SourceId) -> Contact
         first_name: row.first_name,
         last_name: row.last_name,
         organization: row.organization,
-        modification_date: parse_core_data_secs(row.modification_date).map(UnixTimestamp::from),
+        modification_date: parse_core_data_timestamp(row.modification_date)
+            .map(UnixTimestamp::from),
     }
 }
 
@@ -98,9 +99,10 @@ pub fn contact_detail_from_row(
         job_title: row.job_title,
         department: row.department,
         note: row.note_text,
-        birthday: parse_core_data_secs(row.birthday).map(UnixTimestamp::from),
-        creation_date: parse_core_data_secs(row.creation_date).map(UnixTimestamp::from),
-        modification_date: parse_core_data_secs(row.modification_date).map(UnixTimestamp::from),
+        birthday: parse_core_data_timestamp(row.birthday).map(UnixTimestamp::from),
+        creation_date: parse_core_data_timestamp(row.creation_date).map(UnixTimestamp::from),
+        modification_date: parse_core_data_timestamp(row.modification_date)
+            .map(UnixTimestamp::from),
         phones: phones
             .into_iter()
             .filter_map(|phone| {

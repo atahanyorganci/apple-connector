@@ -174,12 +174,20 @@ fn fold_lines(lines: &[String]) -> String {
             } else {
                 LINE_LIMIT - 1
             };
+            // Split on character *ends* so each chunk advances. Using start
+            // indices left a 1-char remainder with split_at=0 (infinite loop).
             let split_at = remaining
                 .char_indices()
-                .map(|(index, _)| index)
-                .take_while(|index| *index <= chunk_len)
+                .map(|(index, ch)| index + ch.len_utf8())
+                .take_while(|end| *end <= chunk_len)
                 .last()
-                .unwrap_or(remaining.len());
+                .unwrap_or_else(|| {
+                    remaining
+                        .chars()
+                        .next()
+                        .map(|ch| ch.len_utf8())
+                        .unwrap_or(remaining.len())
+                });
             let (chunk, rest) = remaining.split_at(split_at);
             if first {
                 output.push_str(chunk);

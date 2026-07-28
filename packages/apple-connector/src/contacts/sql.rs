@@ -15,8 +15,9 @@ SELECT r.Z_PK AS row_id, r.ZUNIQUEID AS unique_id, r.ZFIRSTNAME AS first_name, r
        r.ZMIDDLENAME AS middle_name, r.ZNICKNAME AS nickname, r.ZORGANIZATION AS organization, \
        r.ZJOBTITLE AS job_title, r.ZDEPARTMENT AS department, r.ZNAME AS display_name, \
        r.ZCONTAINER AS container_row_id, c.ZUNIQUEID AS container_unique_id, \
-       r.ZCREATIONDATE AS creation_date, r.ZMODIFICATIONDATE AS modification_date, \
-       r.ZBIRTHDAY AS birthday, n.ZTEXT AS note_text, \
+       CAST(r.ZCREATIONDATE AS REAL) AS creation_date, \
+       CAST(r.ZMODIFICATIONDATE AS REAL) AS modification_date, \
+       CAST(r.ZBIRTHDAY AS REAL) AS birthday, n.ZTEXT AS note_text, \
        CASE WHEN l.ZDATA IS NOT NULL OR r.ZIMAGEDATA IS NOT NULL THEN 1 ELSE 0 END AS has_photo \
 FROM ZABCDRECORD r \
 LEFT JOIN ZABCDRECORD c ON c.Z_PK = r.ZCONTAINER \

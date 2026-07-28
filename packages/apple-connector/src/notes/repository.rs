@@ -185,12 +185,13 @@ impl<'a> NoteRepository<'a> {
         builder.push_bind(entity_ids.note);
         apply_filters(&mut builder, filters, &entity_ids);
         if let Some(cursor) = cursor {
-            builder.push(
-                " AND (n.ZMODIFICATIONDATE1 < ? OR (n.ZMODIFICATIONDATE1 = ? AND n.Z_PK < ?))",
-            );
+            builder.push(" AND (n.ZMODIFICATIONDATE1 < ");
             builder.push_bind(cursor.modified_at);
+            builder.push(" OR (n.ZMODIFICATIONDATE1 = ");
             builder.push_bind(cursor.modified_at);
+            builder.push(" AND n.Z_PK < ");
             builder.push_bind(cursor.row_id);
+            builder.push("))");
         }
         builder.push(" ORDER BY n.ZMODIFICATIONDATE1 DESC, n.Z_PK DESC LIMIT ");
         builder.push_bind(fetch_limit);
@@ -291,12 +292,13 @@ impl<'a> NoteRepository<'a> {
             builder.push_bind(entity_ids.note);
             apply_filters(&mut builder, &sql_filters, &entity_ids);
             if let Some((modified_at, row_id)) = scan_position {
-                builder.push(
-                    " AND (n.ZMODIFICATIONDATE1 < ? OR (n.ZMODIFICATIONDATE1 = ? AND n.Z_PK < ?))",
-                );
+                builder.push(" AND (n.ZMODIFICATIONDATE1 < ");
                 builder.push_bind(modified_at);
+                builder.push(" OR (n.ZMODIFICATIONDATE1 = ");
                 builder.push_bind(modified_at);
+                builder.push(" AND n.Z_PK < ");
                 builder.push_bind(row_id);
+                builder.push("))");
             }
             builder.push(" ORDER BY n.ZMODIFICATIONDATE1 DESC, n.Z_PK DESC LIMIT ");
             builder.push_bind(i64::from(CANDIDATE_CHUNK_SIZE));
