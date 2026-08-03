@@ -3,38 +3,6 @@ use chrono::{DateTime, Utc};
 /// Seconds between the Unix epoch (1970-01-01) and the Core Data epoch (2001-01-01).
 pub const CORE_DATA_EPOCH_UNIX_SECS: i64 = 978_307_200;
 
-pub const UUID_SQL: &str = r#"lower(
-  substr(hex(r.ZIDENTIFIER), 1, 8) || '-' ||
-  substr(hex(r.ZIDENTIFIER), 9, 4) || '-' ||
-  substr(hex(r.ZIDENTIFIER), 13, 4) || '-' ||
-  substr(hex(r.ZIDENTIFIER), 17, 4) || '-' ||
-  substr(hex(r.ZIDENTIFIER), 21, 12)
-)"#;
-
-pub const LIST_UUID_SQL: &str = r#"lower(
-  substr(hex(l.ZIDENTIFIER), 1, 8) || '-' ||
-  substr(hex(l.ZIDENTIFIER), 9, 4) || '-' ||
-  substr(hex(l.ZIDENTIFIER), 13, 4) || '-' ||
-  substr(hex(l.ZIDENTIFIER), 17, 4) || '-' ||
-  substr(hex(l.ZIDENTIFIER), 21, 12)
-)"#;
-
-pub const SECTION_UUID_SQL: &str = r#"lower(
-  substr(hex(s.ZIDENTIFIER), 1, 8) || '-' ||
-  substr(hex(s.ZIDENTIFIER), 9, 4) || '-' ||
-  substr(hex(s.ZIDENTIFIER), 13, 4) || '-' ||
-  substr(hex(s.ZIDENTIFIER), 17, 4) || '-' ||
-  substr(hex(s.ZIDENTIFIER), 21, 12)
-)"#;
-
-pub const ATTACHMENT_UUID_SQL: &str = r#"lower(
-  substr(hex(sa.ZIDENTIFIER), 1, 8) || '-' ||
-  substr(hex(sa.ZIDENTIFIER), 9, 4) || '-' ||
-  substr(hex(sa.ZIDENTIFIER), 13, 4) || '-' ||
-  substr(hex(sa.ZIDENTIFIER), 17, 4) || '-' ||
-  substr(hex(sa.ZIDENTIFIER), 21, 12)
-)"#;
-
 #[allow(dead_code)]
 #[derive(Debug, sqlx::FromRow, Clone)]
 pub struct ReminderRow {

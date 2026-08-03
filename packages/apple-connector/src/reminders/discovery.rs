@@ -128,14 +128,15 @@ async fn count_active_reminders(path: &Path) -> Result<i64, DiscoveryError> {
         .await
         .map_err(|error| DiscoveryError::Connect(error.to_string()))?;
 
-    let count: (i64,) =
-        sqlx::query_as("SELECT COUNT(*) FROM ZREMCDREMINDER WHERE ZMARKEDFORDELETION = 0")
-            .fetch_one(&mut connection)
-            .await
-            .map_err(|error| DiscoveryError::Connect(error.to_string()))?;
+    let count = sqlx::query_scalar!(
+        "SELECT COUNT(*) AS \"count!: i64\" FROM ZREMCDREMINDER WHERE ZMARKEDFORDELETION = 0"
+    )
+    .fetch_one(&mut connection)
+    .await
+    .map_err(|error| DiscoveryError::Connect(error.to_string()))?;
 
     connection.close().await.ok();
-    Ok(count.0)
+    Ok(count)
 }
 
 async fn max_reminder_primary_key(path: &Path) -> Result<i64, DiscoveryError> {
@@ -148,14 +149,15 @@ async fn max_reminder_primary_key(path: &Path) -> Result<i64, DiscoveryError> {
         .await
         .map_err(|error| DiscoveryError::Connect(error.to_string()))?;
 
-    let max: Option<(Option<i64>,)> =
-        sqlx::query_as("SELECT Z_MAX FROM Z_PRIMARYKEY WHERE Z_NAME = 'REMCDReminder'")
-            .fetch_optional(&mut connection)
-            .await
-            .map_err(|error| DiscoveryError::Connect(error.to_string()))?;
+    let max = sqlx::query_scalar!(
+        "SELECT Z_MAX FROM Z_PRIMARYKEY WHERE Z_NAME = 'REMCDReminder'"
+    )
+    .fetch_optional(&mut connection)
+    .await
+    .map_err(|error| DiscoveryError::Connect(error.to_string()))?;
 
     connection.close().await.ok();
-    Ok(max.and_then(|row| row.0).unwrap_or(0))
+    Ok(max.flatten().unwrap_or(0))
 }
 
 #[cfg(test)]
