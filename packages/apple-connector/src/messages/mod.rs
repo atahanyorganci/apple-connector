@@ -7,10 +7,10 @@ mod classify;
 mod inventory;
 mod load;
 mod model;
+pub(crate) mod queries;
 pub(crate) mod repository;
 mod row;
 pub(crate) mod search;
-mod sql;
 mod threads;
 
 pub use inventory::MessageInventory;

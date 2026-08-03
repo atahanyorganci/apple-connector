@@ -1,8 +1,6 @@
 //! Metadata filters and bounded text search for global message listing.
 
-use sqlx::{QueryBuilder, Sqlite};
-
-use super::{attributed_body, row::MessageRow, sql::MESSAGE_SELECT_CORE};
+use super::row::MessageRow;
 
 pub const MESSAGE_SCAN_BUDGET: u32 = 500;
 pub const CANDIDATE_CHUNK_SIZE: u32 = 100;
@@ -73,6 +71,22 @@ pub struct MessageFiltersSnapshot {
     pub has_attachments: Option<bool>,
 }
 
+/// Bind parameters for the compile-time filtered message listing query.
+#[derive(Debug, Clone)]
+pub struct MessageFilterBinds {
+    pub chat_id: Option<i64>,
+    pub sender: Option<String>,
+    pub after: Option<i64>,
+    pub before: Option<i64>,
+    pub direction: Option<i64>,
+    pub transport: Option<i64>,
+    pub content_type: Option<i64>,
+    pub has_attachments: Option<i64>,
+    pub cursor_date: Option<i64>,
+    pub cursor_row_id: Option<i64>,
+    pub limit: i64,
+}
+
 impl MessageFilters {
     pub fn is_active(&self) -> bool {
         self.q.is_some()
@@ -103,6 +117,54 @@ impl MessageFilters {
             has_attachments: self.has_attachments,
         }
     }
+
+    pub fn bind_values(
+        &self,
+        cursor_date: Option<i64>,
+        cursor_row_id: Option<i64>,
+        limit: i64,
+    ) -> MessageFilterBinds {
+        MessageFilterBinds {
+            chat_id: self.chat_id,
+            sender: self.sender.clone(),
+            after: self.after,
+            before: self.before,
+            direction: self.direction.map(|value| match value {
+                DirectionFilter::Sent => 1,
+                DirectionFilter::Received => 0,
+            }),
+            transport: self.transport.map(transport_code),
+            content_type: self.content_type.map(content_type_code),
+            has_attachments: self.has_attachments.map(i64::from),
+            cursor_date,
+            cursor_row_id,
+            limit,
+        }
+    }
+}
+
+fn transport_code(filter: TransportFilter) -> i64 {
+    match filter {
+        TransportFilter::Imessage => 1,
+        TransportFilter::Sms => 2,
+        TransportFilter::Rcs => 3,
+        TransportFilter::Unknown => 4,
+    }
+}
+
+fn content_type_code(filter: ContentTypeFilter) -> i64 {
+    match filter {
+        ContentTypeFilter::Text => 1,
+        ContentTypeFilter::Audio => 2,
+        ContentTypeFilter::Attachment => 3,
+        ContentTypeFilter::Reaction => 4,
+        ContentTypeFilter::GroupEvent => 5,
+        ContentTypeFilter::AppBalloon => 6,
+        ContentTypeFilter::SharePlay => 7,
+        ContentTypeFilter::ShareMyLocation => 8,
+        ContentTypeFilter::System => 9,
+        ContentTypeFilter::Unknown => 10,
+    }
 }
 
 pub fn searchable_text(row: &MessageRow) -> Option<String> {
@@ -117,180 +179,13 @@ pub fn searchable_text(row: &MessageRow) -> Option<String> {
 
     row.attributed_body
         .as_deref()
-        .and_then(|data| attributed_body::decode(data).ok())
+        .and_then(|data| super::attributed_body::decode(data).ok())
         .and_then(|body| body.text)
 }
 
 pub fn text_matches(row: &MessageRow, query: &str) -> bool {
     let needle = query.to_lowercase();
     searchable_text(row).is_some_and(|text| text.to_lowercase().contains(&needle))
-}
-
-pub fn build_filtered_select(filters: &MessageFilters) -> QueryBuilder<Sqlite> {
-    let mut builder = QueryBuilder::new(MESSAGE_SELECT_CORE);
-    builder.push(" WHERE 1=1 ");
-    push_metadata_filters(&mut builder, filters);
-    builder
-}
-
-pub fn push_metadata_filters(builder: &mut QueryBuilder<Sqlite>, filters: &MessageFilters) {
-    if let Some(chat_id) = filters.chat_id {
-        builder.push(
-            " AND EXISTS (\
-                SELECT 1 FROM chat_message_join cmj \
-                WHERE cmj.message_id = message.ROWID AND cmj.chat_id = ",
-        );
-        builder.push_bind(chat_id);
-        builder.push(")");
-    }
-
-    if let Some(sender) = &filters.sender {
-        builder.push(" AND message.is_from_me = 0 AND sender.id = ");
-        builder.push_bind(sender);
-    }
-
-    if let Some(after) = filters.after {
-        builder.push(" AND message.date > ");
-        builder.push_bind(after);
-    }
-
-    if let Some(before) = filters.before {
-        builder.push(" AND message.date < ");
-        builder.push_bind(before);
-    }
-
-    if let Some(direction) = filters.direction {
-        builder.push(" AND message.is_from_me = ");
-        builder.push_bind(match direction {
-            DirectionFilter::Sent => 1_i64,
-            DirectionFilter::Received => 0_i64,
-        });
-    }
-
-    if let Some(transport) = filters.transport {
-        match transport {
-            TransportFilter::Imessage => {
-                builder.push(" AND message.service = ");
-                builder.push_bind("iMessage");
-            }
-            TransportFilter::Sms => {
-                builder.push(" AND message.service = ");
-                builder.push_bind("SMS");
-            }
-            TransportFilter::Rcs => {
-                builder.push(" AND message.service = ");
-                builder.push_bind("RCS");
-            }
-            TransportFilter::Unknown => {
-                builder.push(
-                    " AND (message.service IS NULL OR message.service NOT IN ('iMessage', 'SMS', 'RCS'))",
-                );
-            }
-        }
-    }
-
-    if let Some(has_attachments) = filters.has_attachments {
-        builder.push(" AND message.cache_has_attachments = ");
-        builder.push_bind(i64::from(has_attachments));
-    }
-
-    if let Some(content_type) = filters.content_type {
-        push_content_type_filter(builder, content_type);
-    }
-}
-
-pub fn push_scan_cursor(
-    builder: &mut QueryBuilder<Sqlite>,
-    cursor_date: Option<i64>,
-    cursor_row_id: Option<i64>,
-) {
-    if cursor_date.is_some() {
-        builder.push(" AND (message.date < ");
-        builder.push_bind(cursor_date);
-        builder.push(" OR (message.date = ");
-        builder.push_bind(cursor_date);
-        builder.push(" AND message.ROWID < ");
-        builder.push_bind(cursor_row_id);
-        builder.push("))");
-    }
-}
-
-fn push_content_type_filter(builder: &mut QueryBuilder<Sqlite>, content_type: ContentTypeFilter) {
-    match content_type {
-        ContentTypeFilter::Text => {
-            builder.push(
-                " AND message.item_type = 0 \
-                  AND message.associated_message_type = 0 \
-                  AND message.is_system_message = 0 \
-                  AND message.is_service_message = 0 \
-                  AND message.is_audio_message = 0 \
-                  AND message.cache_has_attachments = 0 \
-                  AND (message.balloon_bundle_id IS NULL OR message.balloon_bundle_id = '')",
-            );
-        }
-        ContentTypeFilter::Audio => {
-            builder.push(" AND message.item_type = 0 AND message.is_audio_message = 1");
-        }
-        ContentTypeFilter::Attachment => {
-            builder.push(
-                " AND message.item_type = 0 \
-                  AND message.cache_has_attachments = 1 \
-                  AND message.is_audio_message = 0 \
-                  AND (message.balloon_bundle_id IS NULL OR message.balloon_bundle_id = '')",
-            );
-        }
-        ContentTypeFilter::Reaction => {
-            builder.push(" AND message.associated_message_type != 0");
-        }
-        ContentTypeFilter::GroupEvent => {
-            builder.push(" AND message.item_type IN (1, 2, 3)");
-        }
-        ContentTypeFilter::AppBalloon => {
-            builder.push(
-                " AND message.item_type = 0 \
-                  AND message.balloon_bundle_id IS NOT NULL \
-                  AND message.balloon_bundle_id != ''",
-            );
-        }
-        ContentTypeFilter::SharePlay => {
-            builder.push(" AND message.item_type = 6");
-        }
-        ContentTypeFilter::ShareMyLocation => {
-            builder.push(" AND message.item_type = 4");
-        }
-        ContentTypeFilter::System => {
-            builder.push(" AND (message.is_system_message = 1 OR message.is_service_message = 1)");
-        }
-        ContentTypeFilter::Unknown => {
-            builder.push(
-                " AND message.associated_message_type = 0 \
-                  AND message.is_system_message = 0 \
-                  AND message.is_service_message = 0 \
-                  AND message.item_type NOT IN (1, 2, 3, 4, 6) \
-                  AND NOT (\
-                    message.item_type = 0 \
-                    AND message.is_audio_message = 0 \
-                    AND message.cache_has_attachments = 0 \
-                    AND (message.balloon_bundle_id IS NULL OR message.balloon_bundle_id = '')\
-                  ) \
-                  AND NOT (\
-                    message.item_type = 0 \
-                    AND message.is_audio_message = 0 \
-                    AND message.cache_has_attachments = 1 \
-                    AND (message.balloon_bundle_id IS NULL OR message.balloon_bundle_id = '')\
-                  ) \
-                  AND NOT (\
-                    message.item_type = 0 \
-                    AND message.is_audio_message = 1\
-                  ) \
-                  AND NOT (\
-                    message.item_type = 0 \
-                    AND message.balloon_bundle_id IS NOT NULL \
-                    AND message.balloon_bundle_id != ''\
-                  )",
-            );
-        }
-    }
 }
 
 #[cfg(test)]

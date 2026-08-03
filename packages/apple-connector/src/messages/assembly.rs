@@ -1,15 +1,20 @@
 use std::collections::HashMap;
 
-use sqlx::{QueryBuilder, Sqlite, SqliteExecutor};
+use sqlx::SqliteExecutor;
+
+use crate::sqlx_util::json_ids;
 
 use super::{
     classify::classify,
     model::{Chat, Direction, Handle, Message, MessageEnvelope, Transport},
+    queries::{
+        fetch_attachments_for_message_ids, fetch_chat_ids_for_message_ids,
+        fetch_chat_row_by_id as query_chat_row_by_id, fetch_participants_for_chat_ids,
+    },
     row::{
-        AttachmentRow, ChatHandleJoinRow, ChatMessageJoinRow, ChatRow, MessageRow,
+        AttachmentRow, ChatRow, MessageRow,
         parse_apple_timestamp,
     },
-    sql::{ATTACHMENT_SELECT, CHAT_SELECT},
     threads::build_reply_threads,
 };
 
@@ -93,21 +98,7 @@ where
         return Ok(attachments_by_message);
     }
 
-    let mut builder = QueryBuilder::<Sqlite>::new(ATTACHMENT_SELECT);
-    builder.push(" WHERE message_attachment_join.message_id IN (");
-    {
-        let mut separated = builder.separated(", ");
-        for message_id in message_ids {
-            separated.push_bind(*message_id);
-        }
-    }
-    builder.push(") ORDER BY message_attachment_join.message_id ASC, attachment.ROWID ASC");
-
-    let rows = builder
-        .build_query_as::<AttachmentRow>()
-        .fetch_all(executor)
-        .await?;
-
+    let rows = fetch_attachments_for_message_ids(executor, &json_ids(message_ids)).await?;
     for attachment in rows {
         attachments_by_message
             .entry(attachment.message_id)
@@ -130,26 +121,7 @@ where
         return Ok(chat_ids_by_message);
     }
 
-    let mut builder = QueryBuilder::<Sqlite>::new(
-        "SELECT chat_message_join.chat_id AS chat_id, chat_message_join.message_id AS message_id \
-         FROM chat_message_join WHERE chat_message_join.message_id IN (",
-    );
-    {
-        let mut separated = builder.separated(", ");
-        for message_id in message_ids {
-            separated.push_bind(*message_id);
-        }
-    }
-    builder.push(
-        ") ORDER BY chat_message_join.chat_id ASC, chat_message_join.message_date ASC, \
-         chat_message_join.message_id ASC",
-    );
-
-    let rows = builder
-        .build_query_as::<ChatMessageJoinRow>()
-        .fetch_all(executor)
-        .await?;
-
+    let rows = fetch_chat_ids_for_message_ids(executor, &json_ids(message_ids)).await?;
     for join in rows {
         chat_ids_by_message
             .entry(join.message_id)
@@ -172,25 +144,7 @@ where
         return Ok(participants_by_chat);
     }
 
-    let mut builder = QueryBuilder::<Sqlite>::new(
-        "SELECT chat_handle_join.chat_id AS chat_id, handle.id AS handle_id, \
-         handle.service AS handle_service FROM chat_handle_join \
-         JOIN handle ON chat_handle_join.handle_id = handle.ROWID \
-         WHERE chat_handle_join.chat_id IN (",
-    );
-    {
-        let mut separated = builder.separated(", ");
-        for chat_id in chat_ids {
-            separated.push_bind(*chat_id);
-        }
-    }
-    builder.push(") ORDER BY chat_handle_join.chat_id ASC, handle.ROWID ASC");
-
-    let rows = builder
-        .build_query_as::<ChatHandleJoinRow>()
-        .fetch_all(executor)
-        .await?;
-
+    let rows = fetch_participants_for_chat_ids(executor, &json_ids(chat_ids)).await?;
     for join in rows {
         participants_by_chat
             .entry(join.chat_id)
@@ -211,12 +165,5 @@ pub async fn fetch_chat_row_by_id<'e, E>(
 where
     E: SqliteExecutor<'e>,
 {
-    let mut builder = QueryBuilder::<Sqlite>::new(CHAT_SELECT);
-    builder.push(" WHERE chat.ROWID = ");
-    builder.push_bind(chat_id);
-
-    builder
-        .build_query_as::<ChatRow>()
-        .fetch_optional(executor)
-        .await
+    query_chat_row_by_id(executor, chat_id).await
 }
