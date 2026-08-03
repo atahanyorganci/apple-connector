@@ -3,6 +3,14 @@ use chrono::{DateTime, Utc};
 pub const CORE_DATA_EPOCH_UNIX_SECS: i64 = 978_307_200;
 
 #[derive(Debug, sqlx::FromRow, Clone)]
+pub struct CalendarResolveRow {
+    pub api_id: String,
+    pub external_id: Option<String>,
+    pub title: Option<String>,
+    pub store_type: Option<i64>,
+}
+
+#[derive(Debug, sqlx::FromRow, Clone)]
 pub struct StoreRow {
     pub row_id: i64,
     pub name: Option<String>,
