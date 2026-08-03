@@ -1,4 +1,4 @@
-use sqlx::{QueryBuilder, Sqlite, SqlitePool};
+use sqlx::SqlitePool;
 
 use super::{
     assembly::{
@@ -6,16 +6,16 @@ use super::{
         ContactRelatedRows,
     },
     model::{ContactDetail, ContactGroup, ContactSummary, Container},
-    row::{
-        AddressRow, ContactRow, ContainerRow, EmailRow, GroupIdRow, GroupRow, PhoneRow,
-        PhotoRow, SocialRow, UrlRow, api_id_from_unique_id,
+    queries::{
+        fetch_addresses_for_contact, fetch_contact_by_api_id, fetch_contact_external_id,
+        fetch_contact_photo, fetch_containers, fetch_container_by_api_id,
+        fetch_container_resolve_metadata, fetch_emails_for_contact, fetch_filtered_contacts,
+        fetch_group_by_api_id, fetch_group_contacts, fetch_group_external_id,
+        fetch_group_ids_for_contact, fetch_group_resolve_metadata, fetch_groups,
+        fetch_phones_for_contact, fetch_socials_for_contact, fetch_urls_for_contact,
     },
-    search::{ContactFilters, apply_contact_filters},
-    sql::{
-        ADDRESS_SELECT, CONTACT_EXTERNAL_ID_SELECT, CONTACT_SELECT, CONTAINER_RESOLVE_SELECT,
-        CONTAINER_SELECT, EMAIL_SELECT, GROUP_EXTERNAL_ID_SELECT, GROUP_IDS_FOR_CONTACT,
-        GROUP_RESOLVE_SELECT, GROUP_SELECT, PHONE_SELECT, PHOTO_SELECT, SOCIAL_SELECT, URL_SELECT,
-    },
+    row::api_id_from_unique_id,
+    search::ContactFilters,
 };
 use crate::{
     api::cursor::{ContactListCursor, GroupContactCursor, encode},
@@ -61,9 +61,7 @@ impl<'a> ContactsRepository<'a> {
     }
 
     pub async fn list_containers(&self) -> Result<Vec<Container>, sqlx::Error> {
-        let rows: Vec<ContainerRow> = sqlx::query_as(CONTAINER_SELECT)
-            .fetch_all(self.pool)
-            .await?;
+        let rows = fetch_containers(self.pool).await?;
         Ok(rows
             .into_iter()
             .map(|row| container_from_row(row, self.source_id.clone()))
@@ -74,11 +72,7 @@ impl<'a> ContactsRepository<'a> {
         &self,
         container_id: &str,
     ) -> Result<Option<Container>, sqlx::Error> {
-        let mut builder = QueryBuilder::<Sqlite>::new(CONTAINER_SELECT);
-        builder.push(" AND lower(substr(r.ZUNIQUEID, 1, instr(r.ZUNIQUEID, ':') - 1)) = lower(");
-        builder.push_bind(container_id.to_owned());
-        builder.push(")");
-        let row: Option<ContainerRow> = builder.build_query_as().fetch_optional(self.pool).await?;
+        let row = fetch_container_by_api_id(self.pool, container_id).await?;
         Ok(row.map(|row| container_from_row(row, self.source_id.clone())))
     }
 
@@ -88,26 +82,14 @@ impl<'a> ContactsRepository<'a> {
         cursor: Option<ContactListCursor>,
     ) -> Result<Page<ContactGroup>, sqlx::Error> {
         let fetch_limit = i64::from(limit) + 1;
-        let mut builder = QueryBuilder::<Sqlite>::new(GROUP_SELECT);
-        builder.push(" AND 1=1");
-        if let Some(cursor) = cursor {
-            builder.push(" AND r.Z_PK < ");
-            builder.push_bind(cursor.row_id);
-        }
-        builder.push(" ORDER BY r.Z_PK DESC LIMIT ");
-        builder.push_bind(fetch_limit);
-        let rows: Vec<GroupRow> = builder.build_query_as().fetch_all(self.pool).await?;
+        let rows = fetch_groups(self.pool, cursor.map(|value| value.row_id), fetch_limit).await?;
         Ok(split_page(rows, limit, |row| {
             group_from_row(row, self.source_id.clone())
         }, |row| row.row_id))
     }
 
     pub async fn get_group(&self, group_id: &str) -> Result<Option<ContactGroup>, sqlx::Error> {
-        let mut builder = QueryBuilder::<Sqlite>::new(GROUP_SELECT);
-        builder.push(" AND lower(substr(r.ZUNIQUEID, 1, instr(r.ZUNIQUEID, ':') - 1)) = lower(");
-        builder.push_bind(group_id.to_owned());
-        builder.push(")");
-        let row: Option<GroupRow> = builder.build_query_as().fetch_optional(self.pool).await?;
+        let row = fetch_group_by_api_id(self.pool, group_id).await?;
         Ok(row.map(|row| group_from_row(row, self.source_id.clone())))
     }
 
@@ -118,15 +100,8 @@ impl<'a> ContactsRepository<'a> {
         filters: &ContactFilters,
     ) -> Result<Page<ContactSummary>, sqlx::Error> {
         let fetch_limit = i64::from(limit) + 1;
-        let mut builder = QueryBuilder::<Sqlite>::new(CONTACT_SELECT);
-        apply_contact_filters(&mut builder, filters);
-        if let Some(cursor) = cursor {
-            builder.push(" AND r.Z_PK < ");
-            builder.push_bind(cursor.row_id);
-        }
-        builder.push(" ORDER BY r.Z_PK DESC LIMIT ");
-        builder.push_bind(fetch_limit);
-        let rows: Vec<ContactRow> = builder.build_query_as().fetch_all(self.pool).await?;
+        let binds = filters.bind_values(cursor.map(|value| value.row_id), fetch_limit);
+        let rows = fetch_filtered_contacts(self.pool, &binds).await?;
         Ok(split_page(rows, limit, |row| {
             contact_summary_from_row(row, self.source_id.clone())
         }, |row| row.row_id))
@@ -139,32 +114,20 @@ impl<'a> ContactsRepository<'a> {
         cursor: Option<GroupContactCursor>,
     ) -> Result<Page<ContactSummary>, sqlx::Error> {
         let fetch_limit = i64::from(limit) + 1;
-        let mut builder = QueryBuilder::<Sqlite>::new(CONTACT_SELECT);
-        builder.push(
-            " AND r.Z_PK IN (SELECT pg.Z_22CONTACTS FROM Z_22PARENTGROUPS pg \
-             JOIN ZABCDRECORD g ON g.Z_PK = pg.Z_19PARENTGROUPS1 \
-             WHERE lower(substr(g.ZUNIQUEID, 1, instr(g.ZUNIQUEID, ':') - 1)) = lower(",
-        );
-        builder.push_bind(group_id.to_owned());
-        builder.push("))");
-        if let Some(cursor) = cursor {
-            builder.push(" AND r.Z_PK < ");
-            builder.push_bind(cursor.row_id);
-        }
-        builder.push(" ORDER BY r.Z_PK DESC LIMIT ");
-        builder.push_bind(fetch_limit);
-        let rows: Vec<ContactRow> = builder.build_query_as().fetch_all(self.pool).await?;
+        let rows = fetch_group_contacts(
+            self.pool,
+            group_id,
+            cursor.map(|value| value.row_id),
+            fetch_limit,
+        )
+        .await?;
         Ok(split_page(rows, limit, |row| {
             contact_summary_from_row(row, self.source_id.clone())
         }, |row| row.row_id))
     }
 
     pub async fn get_contact(&self, contact_id: &str) -> Result<Option<ContactDetail>, sqlx::Error> {
-        let mut builder = QueryBuilder::<Sqlite>::new(CONTACT_SELECT);
-        builder.push(" AND lower(substr(r.ZUNIQUEID, 1, instr(r.ZUNIQUEID, ':') - 1)) = lower(");
-        builder.push_bind(contact_id.to_owned());
-        builder.push(")");
-        let row: Option<ContactRow> = builder.build_query_as().fetch_optional(self.pool).await?;
+        let row = fetch_contact_by_api_id(self.pool, contact_id).await?;
         let Some(row) = row else {
             return Ok(None);
         };
@@ -175,14 +138,8 @@ impl<'a> ContactsRepository<'a> {
         &self,
         contact_id: &str,
     ) -> Result<Option<(Vec<u8>, Option<String>)>, sqlx::Error> {
-        let row: Option<PhotoRow> = sqlx::query_as(PHOTO_SELECT)
-            .bind(format!("{contact_id}:"))
-            .fetch_optional(self.pool)
-            .await?;
-        Ok(row.and_then(|row| {
-            row.photo_data
-                .map(|data| (data, row.image_type))
-        }))
+        let row = fetch_contact_photo(self.pool, &format!("{contact_id}:")).await?;
+        Ok(row.and_then(|row| row.photo_data.map(|data| (data, row.image_type))))
     }
 
     pub async fn get_container_resolve_metadata(
@@ -190,18 +147,12 @@ impl<'a> ContactsRepository<'a> {
         container_id: &str,
     ) -> Result<Option<ContainerResolveMetadata>, sqlx::Error> {
         let api_id = api_id_from_unique_id(container_id);
-        let row: Option<(String, String, Option<String>, Option<i64>)> =
-            sqlx::query_as(CONTAINER_RESOLVE_SELECT)
-                .bind(api_id)
-                .fetch_optional(self.pool)
-                .await?;
-        Ok(row.map(|(api_id, external_id, name, container_type)| {
-            ContainerResolveMetadata {
-                api_id,
-                external_id,
-                name,
-                container_type: container_type.unwrap_or(0),
-            }
+        let row = fetch_container_resolve_metadata(self.pool, &api_id).await?;
+        Ok(row.map(|row| ContainerResolveMetadata {
+            api_id: row.api_id.unwrap_or(api_id),
+            external_id: row.external_id,
+            name: row.name,
+            container_type: row.container_type.unwrap_or(0),
         }))
     }
 
@@ -209,20 +160,14 @@ impl<'a> ContactsRepository<'a> {
         &self,
         group_id: &str,
     ) -> Result<Option<GroupResolveMetadata>, sqlx::Error> {
-        type Row = (String, Option<String>, Option<i64>, Option<i64>);
         let api_id = api_id_from_unique_id(group_id);
-        let row: Option<Row> = sqlx::query_as(GROUP_RESOLVE_SELECT)
-            .bind(api_id)
-            .fetch_optional(self.pool)
-            .await?;
-        Ok(row.map(
-            |(api_id, name, group_type, container_id)| GroupResolveMetadata {
-                api_id,
-                name,
-                group_type: group_type.unwrap_or(0),
-                container_id,
-            },
-        ))
+        let row = fetch_group_resolve_metadata(self.pool, &api_id).await?;
+        Ok(row.map(|row| GroupResolveMetadata {
+            api_id: row.api_id.unwrap_or(api_id),
+            name: row.name,
+            group_type: row.group_type.unwrap_or(0),
+            container_id: row.container_id,
+        }))
     }
 
     pub async fn get_contact_external_id(
@@ -230,11 +175,7 @@ impl<'a> ContactsRepository<'a> {
         contact_id: &str,
     ) -> Result<Option<String>, sqlx::Error> {
         let api_id = api_id_from_unique_id(contact_id);
-        let row: Option<(String,)> = sqlx::query_as(CONTACT_EXTERNAL_ID_SELECT)
-            .bind(api_id)
-            .fetch_optional(self.pool)
-            .await?;
-        Ok(row.map(|(id,)| id))
+        fetch_contact_external_id(self.pool, &api_id).await
     }
 
     pub async fn get_group_external_id(
@@ -242,39 +183,17 @@ impl<'a> ContactsRepository<'a> {
         group_id: &str,
     ) -> Result<Option<String>, sqlx::Error> {
         let api_id = api_id_from_unique_id(group_id);
-        let row: Option<(String,)> = sqlx::query_as(GROUP_EXTERNAL_ID_SELECT)
-            .bind(api_id)
-            .fetch_optional(self.pool)
-            .await?;
-        Ok(row.map(|(id,)| id))
+        fetch_group_external_id(self.pool, &api_id).await
     }
 
-    async fn hydrate_contact(&self, row: ContactRow) -> Result<ContactDetail, sqlx::Error> {
+    async fn hydrate_contact(&self, row: super::row::ContactRow) -> Result<ContactDetail, sqlx::Error> {
         let row_id = row.row_id;
-        let phones: Vec<PhoneRow> = sqlx::query_as(PHONE_SELECT)
-            .bind(row_id)
-            .fetch_all(self.pool)
-            .await?;
-        let emails: Vec<EmailRow> = sqlx::query_as(EMAIL_SELECT)
-            .bind(row_id)
-            .fetch_all(self.pool)
-            .await?;
-        let addresses: Vec<AddressRow> = sqlx::query_as(ADDRESS_SELECT)
-            .bind(row_id)
-            .fetch_all(self.pool)
-            .await?;
-        let urls: Vec<UrlRow> = sqlx::query_as(URL_SELECT)
-            .bind(row_id)
-            .fetch_all(self.pool)
-            .await?;
-        let socials: Vec<SocialRow> = sqlx::query_as(SOCIAL_SELECT)
-            .bind(row_id)
-            .fetch_all(self.pool)
-            .await?;
-        let groups: Vec<GroupIdRow> = sqlx::query_as(GROUP_IDS_FOR_CONTACT)
-            .bind(row_id)
-            .fetch_all(self.pool)
-            .await?;
+        let phones = fetch_phones_for_contact(self.pool, row_id).await?;
+        let emails = fetch_emails_for_contact(self.pool, row_id).await?;
+        let addresses = fetch_addresses_for_contact(self.pool, row_id).await?;
+        let urls = fetch_urls_for_contact(self.pool, row_id).await?;
+        let socials = fetch_socials_for_contact(self.pool, row_id).await?;
+        let groups = fetch_group_ids_for_contact(self.pool, row_id).await?;
         Ok(contact_detail_from_row(
             row,
             self.source_id.clone(),
@@ -285,7 +204,7 @@ impl<'a> ContactsRepository<'a> {
                 urls,
                 socials,
             },
-            groups.into_iter().map(|g| g.unique_id).collect(),
+            groups.into_iter().map(|group| group.unique_id).collect(),
         ))
     }
 }

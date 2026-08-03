@@ -4,11 +4,11 @@ mod assembly;
 mod discovery;
 mod labels;
 mod model;
+mod queries;
 mod repository;
 mod row;
 mod search;
 mod sources;
-mod sql;
 
 pub use discovery::{
     DiscoveryError, default_contacts_sources_dir, discover_contacts_sources, DiscoveredSource,

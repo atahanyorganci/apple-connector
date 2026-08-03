@@ -148,14 +148,19 @@ async fn count_contacts(path: &Path) -> Result<i64, DiscoveryError> {
         .await
         .map_err(|error| DiscoveryError::Connect(error.to_string()))?;
 
-    let count: (i64,) =
-        sqlx::query_as("SELECT COUNT(*) FROM ZABCDRECORD WHERE Z_ENT = 22")
-            .fetch_one(&mut connection)
-            .await
-            .map_err(|error| DiscoveryError::Connect(error.to_string()))?;
+    let count = sqlx::query_scalar!(
+        r#"
+        SELECT COUNT(*)
+        FROM ZABCDRECORD
+        WHERE Z_ENT = 22
+        "#
+    )
+    .fetch_one(&mut connection)
+    .await
+    .map_err(|error| DiscoveryError::Connect(error.to_string()))?;
 
     connection.close().await.ok();
-    Ok(count.0)
+    Ok(count)
 }
 
 #[cfg(test)]
