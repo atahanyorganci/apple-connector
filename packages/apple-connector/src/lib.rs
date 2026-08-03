@@ -8,6 +8,7 @@ pub mod fixtures;
 mod messages;
 mod notes;
 mod reminders;
+mod sqlx_util;
 
 use std::{collections::HashMap, error::Error, io::Error as IoError, net::SocketAddr, path::PathBuf, sync::Arc};
 

@@ -238,11 +238,15 @@ A matching Notes schema and seeded fixture live in
 ./packages/apple-connector/fixtures/messages/create-empty-db.sh
 ./packages/apple-connector/fixtures/reminders/create-empty-db.sh
 ./packages/apple-connector/fixtures/notes/create-empty-db.sh
-cp packages/apple-connector/.env.example packages/apple-connector/.env
-cargo install sqlx-cli --version 0.9.0 --no-default-features --features sqlite
-cargo sqlx prepare -p apple-connector
-rsync -a --delete .sqlx/ packages/apple-connector/sqlx/
+./packages/apple-connector/fixtures/calendar/create-empty-db.sh
+./packages/apple-connector/fixtures/contacts/create-empty-db.sh
+bash scripts/sqlx-prepare-all.sh
 ```
+
+The prepare script runs once per domain fixture (Messages, Reminders, Notes,
+Calendar, Contacts) and merges query metadata into `packages/apple-connector/sqlx/`.
+Apple's five SQLite schemas cannot share one database, so offline verification
+uses sequential passes with a growing cache (`SQLX_OFFLINE=true`).
 
 Commit the updated `packages/apple-connector/sqlx/` directory. Nix builds use
 `SQLX_OFFLINE=true` with `SQLX_OFFLINE_DIR=packages/apple-connector/sqlx` and do
@@ -251,8 +255,11 @@ not need a database connection.
 ### SQL queries
 
 Queries in `packages/apple-connector/src/` are verified at compile time with SQLx
-`query_as!`. After changing SQL, run the fixture steps above to refresh the offline
-cache.
+`query!`, `query_as!`, and `query_scalar!`. After changing SQL, run
+`bash scripts/sqlx-prepare-all.sh` and commit `packages/apple-connector/sqlx/`.
+Schema loading in fixtures still uses `sqlx::raw_sql(include_str!(...))` (DDL).
+Handler integration seeds that bulk-load static SQL may keep runtime `sqlx::query`
+in test-only code.
 
 ### OpenAPI export
 

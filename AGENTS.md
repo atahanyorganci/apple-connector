@@ -58,7 +58,7 @@ Primary sources of truth is issues. While creating a multiphase plan that spans 
 
 ## Conventions
 
-- SQL uses compile-time checked `query_as!`; refresh offline cache after query changes (`cargo sqlx prepare`, commit `packages/apple-connector/sqlx/`).
+- SQL uses compile-time checked `query!` / `query_as!` / `query_scalar!`; refresh offline cache with `bash scripts/sqlx-prepare-all.sh` and commit `packages/apple-connector/sqlx/`.
 - Date values are always in UTC and represented as Unix seconds (integers), not RFC 3339 strings.
 - After handler or schema changes, run `cargo run -p apple-connector --bin export-openapi docs/openapi.json`.
 - Always use conventional and commits for changes.
