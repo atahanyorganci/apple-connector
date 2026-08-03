@@ -1,0 +1,81 @@
+{
+  "db_name": "SQLite",
+  "query": "\n        SELECT\n          af.ROWID AS \"row_id!\",\n          lower(af.UUID) AS \"id!: String\",\n          af.filename,\n          af.format,\n          af.file_size,\n          af.local_path\n        FROM Attachment a\n        JOIN AttachmentFile af ON af.ROWID = a.file_id\n        WHERE a.owner_id = ?1\n        ",
+  "describe": {
+    "columns": [
+      {
+        "name": "row_id!",
+        "ordinal": 0,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "AttachmentFile",
+            "name": "ROWID"
+          }
+        }
+      },
+      {
+        "name": "id!: String",
+        "ordinal": 1,
+        "type_info": "Null",
+        "origin": "Expression"
+      },
+      {
+        "name": "filename",
+        "ordinal": 2,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "AttachmentFile",
+            "name": "filename"
+          }
+        }
+      },
+      {
+        "name": "format",
+        "ordinal": 3,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "AttachmentFile",
+            "name": "format"
+          }
+        }
+      },
+      {
+        "name": "file_size",
+        "ordinal": 4,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "AttachmentFile",
+            "name": "file_size"
+          }
+        }
+      },
+      {
+        "name": "local_path",
+        "ordinal": 5,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "AttachmentFile",
+            "name": "local_path"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false,
+      null,
+      true,
+      true,
+      true,
+      true
+    ]
+  },
+  "hash": "3e3513e347b2cd27fad256649cae80ae387a52dae463664b29c6a61fcf5c6709"
+}

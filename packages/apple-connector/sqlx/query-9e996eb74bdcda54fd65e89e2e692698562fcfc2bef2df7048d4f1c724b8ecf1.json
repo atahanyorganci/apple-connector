@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "UPDATE message SET attributedBody = ?1 WHERE guid = 'msg-attributed'",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": []
+  },
+  "hash": "9e996eb74bdcda54fd65e89e2e692698562fcfc2bef2df7048d4f1c724b8ecf1"
+}

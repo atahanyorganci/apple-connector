@@ -1,0 +1,21 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT COUNT(*) AS \"count!: i64\" FROM ZREMCDREMINDER WHERE ZMARKEDFORDELETION = 0 AND ZPARENTREMINDER IS NOT NULL",
+  "describe": {
+    "columns": [
+      {
+        "name": "count!: i64",
+        "ordinal": 0,
+        "type_info": "Integer",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Right": 0
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "3a2f42d55fc3675ece45b8dbbaec0cf2c761f8bfd7e88b9189ab97c7fcd09fc0"
+}

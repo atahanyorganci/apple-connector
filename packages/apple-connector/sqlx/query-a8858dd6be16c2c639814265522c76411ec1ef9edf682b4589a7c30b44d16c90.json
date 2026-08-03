@@ -1,0 +1,21 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT COUNT(*) AS \"count!\" FROM ZICCLOUDSYNCINGOBJECT WHERE Z_ENT = 12 AND ZIDENTIFIER = ?1 AND ZISPASSWORDPROTECTED = 1",
+  "describe": {
+    "columns": [
+      {
+        "name": "count!",
+        "ordinal": 0,
+        "type_info": "Integer",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "a8858dd6be16c2c639814265522c76411ec1ef9edf682b4589a7c30b44d16c90"
+}

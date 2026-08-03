@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "INSERT INTO message (guid, text, service, is_from_me, date) VALUES ('msg-live', 'brand-new-term appears', 'iMessage', 1, 400)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 0
+    },
+    "nullable": []
+  },
+  "hash": "f51f2a57ef494575d649f279aa76980b1de59088cacf7cdab4a34c511b2f47e3"
+}

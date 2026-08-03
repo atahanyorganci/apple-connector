@@ -1,0 +1,201 @@
+{
+  "db_name": "SQLite",
+  "query": "\n        SELECT\n          o.Z_PK AS \"row_id!\",\n          o.Z_ENT AS \"ent!\",\n          o.ZREMINDER AS reminder_row_id,\n          o.ZTYPE AS object_type,\n          o.ZTITLE AS title,\n          o.ZLATITUDE AS latitude,\n          o.ZLONGITUDE AS longitude,\n          o.ZRADIUS AS radius,\n          o.ZTIMEINTERVAL AS time_interval,\n          o.ZDATECOMPONENTSDATA AS \"date_components_data: Vec<u8>\",\n          o.Z16_TRIGGER AS trigger_row_id,\n          o.ZFREQUENCY AS frequency,\n          o.ZINTERVAL AS recurrence_interval,\n          o.ZOCCURRENCECOUNT AS occurrence_count,\n          o.ZHASHTAGLABEL AS hashtag_label_row_id,\n          CAST(NULL AS TEXT) AS \"tag_name: String\"\n        FROM ZREMCDOBJECT o\n        WHERE o.ZMARKEDFORDELETION = 0\n          AND o.ZREMINDER = ?\n        ",
+  "describe": {
+    "columns": [
+      {
+        "name": "row_id!",
+        "ordinal": 0,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "ZREMCDOBJECT",
+            "name": "Z_PK"
+          }
+        }
+      },
+      {
+        "name": "ent!",
+        "ordinal": 1,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "ZREMCDOBJECT",
+            "name": "Z_ENT"
+          }
+        }
+      },
+      {
+        "name": "reminder_row_id",
+        "ordinal": 2,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "ZREMCDOBJECT",
+            "name": "ZREMINDER"
+          }
+        }
+      },
+      {
+        "name": "object_type",
+        "ordinal": 3,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "ZREMCDOBJECT",
+            "name": "ZTYPE"
+          }
+        }
+      },
+      {
+        "name": "title",
+        "ordinal": 4,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "ZREMCDOBJECT",
+            "name": "ZTITLE"
+          }
+        }
+      },
+      {
+        "name": "latitude",
+        "ordinal": 5,
+        "type_info": "Float",
+        "origin": {
+          "Table": {
+            "table": "ZREMCDOBJECT",
+            "name": "ZLATITUDE"
+          }
+        }
+      },
+      {
+        "name": "longitude",
+        "ordinal": 6,
+        "type_info": "Float",
+        "origin": {
+          "Table": {
+            "table": "ZREMCDOBJECT",
+            "name": "ZLONGITUDE"
+          }
+        }
+      },
+      {
+        "name": "radius",
+        "ordinal": 7,
+        "type_info": "Float",
+        "origin": {
+          "Table": {
+            "table": "ZREMCDOBJECT",
+            "name": "ZRADIUS"
+          }
+        }
+      },
+      {
+        "name": "time_interval",
+        "ordinal": 8,
+        "type_info": "Float",
+        "origin": {
+          "Table": {
+            "table": "ZREMCDOBJECT",
+            "name": "ZTIMEINTERVAL"
+          }
+        }
+      },
+      {
+        "name": "date_components_data: Vec<u8>",
+        "ordinal": 9,
+        "type_info": "Blob",
+        "origin": {
+          "Table": {
+            "table": "ZREMCDOBJECT",
+            "name": "ZDATECOMPONENTSDATA"
+          }
+        }
+      },
+      {
+        "name": "trigger_row_id",
+        "ordinal": 10,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "ZREMCDOBJECT",
+            "name": "Z16_TRIGGER"
+          }
+        }
+      },
+      {
+        "name": "frequency",
+        "ordinal": 11,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "ZREMCDOBJECT",
+            "name": "ZFREQUENCY"
+          }
+        }
+      },
+      {
+        "name": "recurrence_interval",
+        "ordinal": 12,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "ZREMCDOBJECT",
+            "name": "ZINTERVAL"
+          }
+        }
+      },
+      {
+        "name": "occurrence_count",
+        "ordinal": 13,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "ZREMCDOBJECT",
+            "name": "ZOCCURRENCECOUNT"
+          }
+        }
+      },
+      {
+        "name": "hashtag_label_row_id",
+        "ordinal": 14,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "ZREMCDOBJECT",
+            "name": "ZHASHTAGLABEL"
+          }
+        }
+      },
+      {
+        "name": "tag_name: String",
+        "ordinal": 15,
+        "type_info": "Text",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true
+    ]
+  },
+  "hash": "9f7b53637e3d3b49712639fc7298a71d232bf26ad5ba4dfa09431eab5c5461ed"
+}

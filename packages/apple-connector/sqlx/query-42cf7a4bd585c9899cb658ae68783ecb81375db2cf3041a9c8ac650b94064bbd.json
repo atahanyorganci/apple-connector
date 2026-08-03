@@ -1,0 +1,398 @@
+{
+  "db_name": "SQLite",
+  "query": "\n        SELECT\n            message.ROWID AS \"row_id!\",\n            message.guid AS \"guid!\",\n            message.text,\n            message.attributedBody AS \"attributed_body: Vec<u8>\",\n            message.service,\n            message.date AS \"sent_at!\",\n            message.date_read AS \"read_at!\",\n            message.date_edited AS \"edited_at!\",\n            message.date_retracted AS \"retracted_at!\",\n            message.is_from_me AS \"is_from_me!: bool\",\n            sender.id AS sender_id,\n            sender.service AS sender_service,\n            message.item_type AS \"item_type!\",\n            message.associated_message_guid,\n            message.associated_message_type AS \"associated_message_type!\",\n            message.group_action_type AS \"group_action_type!\",\n            message.group_title,\n            message.handle_id AS \"handle_id!\",\n            message.other_handle AS \"other_handle!\",\n            actor.id AS other_handle_id,\n            message.share_status AS \"share_status!: bool\",\n            message.balloon_bundle_id,\n            message.payload_data AS \"payload_data: Vec<u8>\",\n            message.is_audio_message AS \"is_audio_message!: bool\",\n            message.cache_has_attachments AS \"cache_has_attachments!: bool\",\n            message.is_forward AS \"is_forward!: bool\",\n            message.is_auto_reply AS \"is_auto_reply!: bool\",\n            message.is_system_message AS \"is_system_message!: bool\",\n            message.is_service_message AS \"is_service_message!: bool\",\n            message.reply_to_guid,\n            message.thread_originator_guid,\n            message.expressive_send_style_id\n        FROM message\n        LEFT JOIN handle AS sender ON message.handle_id = sender.ROWID\n        LEFT JOIN handle AS actor ON message.other_handle = actor.ROWID\n        WHERE message.guid = ?1\n        ",
+  "describe": {
+    "columns": [
+      {
+        "name": "row_id!",
+        "ordinal": 0,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "message",
+            "name": "ROWID"
+          }
+        }
+      },
+      {
+        "name": "guid!",
+        "ordinal": 1,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "message",
+            "name": "guid"
+          }
+        }
+      },
+      {
+        "name": "text",
+        "ordinal": 2,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "message",
+            "name": "text"
+          }
+        }
+      },
+      {
+        "name": "attributed_body: Vec<u8>",
+        "ordinal": 3,
+        "type_info": "Blob",
+        "origin": {
+          "Table": {
+            "table": "message",
+            "name": "attributedBody"
+          }
+        }
+      },
+      {
+        "name": "service",
+        "ordinal": 4,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "message",
+            "name": "service"
+          }
+        }
+      },
+      {
+        "name": "sent_at!",
+        "ordinal": 5,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "message",
+            "name": "date"
+          }
+        }
+      },
+      {
+        "name": "read_at!",
+        "ordinal": 6,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "message",
+            "name": "date_read"
+          }
+        }
+      },
+      {
+        "name": "edited_at!",
+        "ordinal": 7,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "message",
+            "name": "date_edited"
+          }
+        }
+      },
+      {
+        "name": "retracted_at!",
+        "ordinal": 8,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "message",
+            "name": "date_retracted"
+          }
+        }
+      },
+      {
+        "name": "is_from_me!: bool",
+        "ordinal": 9,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "message",
+            "name": "is_from_me"
+          }
+        }
+      },
+      {
+        "name": "sender_id",
+        "ordinal": 10,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "handle",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "name": "sender_service",
+        "ordinal": 11,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "handle",
+            "name": "service"
+          }
+        }
+      },
+      {
+        "name": "item_type!",
+        "ordinal": 12,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "message",
+            "name": "item_type"
+          }
+        }
+      },
+      {
+        "name": "associated_message_guid",
+        "ordinal": 13,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "message",
+            "name": "associated_message_guid"
+          }
+        }
+      },
+      {
+        "name": "associated_message_type!",
+        "ordinal": 14,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "message",
+            "name": "associated_message_type"
+          }
+        }
+      },
+      {
+        "name": "group_action_type!",
+        "ordinal": 15,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "message",
+            "name": "group_action_type"
+          }
+        }
+      },
+      {
+        "name": "group_title",
+        "ordinal": 16,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "message",
+            "name": "group_title"
+          }
+        }
+      },
+      {
+        "name": "handle_id!",
+        "ordinal": 17,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "message",
+            "name": "handle_id"
+          }
+        }
+      },
+      {
+        "name": "other_handle!",
+        "ordinal": 18,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "message",
+            "name": "other_handle"
+          }
+        }
+      },
+      {
+        "name": "other_handle_id",
+        "ordinal": 19,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "handle",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "name": "share_status!: bool",
+        "ordinal": 20,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "message",
+            "name": "share_status"
+          }
+        }
+      },
+      {
+        "name": "balloon_bundle_id",
+        "ordinal": 21,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "message",
+            "name": "balloon_bundle_id"
+          }
+        }
+      },
+      {
+        "name": "payload_data: Vec<u8>",
+        "ordinal": 22,
+        "type_info": "Blob",
+        "origin": {
+          "Table": {
+            "table": "message",
+            "name": "payload_data"
+          }
+        }
+      },
+      {
+        "name": "is_audio_message!: bool",
+        "ordinal": 23,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "message",
+            "name": "is_audio_message"
+          }
+        }
+      },
+      {
+        "name": "cache_has_attachments!: bool",
+        "ordinal": 24,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "message",
+            "name": "cache_has_attachments"
+          }
+        }
+      },
+      {
+        "name": "is_forward!: bool",
+        "ordinal": 25,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "message",
+            "name": "is_forward"
+          }
+        }
+      },
+      {
+        "name": "is_auto_reply!: bool",
+        "ordinal": 26,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "message",
+            "name": "is_auto_reply"
+          }
+        }
+      },
+      {
+        "name": "is_system_message!: bool",
+        "ordinal": 27,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "message",
+            "name": "is_system_message"
+          }
+        }
+      },
+      {
+        "name": "is_service_message!: bool",
+        "ordinal": 28,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "message",
+            "name": "is_service_message"
+          }
+        }
+      },
+      {
+        "name": "reply_to_guid",
+        "ordinal": 29,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "message",
+            "name": "reply_to_guid"
+          }
+        }
+      },
+      {
+        "name": "thread_originator_guid",
+        "ordinal": 30,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "message",
+            "name": "thread_originator_guid"
+          }
+        }
+      },
+      {
+        "name": "expressive_send_style_id",
+        "ordinal": 31,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "message",
+            "name": "expressive_send_style_id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false,
+      false,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true
+    ]
+  },
+  "hash": "42cf7a4bd585c9899cb658ae68783ecb81375db2cf3041a9c8ac650b94064bbd"
+}

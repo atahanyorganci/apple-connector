@@ -1,0 +1,279 @@
+{
+  "db_name": "SQLite",
+  "query": "\n        SELECT\n          r.Z_PK AS \"row_id!\",\n          lower(\n            substr(hex(r.ZIDENTIFIER), 1, 8) || '-' ||\n            substr(hex(r.ZIDENTIFIER), 9, 4) || '-' ||\n            substr(hex(r.ZIDENTIFIER), 13, 4) || '-' ||\n            substr(hex(r.ZIDENTIFIER), 17, 4) || '-' ||\n            substr(hex(r.ZIDENTIFIER), 21, 12)\n          ) AS \"id!\",\n          r.ZTITLE AS title,\n          r.ZNOTES AS notes,\n          r.ZCOMPLETED AS \"completed!\",\n          r.ZFLAGGED AS \"flagged!\",\n          r.ZPRIORITY AS \"priority!\",\n          r.ZALLDAY AS \"all_day!\",\n          r.ZLIST AS \"list_row_id!\",\n          lower(\n            substr(hex(l.ZIDENTIFIER), 1, 8) || '-' ||\n            substr(hex(l.ZIDENTIFIER), 9, 4) || '-' ||\n            substr(hex(l.ZIDENTIFIER), 13, 4) || '-' ||\n            substr(hex(l.ZIDENTIFIER), 17, 4) || '-' ||\n            substr(hex(l.ZIDENTIFIER), 21, 12)\n          ) AS \"list_id!\",\n          l.ZNAME AS list_name,\n          r.ZPARENTREMINDER AS parent_row_id,\n          CASE\n            WHEN p.ZIDENTIFIER IS NULL THEN NULL\n            ELSE lower(\n              substr(hex(p.ZIDENTIFIER), 1, 8) || '-' ||\n              substr(hex(p.ZIDENTIFIER), 9, 4) || '-' ||\n              substr(hex(p.ZIDENTIFIER), 13, 4) || '-' ||\n              substr(hex(p.ZIDENTIFIER), 17, 4) || '-' ||\n              substr(hex(p.ZIDENTIFIER), 21, 12)\n            )\n          END AS parent_id,\n          r.ZICSDISPLAYORDER AS \"display_order!\",\n          CAST(r.ZDUEDATE AS REAL) AS due_date,\n          CAST(r.ZCOMPLETIONDATE AS REAL) AS completion_date,\n          CAST(r.ZCREATIONDATE AS REAL) AS creation_date,\n          CAST(r.ZLASTMODIFIEDDATE AS REAL) AS last_modified_date,\n          l.Z_ENT AS \"list_ent!\",\n          l.ZSMARTLISTTYPE AS list_smart_type,\n          l.ZSHARINGSTATUS AS list_sharing_status,\n          l.ZSHAREDOWNERNAME AS list_shared_owner_name,\n          l.ZSHAREDOWNERADDRESS AS list_shared_owner_address,\n          l.ZFILTERDATA AS \"list_filter_data: Vec<u8>\",\n          l.ZMEMBERSHIPSOFREMINDERSINSECTIONSASDATA AS \"list_membership_data: Vec<u8>\"\n        FROM ZREMCDREMINDER r\n        JOIN ZREMCDBASELIST l ON r.ZLIST = l.Z_PK\n        LEFT JOIN ZREMCDREMINDER p ON r.ZPARENTREMINDER = p.Z_PK\n        WHERE r.ZMARKEDFORDELETION = 0\n          AND l.ZMARKEDFORDELETION = 0\n          AND (? IS NULL OR r.ZCOMPLETED = ?)\n          AND (? IS NULL OR r.ZFLAGGED = ?)\n          AND (? IS NULL OR r.ZLIST = ?)\n          AND (\n            ? IS NULL\n            OR lower(\n              substr(hex(l.ZIDENTIFIER), 1, 8) || '-' ||\n              substr(hex(l.ZIDENTIFIER), 9, 4) || '-' ||\n              substr(hex(l.ZIDENTIFIER), 13, 4) || '-' ||\n              substr(hex(l.ZIDENTIFIER), 17, 4) || '-' ||\n              substr(hex(l.ZIDENTIFIER), 21, 12)\n            ) = ?\n          )\n          AND (\n            ? IS NULL\n            OR (? = 1 AND r.ZDUEDATE IS NOT NULL)\n            OR (? = 0 AND r.ZDUEDATE IS NULL)\n          )\n          AND (? IS NULL OR r.ZDUEDATE <= ?)\n          AND (? IS NULL OR r.ZDUEDATE >= ?)\n          AND (? IS NULL OR r.ZPRIORITY >= ?)\n          AND (\n            ? IS NULL\n            OR (? = 1 AND r.ZNOTES IS NOT NULL AND trim(r.ZNOTES) != '')\n            OR (? = 0 AND (r.ZNOTES IS NULL OR trim(r.ZNOTES) = ''))\n          )\n          AND (? IS NULL OR r.ZPARENTREMINDER IS NULL)\n          AND (\n            ? IS NULL\n            OR (\n              lower(r.ZTITLE) LIKE '%' || lower(?) || '%'\n              OR lower(coalesce(r.ZNOTES, '')) LIKE '%' || lower(?) || '%'\n            )\n          )\n          AND (\n            ? IS NULL\n            OR r.ZLASTMODIFIEDDATE < ?\n            OR (r.ZLASTMODIFIEDDATE = ? AND r.Z_PK < ?)\n          )\n        ORDER BY r.ZLASTMODIFIEDDATE DESC, r.Z_PK DESC\n        LIMIT ?\n        ",
+  "describe": {
+    "columns": [
+      {
+        "name": "row_id!",
+        "ordinal": 0,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "ZREMCDREMINDER",
+            "name": "Z_PK"
+          }
+        }
+      },
+      {
+        "name": "id!",
+        "ordinal": 1,
+        "type_info": "Null",
+        "origin": "Expression"
+      },
+      {
+        "name": "title",
+        "ordinal": 2,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "ZREMCDREMINDER",
+            "name": "ZTITLE"
+          }
+        }
+      },
+      {
+        "name": "notes",
+        "ordinal": 3,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "ZREMCDREMINDER",
+            "name": "ZNOTES"
+          }
+        }
+      },
+      {
+        "name": "completed!",
+        "ordinal": 4,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "ZREMCDREMINDER",
+            "name": "ZCOMPLETED"
+          }
+        }
+      },
+      {
+        "name": "flagged!",
+        "ordinal": 5,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "ZREMCDREMINDER",
+            "name": "ZFLAGGED"
+          }
+        }
+      },
+      {
+        "name": "priority!",
+        "ordinal": 6,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "ZREMCDREMINDER",
+            "name": "ZPRIORITY"
+          }
+        }
+      },
+      {
+        "name": "all_day!",
+        "ordinal": 7,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "ZREMCDREMINDER",
+            "name": "ZALLDAY"
+          }
+        }
+      },
+      {
+        "name": "list_row_id!",
+        "ordinal": 8,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "ZREMCDREMINDER",
+            "name": "ZLIST"
+          }
+        }
+      },
+      {
+        "name": "list_id!",
+        "ordinal": 9,
+        "type_info": "Null",
+        "origin": "Expression"
+      },
+      {
+        "name": "list_name",
+        "ordinal": 10,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "ZREMCDBASELIST",
+            "name": "ZNAME"
+          }
+        }
+      },
+      {
+        "name": "parent_row_id",
+        "ordinal": 11,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "ZREMCDREMINDER",
+            "name": "ZPARENTREMINDER"
+          }
+        }
+      },
+      {
+        "name": "parent_id",
+        "ordinal": 12,
+        "type_info": "Null",
+        "origin": "Expression"
+      },
+      {
+        "name": "display_order!",
+        "ordinal": 13,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "ZREMCDREMINDER",
+            "name": "ZICSDISPLAYORDER"
+          }
+        }
+      },
+      {
+        "name": "due_date",
+        "ordinal": 14,
+        "type_info": "Float",
+        "origin": "Expression"
+      },
+      {
+        "name": "completion_date",
+        "ordinal": 15,
+        "type_info": "Float",
+        "origin": "Expression"
+      },
+      {
+        "name": "creation_date",
+        "ordinal": 16,
+        "type_info": "Float",
+        "origin": "Expression"
+      },
+      {
+        "name": "last_modified_date",
+        "ordinal": 17,
+        "type_info": "Float",
+        "origin": "Expression"
+      },
+      {
+        "name": "list_ent!",
+        "ordinal": 18,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "ZREMCDBASELIST",
+            "name": "Z_ENT"
+          }
+        }
+      },
+      {
+        "name": "list_smart_type",
+        "ordinal": 19,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "ZREMCDBASELIST",
+            "name": "ZSMARTLISTTYPE"
+          }
+        }
+      },
+      {
+        "name": "list_sharing_status",
+        "ordinal": 20,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "ZREMCDBASELIST",
+            "name": "ZSHARINGSTATUS"
+          }
+        }
+      },
+      {
+        "name": "list_shared_owner_name",
+        "ordinal": 21,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "ZREMCDBASELIST",
+            "name": "ZSHAREDOWNERNAME"
+          }
+        }
+      },
+      {
+        "name": "list_shared_owner_address",
+        "ordinal": 22,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "ZREMCDBASELIST",
+            "name": "ZSHAREDOWNERADDRESS"
+          }
+        }
+      },
+      {
+        "name": "list_filter_data: Vec<u8>",
+        "ordinal": 23,
+        "type_info": "Blob",
+        "origin": {
+          "Table": {
+            "table": "ZREMCDBASELIST",
+            "name": "ZFILTERDATA"
+          }
+        }
+      },
+      {
+        "name": "list_membership_data: Vec<u8>",
+        "ordinal": 24,
+        "type_info": "Blob",
+        "origin": {
+          "Table": {
+            "table": "ZREMCDBASELIST",
+            "name": "ZMEMBERSHIPSOFREMINDERSINSECTIONSASDATA"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 29
+    },
+    "nullable": [
+      false,
+      null,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      null,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true
+    ]
+  },
+  "hash": "8064fed292a8acb12b785e2cef54b0ba67adc999150a39bf84f100cbf7874e8e"
+}

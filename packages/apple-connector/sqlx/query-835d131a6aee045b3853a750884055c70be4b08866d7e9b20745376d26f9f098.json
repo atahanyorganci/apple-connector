@@ -1,0 +1,86 @@
+{
+  "db_name": "SQLite",
+  "query": "\n        SELECT\n          ROWID AS \"row_id!\",\n          frequency,\n          interval,\n          count,\n          end_date,\n          specifier\n        FROM Recurrence\n        WHERE owner_id = ?1\n        ",
+  "describe": {
+    "columns": [
+      {
+        "name": "row_id!",
+        "ordinal": 0,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "Recurrence",
+            "name": "ROWID"
+          }
+        }
+      },
+      {
+        "name": "frequency",
+        "ordinal": 1,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "Recurrence",
+            "name": "frequency"
+          }
+        }
+      },
+      {
+        "name": "interval",
+        "ordinal": 2,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "Recurrence",
+            "name": "interval"
+          }
+        }
+      },
+      {
+        "name": "count",
+        "ordinal": 3,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "Recurrence",
+            "name": "count"
+          }
+        }
+      },
+      {
+        "name": "end_date",
+        "ordinal": 4,
+        "type_info": "Float",
+        "origin": {
+          "Table": {
+            "table": "Recurrence",
+            "name": "end_date"
+          }
+        }
+      },
+      {
+        "name": "specifier",
+        "ordinal": 5,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "Recurrence",
+            "name": "specifier"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false,
+      true,
+      true,
+      true,
+      true,
+      true
+    ]
+  },
+  "hash": "835d131a6aee045b3853a750884055c70be4b08866d7e9b20745376d26f9f098"
+}

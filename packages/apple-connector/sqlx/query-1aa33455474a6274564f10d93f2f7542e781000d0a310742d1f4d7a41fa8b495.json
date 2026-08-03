@@ -1,0 +1,81 @@
+{
+  "db_name": "SQLite",
+  "query": "\n        SELECT\n          ROWID AS \"row_id!\",\n          lower(UUID) AS \"id!: String\",\n          trigger_interval,\n          trigger_date,\n          type AS alarm_type,\n          disabled\n        FROM Alarm\n        WHERE calendaritem_owner_id = ?1\n        ",
+  "describe": {
+    "columns": [
+      {
+        "name": "row_id!",
+        "ordinal": 0,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "Alarm",
+            "name": "ROWID"
+          }
+        }
+      },
+      {
+        "name": "id!: String",
+        "ordinal": 1,
+        "type_info": "Null",
+        "origin": "Expression"
+      },
+      {
+        "name": "trigger_interval",
+        "ordinal": 2,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "Alarm",
+            "name": "trigger_interval"
+          }
+        }
+      },
+      {
+        "name": "trigger_date",
+        "ordinal": 3,
+        "type_info": "Float",
+        "origin": {
+          "Table": {
+            "table": "Alarm",
+            "name": "trigger_date"
+          }
+        }
+      },
+      {
+        "name": "alarm_type",
+        "ordinal": 4,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "Alarm",
+            "name": "type"
+          }
+        }
+      },
+      {
+        "name": "disabled",
+        "ordinal": 5,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "Alarm",
+            "name": "disabled"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false,
+      null,
+      true,
+      true,
+      true,
+      true
+    ]
+  },
+  "hash": "1aa33455474a6274564f10d93f2f7542e781000d0a310742d1f4d7a41fa8b495"
+}

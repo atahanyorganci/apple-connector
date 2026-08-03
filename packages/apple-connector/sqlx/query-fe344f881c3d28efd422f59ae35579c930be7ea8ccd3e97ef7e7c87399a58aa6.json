@@ -1,0 +1,158 @@
+{
+  "db_name": "SQLite",
+  "query": "\n        SELECT\n            message_attachment_join.message_id AS \"message_id!\",\n            attachment.guid AS \"guid!\",\n            attachment.original_guid AS original_guid,\n            attachment.filename,\n            attachment.uti,\n            attachment.mime_type,\n            attachment.transfer_name,\n            attachment.total_bytes AS \"total_bytes!\",\n            attachment.is_sticker AS \"is_sticker!: bool\",\n            attachment.transfer_state AS \"transfer_state!\",\n            attachment.hide_attachment AS \"hide_attachment!: bool\",\n            attachment.emoji_image_short_description AS emoji_description\n        FROM message_attachment_join\n        JOIN attachment ON message_attachment_join.attachment_id = attachment.ROWID\n        WHERE message_attachment_join.message_id IN (SELECT value FROM json_each(?1))\n        ORDER BY message_attachment_join.message_id ASC, attachment.ROWID ASC\n        ",
+  "describe": {
+    "columns": [
+      {
+        "name": "message_id!",
+        "ordinal": 0,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "message_attachment_join",
+            "name": "message_id"
+          }
+        }
+      },
+      {
+        "name": "guid!",
+        "ordinal": 1,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "attachment",
+            "name": "guid"
+          }
+        }
+      },
+      {
+        "name": "original_guid",
+        "ordinal": 2,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "attachment",
+            "name": "original_guid"
+          }
+        }
+      },
+      {
+        "name": "filename",
+        "ordinal": 3,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "attachment",
+            "name": "filename"
+          }
+        }
+      },
+      {
+        "name": "uti",
+        "ordinal": 4,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "attachment",
+            "name": "uti"
+          }
+        }
+      },
+      {
+        "name": "mime_type",
+        "ordinal": 5,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "attachment",
+            "name": "mime_type"
+          }
+        }
+      },
+      {
+        "name": "transfer_name",
+        "ordinal": 6,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "attachment",
+            "name": "transfer_name"
+          }
+        }
+      },
+      {
+        "name": "total_bytes!",
+        "ordinal": 7,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "attachment",
+            "name": "total_bytes"
+          }
+        }
+      },
+      {
+        "name": "is_sticker!: bool",
+        "ordinal": 8,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "attachment",
+            "name": "is_sticker"
+          }
+        }
+      },
+      {
+        "name": "transfer_state!",
+        "ordinal": 9,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "attachment",
+            "name": "transfer_state"
+          }
+        }
+      },
+      {
+        "name": "hide_attachment!: bool",
+        "ordinal": 10,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "attachment",
+            "name": "hide_attachment"
+          }
+        }
+      },
+      {
+        "name": "emoji_description",
+        "ordinal": 11,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "attachment",
+            "name": "emoji_image_short_description"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      true,
+      false,
+      false,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true
+    ]
+  },
+  "hash": "fe344f881c3d28efd422f59ae35579c930be7ea8ccd3e97ef7e7c87399a58aa6"
+}

@@ -1,0 +1,383 @@
+{
+  "db_name": "SQLite",
+  "query": "\n        SELECT\n          ci.ROWID AS \"row_id!\",\n          lower(ci.UUID) AS \"id!: String\",\n          ci.calendar_id AS \"calendar_row_id!\",\n          lower(c.UUID) AS \"calendar_id!: String\",\n          ci.summary,\n          ci.description,\n          ci.start_date,\n          ci.end_date,\n          ci.all_day,\n          ci.status,\n          ci.hidden,\n          ci.has_recurrences,\n          ci.url,\n          ci.last_modified,\n          ci.creation_date,\n          ci.orig_item_id,\n          ci.orig_date,\n          lower(series.UUID) AS \"series_id: String\",\n          ci.invitation_status,\n          ci.availability,\n          ci.privacy_level,\n          ci.conference_url,\n          ci.travel_time,\n          ci.location_id,\n          ci.organizer_id,\n          ci.entity_type,\n          ci.birthday_id,\n          ci.special_day,\n          ci.structured_data AS \"structured_data: Vec<u8>\",\n          ci.app_link AS \"app_link: Vec<u8>\",\n          oc.occurrence_start_date AS occurrence_start,\n          oc.occurrence_end_date AS occurrence_end\n        FROM OccurrenceCache oc\n        JOIN CalendarItem ci ON ci.ROWID = oc.event_id\n        JOIN Calendar c ON c.ROWID = ci.calendar_id\n        LEFT JOIN CalendarItem series ON series.ROWID = ci.orig_item_id\n        JOIN Store s ON s.ROWID = c.store_id\n        WHERE 1=1\n          AND (?1 = 1 OR ci.hidden = 0)\n          AND (?2 = 1 OR COALESCE(ci.status, 0) != 2)\n          AND (?3 IS NULL OR lower(c.UUID) = lower(?3))\n          AND (?4 IS NULL OR lower(s.external_id) = lower(?4))\n          AND (?5 IS NULL OR ci.summary LIKE ?5)\n          AND (?6 IS NULL OR oc.occurrence_end_date >= ?6)\n          AND (?7 IS NULL OR oc.occurrence_start_date <= ?7)\n          AND (\n            ?8 IS NULL\n            OR oc.occurrence_start_date < ?8\n            OR (oc.occurrence_start_date = ?8 AND ci.ROWID < ?9)\n          )\n        ORDER BY oc.occurrence_start_date DESC, ci.ROWID DESC\n        LIMIT ?10\n        ",
+  "describe": {
+    "columns": [
+      {
+        "name": "row_id!",
+        "ordinal": 0,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "CalendarItem",
+            "name": "ROWID"
+          }
+        }
+      },
+      {
+        "name": "id!: String",
+        "ordinal": 1,
+        "type_info": "Null",
+        "origin": "Expression"
+      },
+      {
+        "name": "calendar_row_id!",
+        "ordinal": 2,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "CalendarItem",
+            "name": "calendar_id"
+          }
+        }
+      },
+      {
+        "name": "calendar_id!: String",
+        "ordinal": 3,
+        "type_info": "Null",
+        "origin": "Expression"
+      },
+      {
+        "name": "summary",
+        "ordinal": 4,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "CalendarItem",
+            "name": "summary"
+          }
+        }
+      },
+      {
+        "name": "description",
+        "ordinal": 5,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "CalendarItem",
+            "name": "description"
+          }
+        }
+      },
+      {
+        "name": "start_date",
+        "ordinal": 6,
+        "type_info": "Float",
+        "origin": {
+          "Table": {
+            "table": "CalendarItem",
+            "name": "start_date"
+          }
+        }
+      },
+      {
+        "name": "end_date",
+        "ordinal": 7,
+        "type_info": "Float",
+        "origin": {
+          "Table": {
+            "table": "CalendarItem",
+            "name": "end_date"
+          }
+        }
+      },
+      {
+        "name": "all_day",
+        "ordinal": 8,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "CalendarItem",
+            "name": "all_day"
+          }
+        }
+      },
+      {
+        "name": "status",
+        "ordinal": 9,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "CalendarItem",
+            "name": "status"
+          }
+        }
+      },
+      {
+        "name": "hidden",
+        "ordinal": 10,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "CalendarItem",
+            "name": "hidden"
+          }
+        }
+      },
+      {
+        "name": "has_recurrences",
+        "ordinal": 11,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "CalendarItem",
+            "name": "has_recurrences"
+          }
+        }
+      },
+      {
+        "name": "url",
+        "ordinal": 12,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "CalendarItem",
+            "name": "url"
+          }
+        }
+      },
+      {
+        "name": "last_modified",
+        "ordinal": 13,
+        "type_info": "Float",
+        "origin": {
+          "Table": {
+            "table": "CalendarItem",
+            "name": "last_modified"
+          }
+        }
+      },
+      {
+        "name": "creation_date",
+        "ordinal": 14,
+        "type_info": "Float",
+        "origin": {
+          "Table": {
+            "table": "CalendarItem",
+            "name": "creation_date"
+          }
+        }
+      },
+      {
+        "name": "orig_item_id",
+        "ordinal": 15,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "CalendarItem",
+            "name": "orig_item_id"
+          }
+        }
+      },
+      {
+        "name": "orig_date",
+        "ordinal": 16,
+        "type_info": "Float",
+        "origin": {
+          "Table": {
+            "table": "CalendarItem",
+            "name": "orig_date"
+          }
+        }
+      },
+      {
+        "name": "series_id: String",
+        "ordinal": 17,
+        "type_info": "Null",
+        "origin": "Expression"
+      },
+      {
+        "name": "invitation_status",
+        "ordinal": 18,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "CalendarItem",
+            "name": "invitation_status"
+          }
+        }
+      },
+      {
+        "name": "availability",
+        "ordinal": 19,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "CalendarItem",
+            "name": "availability"
+          }
+        }
+      },
+      {
+        "name": "privacy_level",
+        "ordinal": 20,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "CalendarItem",
+            "name": "privacy_level"
+          }
+        }
+      },
+      {
+        "name": "conference_url",
+        "ordinal": 21,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "CalendarItem",
+            "name": "conference_url"
+          }
+        }
+      },
+      {
+        "name": "travel_time",
+        "ordinal": 22,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "CalendarItem",
+            "name": "travel_time"
+          }
+        }
+      },
+      {
+        "name": "location_id",
+        "ordinal": 23,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "CalendarItem",
+            "name": "location_id"
+          }
+        }
+      },
+      {
+        "name": "organizer_id",
+        "ordinal": 24,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "CalendarItem",
+            "name": "organizer_id"
+          }
+        }
+      },
+      {
+        "name": "entity_type",
+        "ordinal": 25,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "CalendarItem",
+            "name": "entity_type"
+          }
+        }
+      },
+      {
+        "name": "birthday_id",
+        "ordinal": 26,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "CalendarItem",
+            "name": "birthday_id"
+          }
+        }
+      },
+      {
+        "name": "special_day",
+        "ordinal": 27,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "CalendarItem",
+            "name": "special_day"
+          }
+        }
+      },
+      {
+        "name": "structured_data: Vec<u8>",
+        "ordinal": 28,
+        "type_info": "Blob",
+        "origin": {
+          "Table": {
+            "table": "CalendarItem",
+            "name": "structured_data"
+          }
+        }
+      },
+      {
+        "name": "app_link: Vec<u8>",
+        "ordinal": 29,
+        "type_info": "Blob",
+        "origin": {
+          "Table": {
+            "table": "CalendarItem",
+            "name": "app_link"
+          }
+        }
+      },
+      {
+        "name": "occurrence_start",
+        "ordinal": 30,
+        "type_info": "Float",
+        "origin": {
+          "Table": {
+            "table": "OccurrenceCache",
+            "name": "occurrence_start_date"
+          }
+        }
+      },
+      {
+        "name": "occurrence_end",
+        "ordinal": 31,
+        "type_info": "Float",
+        "origin": {
+          "Table": {
+            "table": "OccurrenceCache",
+            "name": "occurrence_end_date"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 10
+    },
+    "nullable": [
+      false,
+      null,
+      true,
+      null,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      null,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true
+    ]
+  },
+  "hash": "b6dc6226d5f9a153b2bc1c0b955f47d23bfd1b183f12c88388084cc1475d68fc"
+}

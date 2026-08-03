@@ -1,0 +1,26 @@
+{
+  "db_name": "SQLite",
+  "query": "\n        SELECT r.ZEXTERNALIDENTIFIER\n        FROM ZREMCDREMINDER r\n        WHERE lower(\n          substr(hex(r.ZIDENTIFIER), 1, 8) || '-' ||\n          substr(hex(r.ZIDENTIFIER), 9, 4) || '-' ||\n          substr(hex(r.ZIDENTIFIER), 13, 4) || '-' ||\n          substr(hex(r.ZIDENTIFIER), 17, 4) || '-' ||\n          substr(hex(r.ZIDENTIFIER), 21, 12)\n        ) = ?\n        ",
+  "describe": {
+    "columns": [
+      {
+        "name": "ZEXTERNALIDENTIFIER",
+        "ordinal": 0,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "ZREMCDREMINDER",
+            "name": "ZEXTERNALIDENTIFIER"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      true
+    ]
+  },
+  "hash": "0fed7af27baaa2d78155fea5f0e3e4ae41f1c2a8318136a03421ab2f2774e8a6"
+}

@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "INSERT INTO chat (ROWID, guid, style, chat_identifier, service_name) VALUES (2, 'chat-b', 45, '+15550000002', 'SMS')",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 0
+    },
+    "nullable": []
+  },
+  "hash": "94b1b31dcd47503e0a45b33ecfd690b3d0a24dfec351a5c7dd72a1401d0dd7f8"
+}

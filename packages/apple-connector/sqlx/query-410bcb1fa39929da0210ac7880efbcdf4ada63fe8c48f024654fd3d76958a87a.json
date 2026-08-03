@@ -1,0 +1,100 @@
+{
+  "db_name": "SQLite",
+  "query": "\n        SELECT\n          c.ROWID AS \"row_id!\",\n          lower(c.UUID) AS \"id!: String\",\n          c.title,\n          c.color,\n          c.store_id AS \"store_id!\",\n          lower(s.external_id) AS \"account_id!: String\",\n          c.notes,\n          c.sharing_status\n        FROM Calendar c\n        JOIN Store s ON s.ROWID = c.store_id\n        WHERE (?1 IS NULL OR c.ROWID < ?1)\n        ORDER BY c.ROWID DESC\n        LIMIT ?2\n        ",
+  "describe": {
+    "columns": [
+      {
+        "name": "row_id!",
+        "ordinal": 0,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "Calendar",
+            "name": "ROWID"
+          }
+        }
+      },
+      {
+        "name": "id!: String",
+        "ordinal": 1,
+        "type_info": "Null",
+        "origin": "Expression"
+      },
+      {
+        "name": "title",
+        "ordinal": 2,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "Calendar",
+            "name": "title"
+          }
+        }
+      },
+      {
+        "name": "color",
+        "ordinal": 3,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "Calendar",
+            "name": "color"
+          }
+        }
+      },
+      {
+        "name": "store_id!",
+        "ordinal": 4,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "Calendar",
+            "name": "store_id"
+          }
+        }
+      },
+      {
+        "name": "account_id!: String",
+        "ordinal": 5,
+        "type_info": "Null",
+        "origin": "Expression"
+      },
+      {
+        "name": "notes",
+        "ordinal": 6,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "Calendar",
+            "name": "notes"
+          }
+        }
+      },
+      {
+        "name": "sharing_status",
+        "ordinal": 7,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "Calendar",
+            "name": "sharing_status"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 2
+    },
+    "nullable": [
+      false,
+      null,
+      true,
+      true,
+      true,
+      null,
+      true,
+      true
+    ]
+  },
+  "hash": "410bcb1fa39929da0210ac7880efbcdf4ada63fe8c48f024654fd3d76958a87a"
+}

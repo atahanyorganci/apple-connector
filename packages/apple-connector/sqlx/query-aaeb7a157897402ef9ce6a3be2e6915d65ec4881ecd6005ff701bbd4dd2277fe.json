@@ -1,0 +1,26 @@
+{
+  "db_name": "SQLite",
+  "query": "\n        SELECT o.ZALTTEXT AS tag_name\n        FROM ZICCLOUDSYNCINGOBJECT o\n        WHERE o.ZMARKEDFORDELETION = 0\n          AND o.ZTYPEUTI1 = 'com.apple.notes.inlinetextattachment.hashtag'\n          AND o.ZNOTE1 = ?1\n        ORDER BY o.Z_PK\n        ",
+  "describe": {
+    "columns": [
+      {
+        "name": "tag_name",
+        "ordinal": 0,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "ZICCLOUDSYNCINGOBJECT",
+            "name": "ZALTTEXT"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      true
+    ]
+  },
+  "hash": "aaeb7a157897402ef9ce6a3be2e6915d65ec4881ecd6005ff701bbd4dd2277fe"
+}

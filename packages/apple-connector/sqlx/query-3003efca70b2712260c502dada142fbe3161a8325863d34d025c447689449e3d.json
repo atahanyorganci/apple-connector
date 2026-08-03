@@ -1,0 +1,117 @@
+{
+  "db_name": "SQLite",
+  "query": "\n        SELECT\n            f.Z_PK AS \"row_id!\",\n            f.ZIDENTIFIER AS \"id!\",\n            f.ZTITLE2 AS title,\n            f.ZFOLDERTYPE AS folder_type,\n            f.ZPARENT AS parent_row_id,\n            p.ZIDENTIFIER AS parent_id,\n            f.ZACCOUNT8 AS account_row_id,\n            a.ZIDENTIFIER AS account_id,\n            CAST(f.ZFOLDERMODIFICATIONDATE AS REAL) AS \"modified_at?: f64\"\n        FROM ZICCLOUDSYNCINGOBJECT f\n        LEFT JOIN ZICCLOUDSYNCINGOBJECT p ON f.ZPARENT = p.Z_PK\n        LEFT JOIN ZICCLOUDSYNCINGOBJECT a ON f.ZACCOUNT8 = a.Z_PK\n        WHERE f.Z_ENT = ?1\n          AND f.ZMARKEDFORDELETION = 0\n          AND f.ZFOLDERTYPE != 1\n          AND lower(f.ZIDENTIFIER) = ?2\n        ",
+  "describe": {
+    "columns": [
+      {
+        "name": "row_id!",
+        "ordinal": 0,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "ZICCLOUDSYNCINGOBJECT",
+            "name": "Z_PK"
+          }
+        }
+      },
+      {
+        "name": "id!",
+        "ordinal": 1,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "ZICCLOUDSYNCINGOBJECT",
+            "name": "ZIDENTIFIER"
+          }
+        }
+      },
+      {
+        "name": "title",
+        "ordinal": 2,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "ZICCLOUDSYNCINGOBJECT",
+            "name": "ZTITLE2"
+          }
+        }
+      },
+      {
+        "name": "folder_type",
+        "ordinal": 3,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "ZICCLOUDSYNCINGOBJECT",
+            "name": "ZFOLDERTYPE"
+          }
+        }
+      },
+      {
+        "name": "parent_row_id",
+        "ordinal": 4,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "ZICCLOUDSYNCINGOBJECT",
+            "name": "ZPARENT"
+          }
+        }
+      },
+      {
+        "name": "parent_id",
+        "ordinal": 5,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "ZICCLOUDSYNCINGOBJECT",
+            "name": "ZIDENTIFIER"
+          }
+        }
+      },
+      {
+        "name": "account_row_id",
+        "ordinal": 6,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "ZICCLOUDSYNCINGOBJECT",
+            "name": "ZACCOUNT8"
+          }
+        }
+      },
+      {
+        "name": "account_id",
+        "ordinal": 7,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "ZICCLOUDSYNCINGOBJECT",
+            "name": "ZIDENTIFIER"
+          }
+        }
+      },
+      {
+        "name": "modified_at?: f64",
+        "ordinal": 8,
+        "type_info": "Float",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Right": 2
+    },
+    "nullable": [
+      false,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true
+    ]
+  },
+  "hash": "3003efca70b2712260c502dada142fbe3161a8325863d34d025c447689449e3d"
+}

@@ -1,0 +1,26 @@
+{
+  "db_name": "SQLite",
+  "query": "\n        SELECT g.ZUNIQUEID AS \"unique_id!\"\n        FROM Z_22PARENTGROUPS pg\n        JOIN ZABCDRECORD g ON g.Z_PK = pg.Z_19PARENTGROUPS1\n        WHERE pg.Z_22CONTACTS = ?1\n        ",
+  "describe": {
+    "columns": [
+      {
+        "name": "unique_id!",
+        "ordinal": 0,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "ZABCDRECORD",
+            "name": "ZUNIQUEID"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      true
+    ]
+  },
+  "hash": "94a92a234214f63deb53f4839f502d3ba80da03a4a18722431872e28b8d85db1"
+}

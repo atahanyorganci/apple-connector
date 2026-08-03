@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "DROP TRIGGER IF EXISTS verify_chat_update",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 0
+    },
+    "nullable": []
+  },
+  "hash": "1e495d7e1694e89448d8dea51e06fb389cb063ff2235b34721a3cd171ac6868f"
+}

@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "INSERT INTO chat_message_join (chat_id, message_id, message_date) SELECT chat.ROWID, message.ROWID, message.date FROM chat JOIN message ON message.guid LIKE 'message-%'",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 0
+    },
+    "nullable": []
+  },
+  "hash": "d0512743e0326724e64939b7fba558b447999673ec64590bff620d64db04f236"
+}

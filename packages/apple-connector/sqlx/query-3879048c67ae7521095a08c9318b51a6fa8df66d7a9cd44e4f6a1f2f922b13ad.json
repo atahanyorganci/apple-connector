@@ -1,0 +1,21 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT COUNT(*) AS \"count!\" FROM ZICCLOUDSYNCINGOBJECT WHERE Z_ENT = 12 AND ZMARKEDFORDELETION = 0",
+  "describe": {
+    "columns": [
+      {
+        "name": "count!",
+        "ordinal": 0,
+        "type_info": "Integer",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Right": 0
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "3879048c67ae7521095a08c9318b51a6fa8df66d7a9cd44e4f6a1f2f922b13ad"
+}

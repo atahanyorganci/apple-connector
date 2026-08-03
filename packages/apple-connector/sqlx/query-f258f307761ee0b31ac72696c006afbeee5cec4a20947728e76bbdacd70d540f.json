@@ -1,0 +1,26 @@
+{
+  "db_name": "SQLite",
+  "query": "\n        SELECT ZMEMBERSHIPSOFREMINDERSINSECTIONSASDATA AS \"membership_data: Vec<u8>\"\n        FROM ZREMCDBASELIST\n        WHERE Z_PK = ?\n          AND ZMARKEDFORDELETION = 0\n        ",
+  "describe": {
+    "columns": [
+      {
+        "name": "membership_data: Vec<u8>",
+        "ordinal": 0,
+        "type_info": "Blob",
+        "origin": {
+          "Table": {
+            "table": "ZREMCDBASELIST",
+            "name": "ZMEMBERSHIPSOFREMINDERSINSECTIONSASDATA"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      true
+    ]
+  },
+  "hash": "f258f307761ee0b31ac72696c006afbeee5cec4a20947728e76bbdacd70d540f"
+}

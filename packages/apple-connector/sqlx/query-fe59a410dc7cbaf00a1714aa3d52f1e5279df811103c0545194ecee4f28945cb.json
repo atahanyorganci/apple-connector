@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "INSERT INTO message (ROWID, guid, text, service, is_from_me, date, handle_id, cache_has_attachments, item_type) VALUES (4, 'msg-group', 'Group title', 'SMS', 0, 50, 2, 0, 2)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 0
+    },
+    "nullable": []
+  },
+  "hash": "fe59a410dc7cbaf00a1714aa3d52f1e5279df811103c0545194ecee4f28945cb"
+}

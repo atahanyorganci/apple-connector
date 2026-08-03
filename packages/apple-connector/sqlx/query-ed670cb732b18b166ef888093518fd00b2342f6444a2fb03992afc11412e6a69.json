@@ -1,0 +1,57 @@
+{
+  "db_name": "SQLite",
+  "query": "\n        SELECT\n            CAST(lower(substr(r.ZUNIQUEID, 1, instr(r.ZUNIQUEID, ':') - 1)) AS TEXT) AS \"api_id!\",\n            r.ZNAME AS name,\n            r.ZTYPE AS group_type,\n            r.ZCONTAINER AS container_id\n        FROM ZABCDRECORD r\n        WHERE r.Z_ENT = 19\n          AND lower(substr(r.ZUNIQUEID, 1, instr(r.ZUNIQUEID, ':') - 1)) = lower(?1)\n        ",
+  "describe": {
+    "columns": [
+      {
+        "name": "api_id!",
+        "ordinal": 0,
+        "type_info": "Null",
+        "origin": "Expression"
+      },
+      {
+        "name": "name",
+        "ordinal": 1,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "ZABCDRECORD",
+            "name": "ZNAME"
+          }
+        }
+      },
+      {
+        "name": "group_type",
+        "ordinal": 2,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "ZABCDRECORD",
+            "name": "ZTYPE"
+          }
+        }
+      },
+      {
+        "name": "container_id",
+        "ordinal": 3,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "ZABCDRECORD",
+            "name": "ZCONTAINER"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      null,
+      true,
+      true,
+      true
+    ]
+  },
+  "hash": "ed670cb732b18b166ef888093518fd00b2342f6444a2fb03992afc11412e6a69"
+}

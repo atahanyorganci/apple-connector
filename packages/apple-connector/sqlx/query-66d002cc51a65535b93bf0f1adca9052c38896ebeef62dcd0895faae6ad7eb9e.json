@@ -1,0 +1,38 @@
+{
+  "db_name": "SQLite",
+  "query": "\n        SELECT\n          o.ZREMINDER AS \"reminder_row_id!\",\n          label.ZNAME AS \"tag_name!: String\"\n        FROM ZREMCDOBJECT o\n        JOIN ZREMCDHASHTAGLABEL label ON o.ZHASHTAGLABEL = label.Z_PK\n        WHERE o.ZMARKEDFORDELETION = 0\n          AND o.Z_ENT = ?\n          AND o.ZREMINDER IN (SELECT value FROM json_each(?))\n        ",
+  "describe": {
+    "columns": [
+      {
+        "name": "reminder_row_id!",
+        "ordinal": 0,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "ZREMCDOBJECT",
+            "name": "ZREMINDER"
+          }
+        }
+      },
+      {
+        "name": "tag_name!: String",
+        "ordinal": 1,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "ZREMCDHASHTAGLABEL",
+            "name": "ZNAME"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 2
+    },
+    "nullable": [
+      true,
+      true
+    ]
+  },
+  "hash": "66d002cc51a65535b93bf0f1adca9052c38896ebeef62dcd0895faae6ad7eb9e"
+}
