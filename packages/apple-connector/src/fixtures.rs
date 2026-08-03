@@ -99,43 +99,45 @@ async fn apply_schema(path: &Path, seed: bool) -> io::Result<()> {
 }
 
 async fn disable_apple_triggers(connection: &mut SqliteConnection) -> sqlx::Result<()> {
-    sqlx::query("DROP TRIGGER IF EXISTS verify_chat_insert")
+    sqlx::query!("DROP TRIGGER IF EXISTS verify_chat_insert")
         .execute(&mut *connection)
         .await?;
-    sqlx::query("DROP TRIGGER IF EXISTS verify_chat_update")
+    sqlx::query!("DROP TRIGGER IF EXISTS verify_chat_update")
         .execute(&mut *connection)
         .await?;
     Ok(())
 }
 
 async fn seed_data(connection: &mut SqliteConnection) -> sqlx::Result<()> {
-    sqlx::query("INSERT INTO handle (id, service) VALUES (?1, 'iMessage')")
-        .bind(SEED_HANDLE_ID)
-        .execute(&mut *connection)
-        .await?;
+    sqlx::query!(
+        "INSERT INTO handle (id, service) VALUES (?1, 'iMessage')",
+        SEED_HANDLE_ID
+    )
+    .execute(&mut *connection)
+    .await?;
 
-    sqlx::query(
+    sqlx::query!(
         "INSERT INTO chat (guid, style, chat_identifier, service_name) VALUES (?1, 45, ?2, 'iMessage')",
+        SEED_CHAT_GUID,
+        SEED_HANDLE_ID
     )
-    .bind(SEED_CHAT_GUID)
-    .bind(SEED_HANDLE_ID)
     .execute(&mut *connection)
     .await?;
 
-    sqlx::query(
+    sqlx::query!(
         "INSERT INTO message (guid, text, service, is_from_me) VALUES (?1, 'fixture seed message', 'iMessage', 1)",
+        SEED_MESSAGE_GUID
     )
-    .bind(SEED_MESSAGE_GUID)
     .execute(&mut *connection)
     .await?;
 
-    sqlx::query(
+    sqlx::query!(
         "INSERT INTO chat_message_join (chat_id, message_id, message_date) \
          SELECT chat.ROWID, message.ROWID, 0 FROM chat, message \
          WHERE chat.guid = ?1 AND message.guid = ?2",
+        SEED_CHAT_GUID,
+        SEED_MESSAGE_GUID
     )
-    .bind(SEED_CHAT_GUID)
-    .bind(SEED_MESSAGE_GUID)
     .execute(&mut *connection)
     .await?;
 
@@ -360,7 +362,7 @@ async fn apply_contacts_schema(path: &Path, seed: bool) -> io::Result<()> {
 
 #[cfg(test)]
 mod tests {
-    use sqlx::{Row, sqlite::SqliteConnectOptions};
+    use sqlx::sqlite::SqliteConnectOptions;
 
     use super::{
         FixtureDb, NotesFixtureDb, RemindersFixtureDb, SEED_CHAT_GUID, SEED_CHECKLIST_NOTE_ID,
@@ -388,27 +390,29 @@ mod tests {
             .await
             .expect("connect read-only pool");
 
-        let handle_count: i64 = sqlx::query("SELECT COUNT(*) AS count FROM handle WHERE id = ?1")
-            .bind(SEED_HANDLE_ID)
-            .fetch_one(&pool)
-            .await
-            .expect("handle count")
-            .get("count");
+        let handle_count: i64 = sqlx::query_scalar!(
+            "SELECT COUNT(*) AS \"count!\" FROM handle WHERE id = ?1",
+            SEED_HANDLE_ID
+        )
+        .fetch_one(&pool)
+        .await
+        .expect("handle count");
 
-        let chat_count: i64 = sqlx::query("SELECT COUNT(*) AS count FROM chat WHERE guid = ?1")
-            .bind(SEED_CHAT_GUID)
-            .fetch_one(&pool)
-            .await
-            .expect("chat count")
-            .get("count");
+        let chat_count: i64 = sqlx::query_scalar!(
+            "SELECT COUNT(*) AS \"count!\" FROM chat WHERE guid = ?1",
+            SEED_CHAT_GUID
+        )
+        .fetch_one(&pool)
+        .await
+        .expect("chat count");
 
-        let message_count: i64 =
-            sqlx::query("SELECT COUNT(*) AS count FROM message WHERE guid = ?1")
-                .bind(SEED_MESSAGE_GUID)
-                .fetch_one(&pool)
-                .await
-                .expect("message count")
-                .get("count");
+        let message_count: i64 = sqlx::query_scalar!(
+            "SELECT COUNT(*) AS \"count!\" FROM message WHERE guid = ?1",
+            SEED_MESSAGE_GUID
+        )
+        .fetch_one(&pool)
+        .await
+        .expect("message count");
 
         assert_eq!(handle_count, 1);
         assert_eq!(chat_count, 1);
@@ -427,13 +431,12 @@ mod tests {
             .await
             .expect("connect read-only pool");
 
-        let table_count: i64 = sqlx::query(
-            "SELECT COUNT(*) AS count FROM sqlite_master WHERE name = 'ZREMCDREMINDER'",
+        let table_count: i64 = sqlx::query_scalar!(
+            "SELECT COUNT(*) AS \"count!\" FROM sqlite_master WHERE name = 'ZREMCDREMINDER'"
         )
         .fetch_one(&pool)
         .await
-        .expect("table count")
-        .get("count");
+        .expect("table count");
 
         assert_eq!(table_count, 1);
     }
@@ -450,13 +453,12 @@ mod tests {
             .await
             .expect("connect read-only pool");
 
-        let reminder_count: i64 = sqlx::query(
-            "SELECT COUNT(*) AS count FROM ZREMCDREMINDER WHERE ZMARKEDFORDELETION = 0",
+        let reminder_count: i64 = sqlx::query_scalar!(
+            "SELECT COUNT(*) AS \"count!\" FROM ZREMCDREMINDER WHERE ZMARKEDFORDELETION = 0"
         )
         .fetch_one(&pool)
         .await
-        .expect("reminder count")
-        .get("count");
+        .expect("reminder count");
 
         assert!(reminder_count >= 2);
     }
@@ -471,13 +473,12 @@ mod tests {
             .await
             .expect("connect read-only pool");
 
-        let table_count: i64 = sqlx::query(
-            "SELECT COUNT(*) AS count FROM sqlite_master WHERE name = 'ZICCLOUDSYNCINGOBJECT'",
+        let table_count: i64 = sqlx::query_scalar!(
+            "SELECT COUNT(*) AS \"count!\" FROM sqlite_master WHERE name = 'ZICCLOUDSYNCINGOBJECT'"
         )
         .fetch_one(&pool)
         .await
-        .expect("table count")
-        .get("count");
+        .expect("table count");
 
         assert_eq!(table_count, 1);
     }
@@ -494,65 +495,59 @@ mod tests {
             .await
             .expect("connect read-only pool");
 
-        let folder_count: i64 = sqlx::query(
-            "SELECT COUNT(*) AS count FROM ZICCLOUDSYNCINGOBJECT \
+        let folder_count: i64 = sqlx::query_scalar!(
+            "SELECT COUNT(*) AS \"count!\" FROM ZICCLOUDSYNCINGOBJECT \
              WHERE Z_ENT = 15 AND ZIDENTIFIER = ?1",
-        )
-        .bind(SEED_NOTES_FOLDER_ID)
-        .fetch_one(&pool)
-        .await
-        .expect("folder count")
-        .get("count");
-
-        let note_count: i64 = sqlx::query(
-            "SELECT COUNT(*) AS count FROM ZICCLOUDSYNCINGOBJECT \
-             WHERE Z_ENT = 12 AND ZMARKEDFORDELETION = 0",
+            SEED_NOTES_FOLDER_ID
         )
         .fetch_one(&pool)
         .await
-        .expect("note count")
-        .get("count");
+        .expect("folder count");
 
-        let locked_count: i64 = sqlx::query(
-            "SELECT COUNT(*) AS count FROM ZICCLOUDSYNCINGOBJECT \
+        let note_count: i64 = sqlx::query_scalar!(
+            "SELECT COUNT(*) AS \"count!\" FROM ZICCLOUDSYNCINGOBJECT \
+             WHERE Z_ENT = 12 AND ZMARKEDFORDELETION = 0"
+        )
+        .fetch_one(&pool)
+        .await
+        .expect("note count");
+
+        let locked_count: i64 = sqlx::query_scalar!(
+            "SELECT COUNT(*) AS \"count!\" FROM ZICCLOUDSYNCINGOBJECT \
              WHERE Z_ENT = 12 AND ZIDENTIFIER = ?1 AND ZISPASSWORDPROTECTED = 1",
+            SEED_LOCKED_NOTE_ID
         )
-        .bind(SEED_LOCKED_NOTE_ID)
         .fetch_one(&pool)
         .await
-        .expect("locked count")
-        .get("count");
+        .expect("locked count");
 
-        let checklist_count: i64 = sqlx::query(
-            "SELECT COUNT(*) AS count FROM ZICCLOUDSYNCINGOBJECT \
+        let checklist_count: i64 = sqlx::query_scalar!(
+            "SELECT COUNT(*) AS \"count!\" FROM ZICCLOUDSYNCINGOBJECT \
              WHERE Z_ENT = 12 AND ZIDENTIFIER = ?1 AND ZHASCHECKLIST = 1",
+            SEED_CHECKLIST_NOTE_ID
         )
-        .bind(SEED_CHECKLIST_NOTE_ID)
         .fetch_one(&pool)
         .await
-        .expect("checklist count")
-        .get("count");
+        .expect("checklist count");
 
-        let body_count: i64 = sqlx::query(
-            "SELECT COUNT(*) AS count FROM ZICNOTEDATA nd \
+        let body_count: i64 = sqlx::query_scalar!(
+            "SELECT COUNT(*) AS \"count!\" FROM ZICNOTEDATA nd \
              JOIN ZICCLOUDSYNCINGOBJECT n ON nd.ZNOTE = n.Z_PK \
              WHERE n.ZIDENTIFIER = ?1 AND length(nd.ZDATA) > 0",
+            SEED_PLAIN_TEXT_NOTE_ID
         )
-        .bind(SEED_PLAIN_TEXT_NOTE_ID)
         .fetch_one(&pool)
         .await
-        .expect("body count")
-        .get("count");
+        .expect("body count");
 
-        let hashtag_count: i64 = sqlx::query(
-            "SELECT COUNT(*) AS count FROM ZICCLOUDSYNCINGOBJECT \
+        let hashtag_count: i64 = sqlx::query_scalar!(
+            "SELECT COUNT(*) AS \"count!\" FROM ZICCLOUDSYNCINGOBJECT \
              WHERE ZTYPEUTI1 = 'com.apple.notes.inlinetextattachment.hashtag' \
-               AND ZNOTE1 = 6 AND ZALTTEXT = '#reading'",
+               AND ZNOTE1 = 6 AND ZALTTEXT = '#reading'"
         )
         .fetch_one(&pool)
         .await
-        .expect("hashtag count")
-        .get("count");
+        .expect("hashtag count");
 
         assert_eq!(folder_count, 1);
         assert!(note_count >= 5);
