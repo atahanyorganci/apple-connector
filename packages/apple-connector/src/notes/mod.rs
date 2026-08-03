@@ -6,10 +6,10 @@ pub mod entities;
 pub mod inventory;
 pub mod markdown;
 pub mod model;
+pub mod queries;
 pub mod repository;
 pub mod row;
 pub mod search;
-pub mod sql;
 
 pub use inventory::{NoteInventory, load_inventory};
 pub use markdown::{preamble_from_note, render_document};

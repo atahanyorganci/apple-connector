@@ -1,7 +1,5 @@
 //! Metadata filters for note listing.
 
-use sqlx::{QueryBuilder, Sqlite};
-
 use super::{entities::EntityIds, row::NoteRow};
 
 #[allow(dead_code)]
@@ -50,6 +48,26 @@ pub struct NoteFiltersSnapshot {
     pub modified_after: Option<f64>,
 }
 
+/// Bind parameters for compile-time filtered note listing queries.
+#[derive(Debug, Clone)]
+pub struct NoteFilterBinds {
+    pub note_ent: i64,
+    pub attachment_ent: i64,
+    pub include_deleted: i64,
+    pub is_pinned: Option<i64>,
+    pub is_locked: Option<i64>,
+    pub has_checklist: Option<i64>,
+    pub folder_row_id: Option<i64>,
+    pub folder_identifier: Option<String>,
+    pub modified_before: Option<f64>,
+    pub modified_after: Option<f64>,
+    pub has_attachments: Option<i64>,
+    pub q: Option<String>,
+    pub cursor_modified_at: Option<f64>,
+    pub cursor_row_id: Option<i64>,
+    pub limit: i64,
+}
+
 impl NoteFilters {
     pub fn is_active(&self) -> bool {
         self.q.is_some()
@@ -80,80 +98,49 @@ impl NoteFilters {
             modified_after: self.modified_after,
         }
     }
+
+    pub fn bind_values(
+        &self,
+        entity_ids: &EntityIds,
+        cursor_modified_at: Option<f64>,
+        cursor_row_id: Option<i64>,
+        limit: i64,
+        include_q: bool,
+    ) -> NoteFilterBinds {
+        let (folder_row_id, folder_identifier) = match &self.folder_id {
+            Some(FolderIdFilter::RowId(id)) => (Some(*id), None),
+            Some(FolderIdFilter::Identifier(id)) => (None, Some(id.to_lowercase())),
+            None => (None, None),
+        };
+
+        NoteFilterBinds {
+            note_ent: entity_ids.note,
+            attachment_ent: entity_ids.attachment,
+            include_deleted: i64::from(self.include_deleted.unwrap_or(false)),
+            is_pinned: self.is_pinned.map(i64::from),
+            is_locked: self.is_locked.map(i64::from),
+            has_checklist: self.has_checklist.map(i64::from),
+            folder_row_id,
+            folder_identifier,
+            modified_before: self.modified_before,
+            modified_after: self.modified_after,
+            has_attachments: self.has_attachments.map(i64::from),
+            q: if include_q {
+                self.q.clone()
+            } else {
+                None
+            },
+            cursor_modified_at,
+            cursor_row_id,
+            limit,
+        }
+    }
 }
 
 fn folder_id_filter_key(filter: &FolderIdFilter) -> String {
     match filter {
         FolderIdFilter::RowId(id) => format!("row:{id}"),
         FolderIdFilter::Identifier(id) => format!("id:{id}"),
-    }
-}
-
-pub fn apply_filters(
-    builder: &mut QueryBuilder<Sqlite>,
-    filters: &NoteFilters,
-    entity_ids: &EntityIds,
-) {
-    if !filters.include_deleted.unwrap_or(false) {
-        builder.push(" AND n.ZMARKEDFORDELETION = 0");
-        builder.push(" AND (f.Z_PK IS NULL OR (f.ZMARKEDFORDELETION = 0 AND f.ZFOLDERTYPE != 1))");
-    }
-
-    if let Some(is_pinned) = filters.is_pinned {
-        builder.push(" AND n.ZISPINNED = ");
-        builder.push_bind(is_pinned as i64);
-    }
-    if let Some(is_locked) = filters.is_locked {
-        builder.push(" AND n.ZISPASSWORDPROTECTED = ");
-        builder.push_bind(is_locked as i64);
-    }
-    if let Some(has_checklist) = filters.has_checklist {
-        builder.push(" AND n.ZHASCHECKLIST = ");
-        builder.push_bind(has_checklist as i64);
-    }
-    if let Some(folder_id) = &filters.folder_id {
-        match folder_id {
-            FolderIdFilter::RowId(id) => {
-                builder.push(" AND n.ZFOLDER = ");
-                builder.push_bind(*id);
-            }
-            FolderIdFilter::Identifier(id) => {
-                builder.push(" AND lower(f.ZIDENTIFIER) = ");
-                builder.push_bind(id.to_lowercase());
-            }
-        }
-    }
-    if let Some(modified_before) = filters.modified_before {
-        builder.push(" AND n.ZMODIFICATIONDATE1 <= ");
-        builder.push_bind(modified_before);
-    }
-    if let Some(modified_after) = filters.modified_after {
-        builder.push(" AND n.ZMODIFICATIONDATE1 >= ");
-        builder.push_bind(modified_after);
-    }
-    if let Some(has_attachments) = filters.has_attachments {
-        if has_attachments {
-            builder.push(
-                " AND EXISTS (SELECT 1 FROM ZICCLOUDSYNCINGOBJECT a \
-                 WHERE a.ZNOTE = n.Z_PK AND a.Z_ENT = ",
-            );
-            builder.push_bind(entity_ids.attachment);
-            builder.push(" AND a.ZMARKEDFORDELETION = 0)");
-        } else {
-            builder.push(
-                " AND NOT EXISTS (SELECT 1 FROM ZICCLOUDSYNCINGOBJECT a \
-                 WHERE a.ZNOTE = n.Z_PK AND a.Z_ENT = ",
-            );
-            builder.push_bind(entity_ids.attachment);
-            builder.push(" AND a.ZMARKEDFORDELETION = 0)");
-        }
-    }
-    if let Some(q) = &filters.q {
-        builder.push(" AND (lower(coalesce(n.ZTITLE1, '')) LIKE '%' || lower(");
-        builder.push_bind(q);
-        builder.push(") || '%' OR lower(coalesce(n.ZSNIPPET, '')) LIKE '%' || lower(");
-        builder.push_bind(q);
-        builder.push(") || '%')");
     }
 }
 

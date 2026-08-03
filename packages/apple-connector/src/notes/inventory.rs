@@ -1,6 +1,12 @@
 use sqlx::SqlitePool;
 
-use super::entities::load_entity_ids;
+use super::{
+    entities::load_entity_ids,
+    queries::{
+        count_attachments, count_deleted_notes, count_folders, count_locked_notes, count_notes,
+        count_notes_with_checklist, count_pinned_notes,
+    },
+};
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct NoteInventory {
@@ -16,73 +22,22 @@ pub struct NoteInventory {
 pub async fn load_inventory(pool: &SqlitePool) -> Result<NoteInventory, sqlx::Error> {
     let entity_ids = load_entity_ids(pool).await?;
 
-    let folders: (i64,) = sqlx::query_as(
-        "SELECT COUNT(*) FROM ZICCLOUDSYNCINGOBJECT \
-         WHERE Z_ENT = ?1 AND ZMARKEDFORDELETION = 0 AND ZFOLDERTYPE != 1",
-    )
-    .bind(entity_ids.folder)
-    .fetch_one(pool)
-    .await?;
-
-    let notes: (i64,) = sqlx::query_as(
-        "SELECT COUNT(*) FROM ZICCLOUDSYNCINGOBJECT n \
-         LEFT JOIN ZICCLOUDSYNCINGOBJECT f ON n.ZFOLDER = f.Z_PK \
-         WHERE n.Z_ENT = ?1 AND n.ZMARKEDFORDELETION = 0 \
-         AND (f.Z_PK IS NULL OR (f.ZMARKEDFORDELETION = 0 AND f.ZFOLDERTYPE != 1))",
-    )
-    .bind(entity_ids.note)
-    .fetch_one(pool)
-    .await?;
-
-    let pinned: (i64,) = sqlx::query_as(
-        "SELECT COUNT(*) FROM ZICCLOUDSYNCINGOBJECT \
-         WHERE Z_ENT = ?1 AND ZMARKEDFORDELETION = 0 AND ZISPINNED = 1",
-    )
-    .bind(entity_ids.note)
-    .fetch_one(pool)
-    .await?;
-
-    let locked: (i64,) = sqlx::query_as(
-        "SELECT COUNT(*) FROM ZICCLOUDSYNCINGOBJECT \
-         WHERE Z_ENT = ?1 AND ZMARKEDFORDELETION = 0 AND ZISPASSWORDPROTECTED = 1",
-    )
-    .bind(entity_ids.note)
-    .fetch_one(pool)
-    .await?;
-
-    let with_checklist: (i64,) = sqlx::query_as(
-        "SELECT COUNT(*) FROM ZICCLOUDSYNCINGOBJECT \
-         WHERE Z_ENT = ?1 AND ZMARKEDFORDELETION = 0 AND ZHASCHECKLIST = 1",
-    )
-    .bind(entity_ids.note)
-    .fetch_one(pool)
-    .await?;
-
-    let with_attachments: (i64,) = sqlx::query_as(
-        "SELECT COUNT(*) FROM ZICCLOUDSYNCINGOBJECT \
-         WHERE Z_ENT = ?1 AND ZMARKEDFORDELETION = 0",
-    )
-    .bind(entity_ids.attachment)
-    .fetch_one(pool)
-    .await?;
-
-    let deleted_notes: (i64,) = sqlx::query_as(
-        "SELECT COUNT(*) FROM ZICCLOUDSYNCINGOBJECT n \
-         LEFT JOIN ZICCLOUDSYNCINGOBJECT f ON n.ZFOLDER = f.Z_PK \
-         WHERE n.Z_ENT = ?1 AND (n.ZMARKEDFORDELETION = 1 OR f.ZFOLDERTYPE = 1)",
-    )
-    .bind(entity_ids.note)
-    .fetch_one(pool)
-    .await?;
+    let folders = count_folders(pool, entity_ids.folder).await?;
+    let notes = count_notes(pool, entity_ids.note).await?;
+    let pinned = count_pinned_notes(pool, entity_ids.note).await?;
+    let locked = count_locked_notes(pool, entity_ids.note).await?;
+    let with_checklist = count_notes_with_checklist(pool, entity_ids.note).await?;
+    let with_attachments = count_attachments(pool, entity_ids.attachment).await?;
+    let deleted_notes = count_deleted_notes(pool, entity_ids.note).await?;
 
     Ok(NoteInventory {
-        folders: folders.0 as u64,
-        notes: notes.0 as u64,
-        pinned: pinned.0 as u64,
-        locked: locked.0 as u64,
-        with_checklist: with_checklist.0 as u64,
-        with_attachments: with_attachments.0 as u64,
-        deleted_notes: deleted_notes.0 as u64,
+        folders: folders as u64,
+        notes: notes as u64,
+        pinned: pinned as u64,
+        locked: locked as u64,
+        with_checklist: with_checklist as u64,
+        with_attachments: with_attachments as u64,
+        deleted_notes: deleted_notes as u64,
     })
 }
 

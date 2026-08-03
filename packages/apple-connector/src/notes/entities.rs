@@ -3,6 +3,8 @@ use std::collections::HashMap;
 use sqlx::SqlitePool;
 use tracing::debug;
 
+use super::queries::fetch_entity_name_rows;
+
 #[derive(Debug, Clone, Default)]
 pub struct EntityIds {
     pub note: i64,
@@ -15,17 +17,11 @@ pub struct EntityIds {
 }
 
 pub async fn load_entity_ids(pool: &SqlitePool) -> Result<EntityIds, sqlx::Error> {
-    let rows: Vec<(i64, String)> = sqlx::query_as(
-        "SELECT Z_ENT, Z_NAME FROM Z_PRIMARYKEY WHERE Z_NAME IN (
-            'ICNote', 'ICFolder', 'ICAttachment', 'ICAccount', 'ICHashtag'
-        )",
-    )
-    .fetch_all(pool)
-    .await?;
+    let rows = fetch_entity_name_rows(pool).await?;
 
     let mut map = HashMap::new();
-    for (ent, name) in rows {
-        map.insert(name, ent);
+    for row in rows {
+        map.insert(row.name, row.ent);
     }
 
     let ids = EntityIds {
