@@ -130,7 +130,10 @@ async fn find_addressbook_db(source_dir: &Path) -> Result<Option<PathBuf>, Disco
             .and_then(|time| time.duration_since(std::time::UNIX_EPOCH).ok())
             .map(|duration| duration.as_secs())
             .unwrap_or(0);
-        if best.as_ref().is_none_or(|(_, best_mtime)| mtime >= *best_mtime) {
+        if best
+            .as_ref()
+            .is_none_or(|(_, best_mtime)| mtime >= *best_mtime)
+        {
             best = Some((path, mtime));
         }
     }
@@ -170,8 +173,9 @@ mod tests {
     #[test]
     fn default_sources_dir_is_under_application_support() {
         let path = default_contacts_sources_dir().expect("sources dir");
-        assert!(path
-            .to_string_lossy()
-            .contains("Application Support/AddressBook/Sources"));
+        assert!(
+            path.to_string_lossy()
+                .contains("Application Support/AddressBook/Sources")
+        );
     }
 }

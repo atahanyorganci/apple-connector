@@ -22,11 +22,11 @@ pub use attachment::AttachmentDetailDto;
 pub use calendar::{
     CalendarAccountPageDto, CalendarDetailDto, CalendarPageDto, EventDetailDto, EventPageDto,
 };
+pub use chat::{ChatDetailDto, ChatPageDto};
 pub use contacts::{
     ContactDetailDto, ContactPageDto, ContainerDetailDto, ContainerPageDto, GroupDetailDto,
     GroupPageDto,
 };
-pub use chat::{ChatDetailDto, ChatPageDto};
 pub use message::{MessageDetailDto, MessagePageDto};
 pub use note::{
     NoteAttachmentDetailDto, NoteDetailDto, NoteFolderDetailDto, NoteFolderPageDto, NotePageDto,

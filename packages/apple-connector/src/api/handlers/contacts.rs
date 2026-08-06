@@ -210,12 +210,11 @@ pub async fn get_contact_photo(
     axum::extract::Path(path): axum::extract::Path<ContactIdPath>,
 ) -> Result<Response, ApiError> {
     let sources = require_contacts_sources(&state.contacts_sources)?;
-    let photo = run_timed_query(|| async {
-        sources.get_contact_photo(path.contact_id.as_str()).await
-    })
-    .await
-    .map_err(|error| ApiError::internal(error.to_string()))?
-    .ok_or_else(|| ApiError::not_found("Contact photo not found"))?;
+    let photo =
+        run_timed_query(|| async { sources.get_contact_photo(path.contact_id.as_str()).await })
+            .await
+            .map_err(|error| ApiError::internal(error.to_string()))?
+            .ok_or_else(|| ApiError::not_found("Contact photo not found"))?;
 
     let (bytes, image_type) = photo;
     let content_type = image_type

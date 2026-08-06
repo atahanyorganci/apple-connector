@@ -1,8 +1,7 @@
 //! Metadata filters and bounded text search for reminder listing.
 
-use crate::sqlx_util::optional_bool_filter;
-
 use super::row::ReminderRow;
+use crate::sqlx_util::optional_bool_filter;
 
 #[allow(dead_code)]
 pub const REMINDER_SCAN_BUDGET: u32 = 500;

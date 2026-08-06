@@ -50,7 +50,9 @@ use super::{
         },
     },
     error::{ErrorBody, ErrorCode, ErrorResponse},
-    hydrate::{SyncPendingContactDetailDto, SyncPendingEventDetailDto, SyncPendingReminderDetailDto},
+    hydrate::{
+        SyncPendingContactDetailDto, SyncPendingEventDetailDto, SyncPendingReminderDetailDto,
+    },
     params::{
         AttachmentGuidPath, CalendarIdPath, ChatIdPath, ConditionalRequestHeaders,
         ContactGroupPath, ContactIdPath, ContactListParams, ContainerIdPath, ContentTypeFilterDto,
@@ -449,12 +451,24 @@ mod tests {
         ("get", "/v1/contacts/search", "searchContacts"),
         ("get", "/v1/contacts/{contact_id}", "getContact"),
         ("get", "/v1/contacts/{contact_id}/vcard", "getContactVcard"),
-        ("get", "/v1/contacts/{contact_id}/carddav", "getContactCarddav"),
+        (
+            "get",
+            "/v1/contacts/{contact_id}/carddav",
+            "getContactCarddav",
+        ),
         ("get", "/v1/contacts/{contact_id}/photo", "getContactPhoto"),
-        ("post", "/v1/containers/{container_id}/contacts", "createContact"),
+        (
+            "post",
+            "/v1/containers/{container_id}/contacts",
+            "createContact",
+        ),
         ("patch", "/v1/contacts/{contact_id}", "updateContact"),
         ("delete", "/v1/contacts/{contact_id}", "deleteContact"),
-        ("post", "/v1/containers/{container_id}/groups", "createGroup"),
+        (
+            "post",
+            "/v1/containers/{container_id}/groups",
+            "createGroup",
+        ),
         ("patch", "/v1/groups/{group_id}", "updateGroup"),
         ("delete", "/v1/groups/{group_id}", "deleteGroup"),
         (

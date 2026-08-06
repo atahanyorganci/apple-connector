@@ -18,15 +18,15 @@ where
 {
     let json = serde_json::to_value(value).map_err(|e| Error::Serialize(e.to_string()))?;
     if json.get("responses").is_some() {
-        let multistatus: CardDavMultistatus = serde_json::from_value(json)
-            .map_err(|e| Error::Serialize(e.to_string()))?;
+        let multistatus: CardDavMultistatus =
+            serde_json::from_value(json).map_err(|e| Error::Serialize(e.to_string()))?;
         let xml = multistatus_to_xml(&multistatus)?;
         writer
             .write_all(xml.as_bytes())
             .map_err(|e| Error::Serialize(e.to_string()))?;
     } else {
-        let object: CardDavAddressObject = serde_json::from_value(json)
-            .map_err(|e| Error::Serialize(e.to_string()))?;
+        let object: CardDavAddressObject =
+            serde_json::from_value(json).map_err(|e| Error::Serialize(e.to_string()))?;
         let xml = object_to_xml(&object)?;
         writer
             .write_all(xml.as_bytes())

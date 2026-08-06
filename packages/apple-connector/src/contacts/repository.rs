@@ -2,17 +2,17 @@ use sqlx::SqlitePool;
 
 use super::{
     assembly::{
-        contact_detail_from_row, contact_summary_from_row, container_from_row, group_from_row,
-        ContactRelatedRows,
+        ContactRelatedRows, contact_detail_from_row, contact_summary_from_row, container_from_row,
+        group_from_row,
     },
     model::{ContactDetail, ContactGroup, ContactSummary, Container},
     queries::{
         fetch_addresses_for_contact, fetch_contact_by_api_id, fetch_contact_external_id,
-        fetch_contact_photo, fetch_containers, fetch_container_by_api_id,
-        fetch_container_resolve_metadata, fetch_emails_for_contact, fetch_filtered_contacts,
-        fetch_group_by_api_id, fetch_group_contacts, fetch_group_external_id,
-        fetch_group_ids_for_contact, fetch_group_resolve_metadata, fetch_groups,
-        fetch_phones_for_contact, fetch_socials_for_contact, fetch_urls_for_contact,
+        fetch_contact_photo, fetch_container_by_api_id, fetch_container_resolve_metadata,
+        fetch_containers, fetch_emails_for_contact, fetch_filtered_contacts, fetch_group_by_api_id,
+        fetch_group_contacts, fetch_group_external_id, fetch_group_ids_for_contact,
+        fetch_group_resolve_metadata, fetch_groups, fetch_phones_for_contact,
+        fetch_socials_for_contact, fetch_urls_for_contact,
     },
     row::api_id_from_unique_id,
     search::ContactFilters,
@@ -83,9 +83,12 @@ impl<'a> ContactsRepository<'a> {
     ) -> Result<Page<ContactGroup>, sqlx::Error> {
         let fetch_limit = i64::from(limit) + 1;
         let rows = fetch_groups(self.pool, cursor.map(|value| value.row_id), fetch_limit).await?;
-        Ok(split_page(rows, limit, |row| {
-            group_from_row(row, self.source_id.clone())
-        }, |row| row.row_id))
+        Ok(split_page(
+            rows,
+            limit,
+            |row| group_from_row(row, self.source_id.clone()),
+            |row| row.row_id,
+        ))
     }
 
     pub async fn get_group(&self, group_id: &str) -> Result<Option<ContactGroup>, sqlx::Error> {
@@ -102,9 +105,12 @@ impl<'a> ContactsRepository<'a> {
         let fetch_limit = i64::from(limit) + 1;
         let binds = filters.bind_values(cursor.map(|value| value.row_id), fetch_limit);
         let rows = fetch_filtered_contacts(self.pool, &binds).await?;
-        Ok(split_page(rows, limit, |row| {
-            contact_summary_from_row(row, self.source_id.clone())
-        }, |row| row.row_id))
+        Ok(split_page(
+            rows,
+            limit,
+            |row| contact_summary_from_row(row, self.source_id.clone()),
+            |row| row.row_id,
+        ))
     }
 
     pub async fn list_group_contacts(
@@ -121,12 +127,18 @@ impl<'a> ContactsRepository<'a> {
             fetch_limit,
         )
         .await?;
-        Ok(split_page(rows, limit, |row| {
-            contact_summary_from_row(row, self.source_id.clone())
-        }, |row| row.row_id))
+        Ok(split_page(
+            rows,
+            limit,
+            |row| contact_summary_from_row(row, self.source_id.clone()),
+            |row| row.row_id,
+        ))
     }
 
-    pub async fn get_contact(&self, contact_id: &str) -> Result<Option<ContactDetail>, sqlx::Error> {
+    pub async fn get_contact(
+        &self,
+        contact_id: &str,
+    ) -> Result<Option<ContactDetail>, sqlx::Error> {
         let row = fetch_contact_by_api_id(self.pool, contact_id).await?;
         let Some(row) = row else {
             return Ok(None);
@@ -186,7 +198,10 @@ impl<'a> ContactsRepository<'a> {
         fetch_group_external_id(self.pool, &api_id).await
     }
 
-    async fn hydrate_contact(&self, row: super::row::ContactRow) -> Result<ContactDetail, sqlx::Error> {
+    async fn hydrate_contact(
+        &self,
+        row: super::row::ContactRow,
+    ) -> Result<ContactDetail, sqlx::Error> {
         let row_id = row.row_id;
         let phones = fetch_phones_for_contact(self.pool, row_id).await?;
         let emails = fetch_emails_for_contact(self.pool, row_id).await?;
@@ -215,14 +230,8 @@ where
     K: Fn(&R) -> i64,
 {
     let has_more = rows.len() > limit as usize;
-    let last_row_id = rows
-        .get(limit.saturating_sub(1) as usize)
-        .map(row_id);
-    let items: Vec<T> = rows
-        .into_iter()
-        .take(limit as usize)
-        .map(map)
-        .collect();
+    let last_row_id = rows.get(limit.saturating_sub(1) as usize).map(row_id);
+    let items: Vec<T> = rows.into_iter().take(limit as usize).map(map).collect();
     let next_cursor = if has_more {
         last_row_id.and_then(|id| encode(&ContactListCursor { row_id: id }).ok())
     } else {
@@ -252,13 +261,25 @@ mod tests {
 
         let containers = repo.list_containers().await.expect("containers");
         assert!(!containers.is_empty());
-        assert!(containers.iter().any(|c| c.id.as_str() == SEED_CONTAINER_ID));
+        assert!(
+            containers
+                .iter()
+                .any(|c| c.id.as_str() == SEED_CONTAINER_ID)
+        );
 
         let groups = repo.list_groups(50, None).await.expect("groups");
         assert!(groups.items.iter().any(|g| g.id.as_str() == SEED_GROUP_ID));
 
-        let contacts = repo.list_contacts(50, None, &Default::default()).await.expect("contacts");
-        assert!(contacts.items.iter().any(|c| c.id.as_str() == SEED_CONTACT_ID));
+        let contacts = repo
+            .list_contacts(50, None, &Default::default())
+            .await
+            .expect("contacts");
+        assert!(
+            contacts
+                .items
+                .iter()
+                .any(|c| c.id.as_str() == SEED_CONTACT_ID)
+        );
 
         let detail = repo
             .get_contact(SEED_CONTACT_ID)

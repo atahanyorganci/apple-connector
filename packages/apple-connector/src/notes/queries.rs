@@ -100,10 +100,7 @@ pub async fn count_notes_with_checklist(
     .await
 }
 
-pub async fn count_attachments(
-    pool: &SqlitePool,
-    attachment_ent: i64,
-) -> Result<i64, sqlx::Error> {
+pub async fn count_attachments(pool: &SqlitePool, attachment_ent: i64) -> Result<i64, sqlx::Error> {
     sqlx::query_scalar!(
         r#"
         SELECT COUNT(*) AS "count!: i64"

@@ -125,11 +125,7 @@ impl NoteFilters {
             modified_before: self.modified_before,
             modified_after: self.modified_after,
             has_attachments: self.has_attachments.map(i64::from),
-            q: if include_q {
-                self.q.clone()
-            } else {
-                None
-            },
+            q: if include_q { self.q.clone() } else { None },
             cursor_modified_at,
             cursor_row_id,
             limit,

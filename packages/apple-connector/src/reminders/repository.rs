@@ -74,12 +74,8 @@ impl<'a> ReminderRepository<'a> {
         let entity_ids = load_entity_ids(self.pool).await?;
         let fetch_limit = i64::from(limit) + 1;
 
-        let rows = fetch_lists_page(
-            self.pool,
-            cursor.map(|value| value.row_id),
-            fetch_limit,
-        )
-        .await?;
+        let rows =
+            fetch_lists_page(self.pool, cursor.map(|value| value.row_id), fetch_limit).await?;
         let (rows, has_more) = split_page(rows, limit);
         let next_cursor = has_more
             .then(|| {
@@ -473,9 +469,12 @@ impl<'a> ReminderRepository<'a> {
         reminder_row_id: i64,
         entity_ids: &EntityIds,
     ) -> Result<Option<super::model::RecurrenceRule>, sqlx::Error> {
-        let rows =
-            fetch_recurrence_objects_for_reminder(self.pool, reminder_row_id, entity_ids.recurrence_rule)
-                .await?;
+        let rows = fetch_recurrence_objects_for_reminder(
+            self.pool,
+            reminder_row_id,
+            entity_ids.recurrence_rule,
+        )
+        .await?;
 
         Ok(rows
             .first()

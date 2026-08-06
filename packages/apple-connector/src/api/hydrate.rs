@@ -5,9 +5,9 @@ use sqlx::SqlitePool;
 use crate::{
     api::{
         dto::{
+            calendar::EventDetailDto, calendar_convert::event_detail_to_dto,
             contacts::ContactDetailDto, contacts_convert::contact_detail_to_dto,
             reminder::ReminderDetailDto, reminder_convert::reminder_detail_to_dto,
-            calendar::EventDetailDto, calendar_convert::event_detail_to_dto,
         },
         error::ApiError,
     },
@@ -99,9 +99,11 @@ pub async fn hydrate_contact(
     // CNContact identifiers are `UUID:ABPerson`; SQLite reads use the UUID prefix.
     let api_id = crate::contacts::api_id_from_unique_id(external_id);
     for attempt in 0..HYDRATE_ATTEMPTS {
-        if let Some(contact) = sources.get_contact(&api_id).await.map_err(|error| {
-            ApiError::internal(error.to_string())
-        })? {
+        if let Some(contact) = sources
+            .get_contact(&api_id)
+            .await
+            .map_err(|error| ApiError::internal(error.to_string()))?
+        {
             return Ok(SyncPendingContactDetailDto {
                 detail: contact_detail_to_dto(&contact),
                 sync_pending: false,

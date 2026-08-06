@@ -143,7 +143,10 @@ impl ContactsSources {
         })
     }
 
-    pub async fn get_contact(&self, contact_id: &str) -> Result<Option<ContactDetail>, sqlx::Error> {
+    pub async fn get_contact(
+        &self,
+        contact_id: &str,
+    ) -> Result<Option<ContactDetail>, sqlx::Error> {
         for (source_id, pool) in &self.pools {
             let repo = ContactsRepository::new(pool, source_id.clone());
             if let Some(contact) = repo.get_contact(contact_id).await? {

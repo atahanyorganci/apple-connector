@@ -1,11 +1,10 @@
+use apple_contacts::{
+    ContactsError, ContainerResolveHint, CreateContactInput, CreateGroupInput, LabeledStringInput,
+    PostalAddressInput, UpdateContactInput, UpdateGroupInput,
+};
 use axum::{
     http::StatusCode,
     response::{IntoResponse, Response},
-};
-
-use apple_contacts::{
-    ContainerResolveHint, ContactsError, CreateContactInput, CreateGroupInput,
-    LabeledStringInput, PostalAddressInput, UpdateContactInput, UpdateGroupInput,
 };
 
 use crate::{
@@ -26,9 +25,7 @@ pub fn map_contacts_error(error: ContactsError) -> ApiError {
     match error {
         ContactsError::NotFound => ApiError::not_found("Contacts item not found"),
         ContactsError::AccessDenied => ApiError::forbidden("Contacts access denied"),
-        ContactsError::ReadOnlyContainer => {
-            ApiError::forbidden("target container is read-only")
-        }
+        ContactsError::ReadOnlyContainer => ApiError::forbidden("target container is read-only"),
         ContactsError::ValidationFailed(message) => ApiError::unprocessable(message),
         ContactsError::UnsupportedPlatform => ApiError::contacts_unavailable(),
         ContactsError::Framework(message) => ApiError::internal(message),
@@ -36,7 +33,10 @@ pub fn map_contacts_error(error: ContactsError) -> ApiError {
     }
 }
 
-pub fn container_hint(container: &Container, metadata: ContainerResolveMetadata) -> ContainerResolveHint {
+pub fn container_hint(
+    container: &Container,
+    metadata: ContainerResolveMetadata,
+) -> ContainerResolveHint {
     ContainerResolveHint {
         api_id: metadata.api_id,
         external_id: Some(metadata.external_id),
@@ -55,7 +55,11 @@ pub fn create_contact_input(request: CreateContactRequest) -> CreateContactInput
         job_title: request.job_title,
         department_name: request.department_name,
         note: request.note,
-        phone_numbers: request.phone_numbers.into_iter().map(labeled_string_input).collect(),
+        phone_numbers: request
+            .phone_numbers
+            .into_iter()
+            .map(labeled_string_input)
+            .collect(),
         email_addresses: request
             .email_addresses
             .into_iter()
@@ -66,7 +70,11 @@ pub fn create_contact_input(request: CreateContactRequest) -> CreateContactInput
             .into_iter()
             .map(postal_address_input)
             .collect(),
-        url_addresses: request.url_addresses.into_iter().map(labeled_string_input).collect(),
+        url_addresses: request
+            .url_addresses
+            .into_iter()
+            .map(labeled_string_input)
+            .collect(),
     }
 }
 
@@ -96,15 +104,11 @@ pub fn update_contact_input(request: UpdateContactRequest) -> UpdateContactInput
 }
 
 pub fn create_group_input(request: CreateGroupRequest) -> CreateGroupInput {
-    CreateGroupInput {
-        name: request.name,
-    }
+    CreateGroupInput { name: request.name }
 }
 
 pub fn update_group_input(request: UpdateGroupRequest) -> UpdateGroupInput {
-    UpdateGroupInput {
-        name: request.name,
-    }
+    UpdateGroupInput { name: request.name }
 }
 
 fn labeled_string_input(value: LabeledStringDto) -> LabeledStringInput {
@@ -125,7 +129,9 @@ fn postal_address_input(value: PostalAddressDto) -> PostalAddressInput {
     }
 }
 
-pub fn contact_detail_vcard(contact: &crate::contacts::ContactDetail) -> Result<Response, ApiError> {
+pub fn contact_detail_vcard(
+    contact: &crate::contacts::ContactDetail,
+) -> Result<Response, ApiError> {
     let body = serde_vcard::to_string(&contact.to_vcard())
         .map_err(|error| ApiError::internal(error.to_string()))?;
     Ok((
@@ -136,7 +142,9 @@ pub fn contact_detail_vcard(contact: &crate::contacts::ContactDetail) -> Result<
         .into_response())
 }
 
-pub fn contact_detail_carddav(contact: &crate::contacts::ContactDetail) -> Result<Response, ApiError> {
+pub fn contact_detail_carddav(
+    contact: &crate::contacts::ContactDetail,
+) -> Result<Response, ApiError> {
     let object = serde_carddav::CardDavAddressObject {
         href: Some(format!("/v1/contacts/{}/carddav", contact.id)),
         etag: None,
@@ -153,7 +161,9 @@ pub fn contact_detail_carddav(contact: &crate::contacts::ContactDetail) -> Resul
         .into_response())
 }
 
-pub fn contact_page_vcard(contacts: &[crate::contacts::ContactDetail]) -> Result<Response, ApiError> {
+pub fn contact_page_vcard(
+    contacts: &[crate::contacts::ContactDetail],
+) -> Result<Response, ApiError> {
     let mut body = String::new();
     for contact in contacts {
         body.push_str(
@@ -170,7 +180,9 @@ pub fn contact_page_vcard(contacts: &[crate::contacts::ContactDetail]) -> Result
         .into_response())
 }
 
-pub fn contact_page_carddav(contacts: &[crate::contacts::ContactDetail]) -> Result<Response, ApiError> {
+pub fn contact_page_carddav(
+    contacts: &[crate::contacts::ContactDetail],
+) -> Result<Response, ApiError> {
     let mut xml_parts = Vec::new();
     for contact in contacts {
         let object = serde_carddav::CardDavAddressObject {
@@ -180,7 +192,8 @@ pub fn contact_page_carddav(contacts: &[crate::contacts::ContactDetail]) -> Resu
             vcard: contact.to_vcard(),
         };
         xml_parts.push(
-            serde_carddav::to_string(&object).map_err(|error| ApiError::internal(error.to_string()))?,
+            serde_carddav::to_string(&object)
+                .map_err(|error| ApiError::internal(error.to_string()))?,
         );
     }
     Ok((

@@ -25,7 +25,7 @@ rsync -a "$SQLX_DIR/" "$WORKSPACE_SQLX/"
 echo "Preparing SQLx offline metadata across ${#PREPARE_TARGETS[@]} fixture schemas..."
 
 for entry in "${PREPARE_TARGETS[@]}"; do
-  IFS='|' read -r script database_url <<< "$entry"
+  IFS='|' read -r script database_url <<<"$entry"
   echo "==> $database_url"
   bash "$ROOT/$script"
   (

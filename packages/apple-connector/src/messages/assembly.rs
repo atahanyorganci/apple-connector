@@ -2,8 +2,6 @@ use std::collections::HashMap;
 
 use sqlx::SqliteExecutor;
 
-use crate::sqlx_util::json_ids;
-
 use super::{
     classify::classify,
     model::{Chat, Direction, Handle, Message, MessageEnvelope, Transport},
@@ -11,12 +9,10 @@ use super::{
         fetch_attachments_for_message_ids, fetch_chat_ids_for_message_ids,
         fetch_chat_row_by_id as query_chat_row_by_id, fetch_participants_for_chat_ids,
     },
-    row::{
-        AttachmentRow, ChatRow, MessageRow,
-        parse_apple_timestamp,
-    },
+    row::{AttachmentRow, ChatRow, MessageRow, parse_apple_timestamp},
     threads::build_reply_threads,
 };
+use crate::sqlx_util::json_ids;
 
 pub fn assemble_message(
     row: MessageRow,

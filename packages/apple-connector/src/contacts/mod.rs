@@ -11,16 +11,13 @@ mod search;
 mod sources;
 
 pub use discovery::{
-    DiscoveryError, default_contacts_sources_dir, discover_contacts_sources, DiscoveredSource,
+    DiscoveredSource, DiscoveryError, default_contacts_sources_dir, discover_contacts_sources,
 };
 pub use model::{
     Contact, ContactAddress, ContactDetail, ContactEmail, ContactGroup, ContactPhone,
-    ContactSocialProfile, ContactSummary, ContactUrl, Container, ContainerDetail,
-    ContainerSummary,
+    ContactSocialProfile, ContactSummary, ContactUrl, Container, ContainerDetail, ContainerSummary,
 };
-pub use repository::{
-    ContactsRepository, ContainerResolveMetadata, GroupResolveMetadata, Page,
-};
+pub use repository::{ContactsRepository, ContainerResolveMetadata, GroupResolveMetadata, Page};
 pub use row::api_id_from_unique_id;
 pub use search::ContactFilters;
 pub use sources::ContactsSources;

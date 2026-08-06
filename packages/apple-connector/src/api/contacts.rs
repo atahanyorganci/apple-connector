@@ -3,11 +3,7 @@ use std::sync::Arc;
 use apple_contacts::ContactsStore;
 
 use crate::{
-    api::{
-        dto::common::ContactsAuthStatusDto,
-        error::ApiError,
-        router::AppState,
-    },
+    api::{dto::common::ContactsAuthStatusDto, error::ApiError, router::AppState},
     contacts::ContactsSources,
     db::is_pool_healthy,
 };
@@ -29,7 +25,9 @@ pub(crate) fn require_contacts_store(
     store.clone().ok_or_else(ApiError::contacts_unavailable)
 }
 
-pub(crate) async fn require_contacts_access(state: &AppState) -> Result<Arc<ContactsStore>, ApiError> {
+pub(crate) async fn require_contacts_access(
+    state: &AppState,
+) -> Result<Arc<ContactsStore>, ApiError> {
     let store = require_contacts_store(&state.contacts_store)?;
     match store.auth_status().await {
         apple_contacts::AuthStatus::Authorized | apple_contacts::AuthStatus::Limited => Ok(store),
@@ -52,9 +50,9 @@ pub(crate) async fn require_contacts_access(state: &AppState) -> Result<Arc<Cont
                         "Contacts access denied; grant Contacts permission in System Settings",
                     ))
                 }
-                apple_contacts::AuthStatus::NotDetermined => Err(ApiError::service_unavailable(
-                    "Contacts access not granted",
-                )),
+                apple_contacts::AuthStatus::NotDetermined => {
+                    Err(ApiError::service_unavailable("Contacts access not granted"))
+                }
                 apple_contacts::AuthStatus::Unavailable => Err(ApiError::contacts_unavailable()),
             }
         }
@@ -62,7 +60,9 @@ pub(crate) async fn require_contacts_access(state: &AppState) -> Result<Arc<Cont
     }
 }
 
-pub(crate) async fn contacts_status(sources: &ContactsSources) -> crate::api::dto::common::HealthStatus {
+pub(crate) async fn contacts_status(
+    sources: &ContactsSources,
+) -> crate::api::dto::common::HealthStatus {
     use crate::api::dto::common::HealthStatus;
 
     if sources.is_empty() {

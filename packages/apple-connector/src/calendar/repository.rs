@@ -10,7 +10,7 @@ use super::{
         EventSummary,
     },
     queries::{
-        fetch_attachment_by_event_and_id, fetch_attachments_by_owner_id, fetch_alarms_by_event_id,
+        fetch_alarms_by_event_id, fetch_attachment_by_event_and_id, fetch_attachments_by_owner_id,
         fetch_calendar_by_id, fetch_calendar_resolve_metadata, fetch_calendars_page,
         fetch_direct_events_page, fetch_event_by_id, fetch_event_external_id,
         fetch_exception_dates_by_owner_id, fetch_location_by_id, fetch_occurrence_events_page,
@@ -69,12 +69,7 @@ impl<'a> CalendarRepository<'a> {
         cursor: Option<CalendarListCursor>,
     ) -> Result<Page<CalendarSummary>, sqlx::Error> {
         let fetch_limit = i64::from(limit) + 1;
-        let rows = fetch_calendars_page(
-            self.pool,
-            cursor.map(|c| c.row_id),
-            fetch_limit,
-        )
-        .await?;
+        let rows = fetch_calendars_page(self.pool, cursor.map(|c| c.row_id), fetch_limit).await?;
         let (rows, has_more) = split_page(rows, limit);
         let next_cursor = has_more
             .then(|| {

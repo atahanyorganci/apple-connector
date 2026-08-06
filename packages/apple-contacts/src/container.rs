@@ -84,8 +84,8 @@ fn lookup_container(
         let ns_id = NSString::from_str(candidate);
         let ids = NSArray::from_slice(&[&*ns_id]);
         let predicate = unsafe { CNContainer::predicateForContainersWithIdentifiers(&ids) };
-        let containers = unsafe { store.containersMatchingPredicate_error(Some(&predicate)) }
-            .ok()?;
+        let containers =
+            unsafe { store.containersMatchingPredicate_error(Some(&predicate)) }.ok()?;
         if let Some(container) = containers.iter().next() {
             return Some(container.clone());
         }

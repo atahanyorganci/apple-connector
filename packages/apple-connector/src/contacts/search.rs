@@ -16,11 +16,7 @@ pub struct ContactFilterBinds {
 }
 
 impl ContactFilters {
-    pub fn bind_values(
-        &self,
-        cursor_row_id: Option<i64>,
-        limit: i64,
-    ) -> ContactFilterBinds {
+    pub fn bind_values(&self, cursor_row_id: Option<i64>, limit: i64) -> ContactFilterBinds {
         ContactFilterBinds {
             q_pattern: self.q.as_ref().map(|q| format!("%{q}%")),
             container_id: self.container_id.clone(),

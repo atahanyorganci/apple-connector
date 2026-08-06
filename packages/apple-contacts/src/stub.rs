@@ -1,7 +1,5 @@
 use crate::{
-    contact::{
-        CreateContactInput, SavedContact, UpdateContactInput,
-    },
+    contact::{CreateContactInput, SavedContact, UpdateContactInput},
     container::ContainerResolveHint,
     error::{ContactsError, ContactsResult},
     group::{CreateGroupInput, SavedGroup, UpdateGroupInput},

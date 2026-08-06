@@ -12,10 +12,7 @@ use super::{
     doc::ApiDoc,
     middleware::{method_not_allowed, not_found, request_timeout, security_headers, trace_request},
 };
-use crate::{
-    contacts::ContactsSources,
-    messages::attachment_path::canonicalize_attachment_root,
-};
+use crate::{contacts::ContactsSources, messages::attachment_path::canonicalize_attachment_root};
 
 #[derive(Clone)]
 pub struct AppState {
@@ -244,7 +241,9 @@ fn openapi_router() -> OpenApiRouter<AppState> {
         ))
         .routes(routes!(crate::api::handlers::groups::list_group_contacts))
         .routes(routes!(crate::api::handlers::contacts::list_contacts_vcard))
-        .routes(routes!(crate::api::handlers::contacts::list_contacts_carddav))
+        .routes(routes!(
+            crate::api::handlers::contacts::list_contacts_carddav
+        ))
         .routes(routes!(crate::api::handlers::contacts::search_contacts))
         .routes(routes!(crate::api::handlers::contacts::list_contacts))
         .routes(routes!(crate::api::handlers::contacts::get_contact_vcard))
@@ -260,9 +259,15 @@ fn openapi_router() -> OpenApiRouter<AppState> {
         .routes(routes!(
             crate::api::handlers::contact_mutations::delete_contact
         ))
-        .routes(routes!(crate::api::handlers::contact_mutations::create_group))
-        .routes(routes!(crate::api::handlers::contact_mutations::update_group))
-        .routes(routes!(crate::api::handlers::contact_mutations::delete_group))
+        .routes(routes!(
+            crate::api::handlers::contact_mutations::create_group
+        ))
+        .routes(routes!(
+            crate::api::handlers::contact_mutations::update_group
+        ))
+        .routes(routes!(
+            crate::api::handlers::contact_mutations::delete_group
+        ))
         .routes(routes!(
             crate::api::handlers::contact_mutations::add_contact_to_group
         ))

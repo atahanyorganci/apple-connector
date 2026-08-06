@@ -3,7 +3,10 @@
 use sqlx::{SqliteExecutor, SqlitePool};
 
 use super::{
-    row::{AttachmentByGuidRow, AttachmentRow, ChatMessageJoinRow, ChatMessagePageRow, ChatRow, MessageRow},
+    row::{
+        AttachmentByGuidRow, AttachmentRow, ChatMessageJoinRow, ChatMessagePageRow, ChatRow,
+        MessageRow,
+    },
     search::MessageFilterBinds,
 };
 
@@ -230,7 +233,10 @@ pub async fn fetch_chat_message_page(
     .fetch_all(pool)
     .await?;
 
-    Ok(rows.into_iter().map(ChatMessagePageRow::into_scoped).collect())
+    Ok(rows
+        .into_iter()
+        .map(ChatMessagePageRow::into_scoped)
+        .collect())
 }
 
 pub async fn fetch_message_by_guid(

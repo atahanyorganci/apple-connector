@@ -3,10 +3,6 @@ use std::path::Path;
 use sqlx::SqlitePool;
 
 use super::{
-    queries::{
-        fetch_attachment_by_guid, fetch_chat_message_page, fetch_filtered_messages,
-        fetch_message_by_guid,
-    },
     assembly::{
         assemble_messages, chat_summary_from_row, fetch_attachments_for_messages,
         fetch_chat_ids_for_messages, fetch_chat_row_by_id, fetch_participants_for_chats,
@@ -14,6 +10,10 @@ use super::{
     attachment_path::is_present_on_disk,
     attachments::assemble_attachment,
     model::{Attachment, Chat, Message},
+    queries::{
+        fetch_attachment_by_guid, fetch_chat_message_page, fetch_filtered_messages,
+        fetch_message_by_guid,
+    },
     row::{AttachmentByGuidRow, AttachmentRow, ChatRow, MessageRow},
 };
 use crate::api::cursor::{
@@ -262,9 +262,7 @@ impl<'a> MessageRepository<'a> {
         limit: u32,
         cursor: Option<MessageSearchCursor>,
     ) -> Result<Page<Message>, sqlx::Error> {
-        use super::search::{
-            CANDIDATE_CHUNK_SIZE, MESSAGE_SCAN_BUDGET, text_matches,
-        };
+        use super::search::{CANDIDATE_CHUNK_SIZE, MESSAGE_SCAN_BUDGET, text_matches};
 
         let query = filters.q.as_deref().expect("search requires q");
         let mut matching_rows = Vec::new();

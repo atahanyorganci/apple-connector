@@ -149,12 +149,10 @@ async fn max_reminder_primary_key(path: &Path) -> Result<i64, DiscoveryError> {
         .await
         .map_err(|error| DiscoveryError::Connect(error.to_string()))?;
 
-    let max = sqlx::query_scalar!(
-        "SELECT Z_MAX FROM Z_PRIMARYKEY WHERE Z_NAME = 'REMCDReminder'"
-    )
-    .fetch_optional(&mut connection)
-    .await
-    .map_err(|error| DiscoveryError::Connect(error.to_string()))?;
+    let max = sqlx::query_scalar!("SELECT Z_MAX FROM Z_PRIMARYKEY WHERE Z_NAME = 'REMCDReminder'")
+        .fetch_optional(&mut connection)
+        .await
+        .map_err(|error| DiscoveryError::Connect(error.to_string()))?;
 
     connection.close().await.ok();
     Ok(max.flatten().unwrap_or(0))

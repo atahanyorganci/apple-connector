@@ -53,11 +53,10 @@ pub async fn get_container(
     axum::extract::Path(path): axum::extract::Path<ContainerIdPath>,
 ) -> Result<Json<ContainerDetailDto>, ApiError> {
     let sources = require_contacts_sources(&state.contacts_sources)?;
-    let container = run_timed_query(|| async {
-        sources.get_container(path.container_id.as_str()).await
-    })
-    .await
-    .map_err(|error| ApiError::internal(error.to_string()))?
-    .ok_or_else(|| ApiError::not_found("Container not found"))?;
+    let container =
+        run_timed_query(|| async { sources.get_container(path.container_id.as_str()).await })
+            .await
+            .map_err(|error| ApiError::internal(error.to_string()))?
+            .ok_or_else(|| ApiError::not_found("Container not found"))?;
     Ok(Json(container_detail_to_dto(&container)))
 }

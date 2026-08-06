@@ -9,8 +9,8 @@ use std::io::{Read, Write};
 
 pub use error::{Error, Result};
 pub use model::{
-    Address, DateOrDateTime, Email, ExtensionBag, Photo, SocialProfile, StructuredName,
-    Telephone, VCard,
+    Address, DateOrDateTime, Email, ExtensionBag, Photo, SocialProfile, StructuredName, Telephone,
+    VCard,
 };
 use serde::{Serialize, de::DeserializeOwned};
 
@@ -133,9 +133,7 @@ mod tests {
         let card = VCard {
             formatted_name: Some("Mehmet Dora".to_owned()),
             addresses: vec![super::Address {
-                street: Some(
-                    "ODTU-Teknokent\n37-1 SATGEB-2 Titanyum C Blok".to_owned(),
-                ),
+                street: Some("ODTU-Teknokent\n37-1 SATGEB-2 Titanyum C Blok".to_owned()),
                 locality: Some("Ankara".to_owned()),
                 label: Some("Work".to_owned()),
                 preferred: true,

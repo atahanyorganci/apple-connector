@@ -94,7 +94,8 @@ impl<'a> NoteRepository<'a> {
 
     pub async fn get_folder_by_id(&self, id: &str) -> Result<Option<NoteFolder>, sqlx::Error> {
         let entity_ids = load_entity_ids(self.pool).await?;
-        let row = get_folder_by_identifier(self.pool, entity_ids.folder, &id.to_lowercase()).await?;
+        let row =
+            get_folder_by_identifier(self.pool, entity_ids.folder, &id.to_lowercase()).await?;
         Ok(row.map(folder_from_row))
     }
 
@@ -214,8 +215,7 @@ impl<'a> NoteRepository<'a> {
 
     pub async fn get_note(&self, id: &str) -> Result<Option<NoteDetail>, sqlx::Error> {
         let entity_ids = load_entity_ids(self.pool).await?;
-        let row =
-            get_note_by_identifier(self.pool, entity_ids.note, &id.to_lowercase()).await?;
+        let row = get_note_by_identifier(self.pool, entity_ids.note, &id.to_lowercase()).await?;
         let Some(row) = row else {
             return Ok(None);
         };
@@ -257,8 +257,7 @@ impl<'a> NoteRepository<'a> {
                 false,
             );
 
-            let chunk: Vec<NoteDetailRow> =
-                fetch_filtered_note_details(self.pool, &binds).await?;
+            let chunk: Vec<NoteDetailRow> = fetch_filtered_note_details(self.pool, &binds).await?;
             if chunk.is_empty() {
                 reached_end = true;
                 break;
@@ -387,8 +386,7 @@ impl<'a> NoteRepository<'a> {
         note_row_id: i64,
     ) -> Result<Vec<NoteAttachment>, sqlx::Error> {
         let entity_ids = load_entity_ids(self.pool).await?;
-        let rows =
-            list_attachments_for_note(self.pool, entity_ids.attachment, note_row_id).await?;
+        let rows = list_attachments_for_note(self.pool, entity_ids.attachment, note_row_id).await?;
         Ok(rows.into_iter().map(attachment_from_row).collect())
     }
 
@@ -397,12 +395,9 @@ impl<'a> NoteRepository<'a> {
         id: &str,
     ) -> Result<Option<NoteAttachment>, sqlx::Error> {
         let entity_ids = load_entity_ids(self.pool).await?;
-        let row = get_attachment_by_identifier(
-            self.pool,
-            entity_ids.attachment,
-            &id.to_lowercase(),
-        )
-        .await?;
+        let row =
+            get_attachment_by_identifier(self.pool, entity_ids.attachment, &id.to_lowercase())
+                .await?;
         Ok(row.map(attachment_from_row))
     }
 

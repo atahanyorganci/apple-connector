@@ -83,11 +83,11 @@ async fn integration_containers_groups_and_contacts() {
 
     let (status, containers) = response_json(app.clone(), "/v1/containers").await;
     assert_eq!(status, StatusCode::OK);
-    assert!(containers["items"].as_array().is_some_and(|items| {
-        items
-            .iter()
-            .any(|item| item["id"] == SEED_CONTAINER_ID)
-    }));
+    assert!(
+        containers["items"]
+            .as_array()
+            .is_some_and(|items| { items.iter().any(|item| item["id"] == SEED_CONTAINER_ID) })
+    );
 
     let (status, groups) = response_json(app.clone(), "/v1/groups?limit=10").await;
     assert_eq!(status, StatusCode::OK);
@@ -99,18 +99,22 @@ async fn integration_containers_groups_and_contacts() {
 
     let (status, contacts) = response_json(app.clone(), "/v1/contacts?limit=10").await;
     assert_eq!(status, StatusCode::OK);
-    assert!(contacts["items"].as_array().is_some_and(|items| {
-        items
-            .iter()
-            .any(|item| item["id"] == SEED_CONTACT_ID)
-    }));
+    assert!(
+        contacts["items"]
+            .as_array()
+            .is_some_and(|items| { items.iter().any(|item| item["id"] == SEED_CONTACT_ID) })
+    );
 
     let (status, detail) =
         response_json(app.clone(), &format!("/v1/contacts/{SEED_CONTACT_ID}")).await;
     assert_eq!(status, StatusCode::OK);
     assert_eq!(detail["id"], SEED_CONTACT_ID);
     assert_eq!(detail["first_name"], "Jane");
-    assert!(detail["phones"].as_array().is_some_and(|items| !items.is_empty()));
+    assert!(
+        detail["phones"]
+            .as_array()
+            .is_some_and(|items| !items.is_empty())
+    );
 }
 
 #[tokio::test]
@@ -121,16 +125,26 @@ async fn integration_contacts_search_vcard_and_carddav() {
 
     let (status, search) = response_json(app.clone(), "/v1/contacts/search?q=Jane&limit=10").await;
     assert_eq!(status, StatusCode::OK);
-    assert!(search["items"].as_array().is_some_and(|items| !items.is_empty()));
+    assert!(
+        search["items"]
+            .as_array()
+            .is_some_and(|items| !items.is_empty())
+    );
 
-    let (status, vcard) =
-        response_text(app.clone(), &format!("/v1/contacts/{SEED_CONTACT_ID}/vcard")).await;
+    let (status, vcard) = response_text(
+        app.clone(),
+        &format!("/v1/contacts/{SEED_CONTACT_ID}/vcard"),
+    )
+    .await;
     assert_eq!(status, StatusCode::OK);
     assert!(vcard.contains("BEGIN:VCARD"));
     assert!(vcard.contains("Jane"));
 
-    let (status, carddav) =
-        response_text(app.clone(), &format!("/v1/contacts/{SEED_CONTACT_ID}/carddav")).await;
+    let (status, carddav) = response_text(
+        app.clone(),
+        &format!("/v1/contacts/{SEED_CONTACT_ID}/carddav"),
+    )
+    .await;
     assert_eq!(status, StatusCode::OK);
     assert!(carddav.contains("address-data"));
 
@@ -144,7 +158,11 @@ async fn integration_contacts_search_vcard_and_carddav() {
     )
     .await;
     assert_eq!(status, StatusCode::OK);
-    assert!(group_contacts["items"].as_array().is_some_and(|items| !items.is_empty()));
+    assert!(
+        group_contacts["items"]
+            .as_array()
+            .is_some_and(|items| !items.is_empty())
+    );
 }
 
 #[tokio::test]

@@ -115,9 +115,7 @@ pub struct ContactSocialProfile {
 impl ContactDetail {
     /// Convert to interchange vCard model for wire-format serialization.
     pub fn to_vcard(&self) -> serde_vcard::VCard {
-        use serde_vcard::{
-            Address, DateOrDateTime, Email, StructuredName, Telephone, VCard,
-        };
+        use serde_vcard::{Address, DateOrDateTime, Email, StructuredName, Telephone, VCard};
 
         VCard {
             uid: Some(self.id.as_str().to_owned()),
@@ -142,9 +140,8 @@ impl ContactDetail {
             title: self.job_title.clone(),
             note: self.note.clone(),
             birthday: self.birthday.and_then(|birthday| {
-                chrono::DateTime::from_timestamp(birthday.seconds(), 0).map(|dt| {
-                    DateOrDateTime::Date(dt.date_naive())
-                })
+                chrono::DateTime::from_timestamp(birthday.seconds(), 0)
+                    .map(|dt| DateOrDateTime::Date(dt.date_naive()))
             }),
             phones: self
                 .phones
