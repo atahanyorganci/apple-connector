@@ -1,6 +1,8 @@
+use crate::error::{ContactsError, ContactsResult};
+
+#[cfg(target_os = "macos")]
 use crate::{
     container::ContainerResolveHint,
-    error::{ContactsError, ContactsResult},
     store::ContactsStore,
 };
 
