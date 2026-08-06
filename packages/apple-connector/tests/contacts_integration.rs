@@ -175,5 +175,67 @@ async fn integration_contacts_unavailable_without_sources() {
 #[tokio::test]
 #[ignore = "requires macOS Contacts permission and live AddressBook sources"]
 async fn integration_contacts_mutations_on_macos() {
-    // Placeholder for live Contacts framework mutation coverage on macOS.
+    use apple_contacts::{
+        ContactsStore, ContainerResolveHint, CreateContactInput, UpdateContactInput,
+    };
+
+    let store = ContactsStore::new().expect("Contacts store");
+    store.request_access().await.expect("Contacts access");
+
+    let container = ContainerResolveHint {
+        api_id: "integration-test-container".into(),
+        external_id: None,
+        name: Some(
+            std::env::var("APPLE_CONNECTOR_TEST_CONTACTS_CONTAINER")
+                .unwrap_or_else(|_| "Contacts".into()),
+        ),
+        read_only: false,
+    };
+
+    let saved = store
+        .create_contact(
+            container,
+            CreateContactInput {
+                given_name: Some("Connector".into()),
+                family_name: Some("Integration".into()),
+                middle_name: None,
+                nickname: None,
+                organization_name: None,
+                job_title: None,
+                department_name: None,
+                note: Some("created by ignored test".into()),
+                phone_numbers: Vec::new(),
+                email_addresses: Vec::new(),
+                postal_addresses: Vec::new(),
+                url_addresses: Vec::new(),
+            },
+        )
+        .await
+        .expect("create contact");
+
+    store
+        .update_contact(
+            &saved.identifier,
+            UpdateContactInput {
+                given_name: Some("Connector".into()),
+                family_name: Some("Updated".into()),
+                middle_name: None,
+                nickname: None,
+                organization_name: None,
+                job_title: None,
+                department_name: None,
+                note: Some(Some("updated by ignored test".into())),
+                phone_numbers: None,
+                email_addresses: None,
+                postal_addresses: None,
+                url_addresses: None,
+            },
+        )
+        .await
+        .expect("update contact");
+
+    store
+        .delete_contact(&saved.identifier)
+        .await
+        .expect("delete contact");
 }

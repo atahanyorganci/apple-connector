@@ -264,3 +264,69 @@ fn event_status_input(status: EventStatusInputDto) -> EventStatusInput {
         EventStatusInputDto::Cancelled => EventStatusInput::Cancelled,
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{
+        api::dto::reminder::{CreateReminderRequest, UpdateReminderRequest},
+        apple_types::SectionId,
+    };
+
+    #[test]
+    fn validate_create_reminder_rejects_unsupported_section_id() {
+        let request = CreateReminderRequest {
+            title: "Test".into(),
+            notes: None,
+            due: None,
+            completed: None,
+            priority: None,
+            url: None,
+            location: None,
+            alarms: Vec::new(),
+            recurrence: None,
+            section_id: Some(SectionId::new("00000000-0000-0000-0000-000000000001")),
+            parent_id: None,
+            tags: Vec::new(),
+            attachments: Vec::new(),
+            flagged: None,
+        };
+        let error = validate_create_reminder(&request).unwrap_err();
+        assert_eq!(error.status(), axum::http::StatusCode::UNPROCESSABLE_ENTITY);
+    }
+
+    #[test]
+    fn validate_update_reminder_rejects_unsupported_tags() {
+        let request = UpdateReminderRequest {
+            title: None,
+            notes: None,
+            due: None,
+            completed: None,
+            priority: None,
+            url: None,
+            list_id: None,
+            location: None,
+            alarms: None,
+            recurrence: None,
+            section_id: None,
+            parent_id: None,
+            tags: vec!["work".into()],
+            attachments: Vec::new(),
+            flagged: None,
+        };
+        let error = validate_update_reminder(&request).unwrap_err();
+        assert_eq!(error.status(), axum::http::StatusCode::UNPROCESSABLE_ENTITY);
+    }
+
+    #[test]
+    fn map_eventkit_read_only_to_forbidden() {
+        let error = map_eventkit_error(EventKitError::ReadOnlyCalendar);
+        assert_eq!(error.status(), axum::http::StatusCode::FORBIDDEN);
+    }
+
+    #[test]
+    fn map_eventkit_not_found() {
+        let error = map_eventkit_error(EventKitError::NotFound);
+        assert_eq!(error.status(), axum::http::StatusCode::NOT_FOUND);
+    }
+}

@@ -203,3 +203,28 @@ pub fn contact_page_carddav(
     )
         .into_response())
 }
+
+#[cfg(test)]
+mod tests {
+    use apple_contacts::ContactsError;
+
+    use super::*;
+
+    #[test]
+    fn map_contacts_read_only_to_forbidden() {
+        let error = map_contacts_error(ContactsError::ReadOnlyContainer);
+        assert_eq!(error.status(), StatusCode::FORBIDDEN);
+    }
+
+    #[test]
+    fn map_contacts_not_found() {
+        let error = map_contacts_error(ContactsError::NotFound);
+        assert_eq!(error.status(), StatusCode::NOT_FOUND);
+    }
+
+    #[test]
+    fn map_contacts_validation_failed() {
+        let error = map_contacts_error(ContactsError::ValidationFailed("invalid".into()));
+        assert_eq!(error.status(), StatusCode::UNPROCESSABLE_ENTITY);
+    }
+}
