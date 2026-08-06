@@ -1,18 +1,19 @@
 # Apple Connector
 
-Monorepo for reading Apple platform data on macOS. The
-[`packages/apple-connector`](packages/apple-connector/) crate exposes a
-read-only HTTP API over Messages.app, Reminders.app, and Notes.app data backed by live
-SQLite connections to `~/Library/Messages/chat.db`, the Reminders Group
-Containers store, and the Notes Group Container `NoteStore.sqlite`.
+Monorepo for reading and writing Apple platform data on macOS. The
+[`packages/apple-connector`](packages/apple-connector/) crate exposes a hybrid
+HTTP API over Messages, Reminders, Notes, Calendar, and Contacts. Reads use live
+SQLite databases; Reminders, Calendar, and Contacts writes go through EventKit
+and the Contacts framework.
+
+See [`AGENTS.md`](AGENTS.md) for crate layout and contributor conventions.
 
 ## Requirements
 
 - Apple Silicon Mac (`aarch64-darwin`)
-- Messages.app signed in
 - Nix with flakes enabled
-- Full Disk Access for the terminal that runs the server (Messages, Reminders,
-  and Notes Group Containers)
+- **Full Disk Access** for the terminal (Messages, Reminders, Notes, Calendar Group Containers, Contacts AddressBook)
+- **Reminders**, **Calendars**, and **Contacts** permission for write routes (EventKit / Contacts framework)
 
 Grant access in **System Settings → Privacy & Security → Full Disk Access**, then
 restart the terminal. If macOS still denies access when running the compiled
@@ -81,44 +82,33 @@ Press **Ctrl-C** to shut down. In-flight requests are drained before exit.
 
 ## Permissions
 
-- **Full Disk Access** is required to open `chat.db`, Reminders and Notes Group
-  Containers stores, and attachment files under `~/Library/Messages/Attachments/`
-  and the Notes Group Container `Accounts/` directory.
-- If any database cannot be opened, `/healthz` returns `503` with per-service
-  status and data endpoints return structured `service_unavailable` errors.
-  Startup logs do **not** include filesystem paths.
+- **Full Disk Access** opens `chat.db`, Reminders/Notes/Calendar Group Container
+  stores, Contacts AddressBook sources, and attachment directories.
+- **Reminders**, **Calendars**, and **Contacts** TCC grants are required for
+  write routes (create/update/delete reminders, events, contacts, and groups).
+- If a read database cannot be opened, `/healthz` returns `503` with per-service
+  status (`messages`, `reminders`, `notes`, `calendar`, `contacts`) and write
+  availability (`eventkit_reminders`, `eventkit_events`, `contacts_auth`).
+  Data endpoints return structured `service_unavailable` errors. Startup logs do
+  **not** include filesystem paths.
 
 ## HTTP endpoints
 
-| Method        | Path                                     | Description                                                                                                                            |
-| ------------- | ---------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
-| `GET`         | `/healthz`                               | Composite database pool health (`messages` / `reminders` / `notes`: `ok` / `unavailable`). Returns `200` only when all three are `ok`. |
-| `GET`         | `/v1/chats`                              | Paginated chat list (newest activity first).                                                                                           |
-| `GET`         | `/v1/chats/{chat_id}`                    | Single chat metadata and participants.                                                                                                 |
-| `GET`         | `/v1/chats/{chat_id}/messages`           | Paginated messages for one chat.                                                                                                       |
-| `GET`         | `/v1/messages`                           | Global message list with optional search/filters.                                                                                      |
-| `GET`         | `/v1/messages/{guid}`                    | Single message with classified content.                                                                                                |
-| `GET`         | `/v1/attachments/{guid}`                 | Attachment metadata (no local paths).                                                                                                  |
-| `GET`, `HEAD` | `/v1/attachments/{guid}/content`         | Attachment bytes with range/conditional support.                                                                                       |
-| `GET`         | `/v1/reminder-lists`                     | Paginated reminder lists (newest modified first).                                                                                      |
-| `GET`         | `/v1/reminder-lists/{list_id}`           | Single list with sections and smart-list metadata.                                                                                     |
-| `GET`         | `/v1/reminder-lists/{list_id}/reminders` | Paginated reminders scoped to one list.                                                                                                |
-| `GET`         | `/v1/reminders`                          | Global reminder list with optional search/filters.                                                                                     |
-| `GET`         | `/v1/reminders/{reminder_id}`            | Single reminder with subtasks, tags, alarms, and attachments.                                                                          |
-| `GET`, `HEAD` | `/v1/reminder-attachments/{id}/content`  | Reminder attachment bytes with range/conditional support.                                                                              |
-| `GET`         | `/v1/reminder-attachments/{id}`          | Reminder attachment metadata (no local paths).                                                                                         |
-| `GET`         | `/v1/note-folders`                       | Paginated note folders (excludes Recently Deleted by default).                                                                         |
-| `GET`         | `/v1/note-folders/{folder_id}`           | Single folder with parent/account metadata.                                                                                            |
-| `GET`         | `/v1/note-folders/{folder_id}/notes`     | Paginated notes in folder (newest modified first).                                                                                     |
-| `GET`         | `/v1/notes`                              | Global note list with optional search/filters.                                                                                         |
-| `GET`         | `/v1/notes/{note_id}`                    | Single note with decoded body, checklist items, and attachments.                                                                       |
-| `GET`         | `/v1/notes/{note_id}/contents`           | Note as Markdown with YAML front matter (tags, metadata).                                                                              |
-| `GET`, `HEAD` | `/v1/note-attachments/{id}/content`      | Note attachment bytes with range/conditional support.                                                                                  |
-| `GET`         | `/v1/note-attachments/{id}`              | Note attachment metadata (no local paths).                                                                                             |
-| `GET`         | `/openapi.json`                          | OpenAPI 3.1 contract (same document as `docs/openapi.json`).                                                                           |
-| `GET`         | `/docs`                                  | Scalar API reference (embedded OpenAPI 3.1 contract).                                                                                  |
+Interactive reference: [`/docs`](http://127.0.0.1:3000/docs) (Scalar UI) and
+[`/openapi.json`](http://127.0.0.1:3000/openapi.json). Committed contract:
+[`docs/openapi.json`](docs/openapi.json).
 
-Unknown routes return JSON `404`; unsupported methods return JSON `405`. All
+| Domain | Read (SQLite) | Write (framework) |
+| --- | --- | --- |
+| Messages | chats, messages, attachments | — |
+| Reminders | lists, reminders, attachments | create/update/delete reminders |
+| Notes | folders, notes, attachments | — |
+| Calendar | accounts, calendars, events, iCal/CalDAV export | create/update/delete events |
+| Contacts | containers, groups, contacts, vCard/CardDAV | create/update/delete contacts and groups |
+
+Common routes: `GET /healthz`, `GET /openapi.json`, `GET /docs`. List endpoints
+use keyset pagination (`limit`, `cursor`). Unknown routes return JSON `404`;
+unsupported methods return JSON `405`.
 responses include `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`,
 `Referrer-Policy: no-referrer`, and `Cache-Control: no-store`.
 
@@ -275,11 +265,14 @@ one OpenAPI operation per production route/method.
 ### Checks
 
 ```bash
-cargo fmt --all
-cargo clippy -p apple-connector --all-targets -- -D warnings
-cargo test -p apple-connector
+nix fmt
+cargo clippy --workspace --all-targets -- -D warnings
+cargo test --workspace --all-targets
 nix flake check --no-write-lock-file
 ```
+
+`nix flake check` runs workspace audit, deny, clippy, test, and treefmt on
+`aarch64-darwin`.
 
 ### Real database smoke test
 
