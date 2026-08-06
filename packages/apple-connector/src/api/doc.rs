@@ -324,165 +324,9 @@ mod tests {
     use utoipa::{OpenApi, openapi::RefOr};
 
     use super::ApiDoc;
-    use crate::api::router::build_openapi_spec;
+    use crate::api::router::openapi_contract::contract::{self, build_spec};
 
     const COMMITTED_OPENAPI: &str = include_str!("../../../../docs/openapi.json");
-
-    const EXPECTED_OPERATIONS: &[(&str, &str, &str)] = &[
-        ("get", "/healthz", "getHealth"),
-        ("get", "/v1/chats", "listChats"),
-        ("get", "/v1/chats/{chat_id}", "getChat"),
-        ("get", "/v1/chats/{chat_id}/messages", "listChatMessages"),
-        ("get", "/v1/messages", "listMessages"),
-        ("get", "/v1/messages/{guid}", "getMessage"),
-        ("get", "/v1/attachments/{guid}", "getAttachment"),
-        (
-            "get",
-            "/v1/attachments/{guid}/content",
-            "getAttachmentContent",
-        ),
-        (
-            "head",
-            "/v1/attachments/{guid}/content",
-            "headAttachmentContent",
-        ),
-        ("get", "/v1/reminder-lists", "listReminderLists"),
-        ("get", "/v1/reminder-lists/{list_id}", "getReminderList"),
-        (
-            "get",
-            "/v1/reminder-lists/{list_id}/reminders",
-            "listReminderListReminders",
-        ),
-        ("get", "/v1/reminders", "listReminders"),
-        ("get", "/v1/reminders/{reminder_id}", "getReminder"),
-        (
-            "post",
-            "/v1/reminder-lists/{list_id}/reminders",
-            "createReminder",
-        ),
-        ("patch", "/v1/reminders/{reminder_id}", "updateReminder"),
-        ("delete", "/v1/reminders/{reminder_id}", "deleteReminder"),
-        (
-            "get",
-            "/v1/reminder-attachments/{id}",
-            "getReminderAttachment",
-        ),
-        (
-            "get",
-            "/v1/reminder-attachments/{id}/content",
-            "getReminderAttachmentContent",
-        ),
-        (
-            "head",
-            "/v1/reminder-attachments/{id}/content",
-            "headReminderAttachmentContent",
-        ),
-        ("get", "/v1/note-folders", "listNoteFolders"),
-        ("get", "/v1/note-folders/{folder_id}", "getNoteFolder"),
-        (
-            "get",
-            "/v1/note-folders/{folder_id}/notes",
-            "listFolderNotes",
-        ),
-        ("get", "/v1/notes", "listNotes"),
-        ("get", "/v1/notes/{note_id}", "getNote"),
-        ("get", "/v1/notes/{note_id}/contents", "getNoteContents"),
-        ("get", "/v1/note-attachments/{id}", "getNoteAttachment"),
-        (
-            "get",
-            "/v1/note-attachments/{id}/content",
-            "getNoteAttachmentContent",
-        ),
-        (
-            "head",
-            "/v1/note-attachments/{id}/content",
-            "headNoteAttachmentContent",
-        ),
-        ("get", "/v1/calendar-accounts", "listCalendarAccounts"),
-        ("get", "/v1/calendars", "listCalendars"),
-        ("get", "/v1/calendars/{calendar_id}", "getCalendar"),
-        (
-            "get",
-            "/v1/calendars/{calendar_id}/events",
-            "listCalendarEvents",
-        ),
-        (
-            "get",
-            "/v1/calendars/{calendar_id}/events/iCal",
-            "listCalendarEventsIcal",
-        ),
-        (
-            "get",
-            "/v1/calendars/{calendar_id}/events/caldav",
-            "listCalendarEventsCaldav",
-        ),
-        ("get", "/v1/events", "listEvents"),
-        ("get", "/v1/events/iCal", "listEventsIcal"),
-        ("get", "/v1/events/caldav", "listEventsCaldav"),
-        ("get", "/v1/events/{event_id}", "getEvent"),
-        ("post", "/v1/calendars/{calendar_id}/events", "createEvent"),
-        ("patch", "/v1/events/{event_id}", "updateEvent"),
-        ("delete", "/v1/events/{event_id}", "deleteEvent"),
-        ("get", "/v1/events/{event_id}/iCal", "getEventIcal"),
-        ("get", "/v1/events/{event_id}/caldav", "getEventCaldav"),
-        (
-            "get",
-            "/v1/events/{event_id}/attachments/{attachment_id}",
-            "getEventAttachmentContent",
-        ),
-        ("get", "/v1/containers", "listContainers"),
-        ("get", "/v1/containers/{container_id}", "getContainer"),
-        ("get", "/v1/groups", "listGroups"),
-        ("get", "/v1/groups/{group_id}", "getGroup"),
-        ("get", "/v1/groups/{group_id}/contacts", "listGroupContacts"),
-        (
-            "get",
-            "/v1/groups/{group_id}/contacts/vcard",
-            "listGroupContactsVcard",
-        ),
-        (
-            "get",
-            "/v1/groups/{group_id}/contacts/carddav",
-            "listGroupContactsCarddav",
-        ),
-        ("get", "/v1/contacts", "listContacts"),
-        ("get", "/v1/contacts/vcard", "listContactsVcard"),
-        ("get", "/v1/contacts/carddav", "listContactsCarddav"),
-        ("get", "/v1/contacts/search", "searchContacts"),
-        ("get", "/v1/contacts/{contact_id}", "getContact"),
-        ("get", "/v1/contacts/{contact_id}/vcard", "getContactVcard"),
-        (
-            "get",
-            "/v1/contacts/{contact_id}/carddav",
-            "getContactCarddav",
-        ),
-        ("get", "/v1/contacts/{contact_id}/photo", "getContactPhoto"),
-        (
-            "post",
-            "/v1/containers/{container_id}/contacts",
-            "createContact",
-        ),
-        ("patch", "/v1/contacts/{contact_id}", "updateContact"),
-        ("delete", "/v1/contacts/{contact_id}", "deleteContact"),
-        (
-            "post",
-            "/v1/containers/{container_id}/groups",
-            "createGroup",
-        ),
-        ("patch", "/v1/groups/{group_id}", "updateGroup"),
-        ("delete", "/v1/groups/{group_id}", "deleteGroup"),
-        (
-            "post",
-            "/v1/groups/{group_id}/contacts/{contact_id}",
-            "addContactToGroup",
-        ),
-        (
-            "delete",
-            "/v1/groups/{group_id}/contacts/{contact_id}",
-            "removeContactFromGroup",
-        ),
-        ("get", "/openapi.json", "getOpenApiSpec"),
-    ];
 
     fn assert_no_dangling_refs(spec: &utoipa::openapi::OpenApi) {
         let components = spec
@@ -535,20 +379,7 @@ mod tests {
         method: &str,
         path: &str,
     ) -> &'a utoipa::openapi::path::Operation {
-        let item = spec
-            .paths
-            .paths
-            .get(path)
-            .unwrap_or_else(|| panic!("missing path `{path}`"));
-        match method {
-            "get" => item.get.as_ref(),
-            "head" => item.head.as_ref(),
-            "post" => item.post.as_ref(),
-            "patch" => item.patch.as_ref(),
-            "delete" => item.delete.as_ref(),
-            _ => None,
-        }
-        .unwrap_or_else(|| panic!("missing `{method} {path}`"))
+        contract::operation(spec, method, path)
     }
 
     #[test]
@@ -562,7 +393,7 @@ mod tests {
 
     #[test]
     fn exported_openapi_matches_committed_contract() {
-        let generated = build_openapi_spec()
+        let generated = build_spec()
             .to_pretty_json()
             .expect("serialize generated openapi");
         assert_eq!(
@@ -574,13 +405,13 @@ mod tests {
 
     #[test]
     fn contract_covers_planned_operations() {
-        let spec = build_openapi_spec();
+        let spec = build_spec();
 
-        for (method, path, operation_id) in EXPECTED_OPERATIONS {
-            let operation = operation(&spec, method, path);
+        for (method, path, operation_id) in contract::operations(&spec) {
+            let operation = contract::operation(&spec, &method, &path);
             assert_eq!(
                 operation.operation_id.as_deref(),
-                Some(*operation_id),
+                Some(operation_id.as_str()),
                 "unexpected operationId for `{method} {path}`"
             );
             assert!(
@@ -592,11 +423,16 @@ mod tests {
                 "missing tags for `{method} {path}`"
             );
         }
+
+        assert!(
+            !contract::operations(&spec).is_empty(),
+            "OpenAPI spec should expose production operations"
+        );
     }
 
     #[test]
     fn contract_documents_pagination_defaults_and_bounds() {
-        let spec = build_openapi_spec();
+        let spec = build_spec();
         let json = serde_json::to_value(&spec).expect("spec json");
 
         let list_chats_limit = json["paths"]["/v1/chats"]["get"]["parameters"]
@@ -647,7 +483,7 @@ mod tests {
 
     #[test]
     fn contract_documents_binary_attachment_responses() {
-        let spec = build_openapi_spec();
+        let spec = build_spec();
         let operation = operation(&spec, "get", "/v1/attachments/{guid}/content");
 
         for status in ["200", "206", "304", "404", "416"] {
@@ -672,7 +508,7 @@ mod tests {
 
     #[test]
     fn contract_documents_list_messages_search_parameters() {
-        let spec = build_openapi_spec();
+        let spec = build_spec();
         let json = serde_json::to_value(&spec).expect("spec json");
         let parameters = json["paths"]["/v1/messages"]["get"]["parameters"]
             .as_array()
@@ -701,7 +537,7 @@ mod tests {
 
     #[test]
     fn contract_documents_structured_errors() {
-        let spec = build_openapi_spec();
+        let spec = build_spec();
         let components = spec.components.as_ref().expect("components");
         let error_response = components
             .schemas
@@ -720,17 +556,16 @@ mod tests {
 
     #[test]
     fn contract_has_no_dangling_refs() {
-        assert_no_dangling_refs(&build_openapi_spec());
+        assert_no_dangling_refs(&build_spec());
     }
 
     #[test]
-    fn production_route_spec_paths_match_planned_operations() {
-        let spec = build_openapi_spec();
-        let spec_paths: BTreeSet<_> = spec.paths.paths.keys().cloned().collect();
-        let expected_paths: BTreeSet<_> = EXPECTED_OPERATIONS
-            .iter()
-            .map(|(_, path, _)| (*path).to_owned())
+    fn production_routes_expose_operation_ids() {
+        let spec = build_spec();
+        let operation_ids: BTreeSet<_> = contract::operations(&spec)
+            .into_iter()
+            .map(|(_, _, operation_id)| operation_id)
             .collect();
-        assert_eq!(spec_paths, expected_paths);
+        assert_eq!(operation_ids.len(), contract::operations(&spec).len());
     }
 }

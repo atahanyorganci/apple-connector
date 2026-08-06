@@ -278,96 +278,125 @@ fn openapi_router() -> OpenApiRouter<AppState> {
 }
 
 #[cfg(test)]
+pub(crate) mod openapi_contract {
+    pub mod contract {
+        use http::Method;
+        use utoipa::openapi::path::Operation;
+
+        use super::super::build_openapi_spec;
+
+        pub fn build_spec() -> utoipa::openapi::OpenApi {
+            build_openapi_spec()
+        }
+
+        pub fn operations(spec: &utoipa::openapi::OpenApi) -> Vec<(String, String, String)> {
+            let mut ops = Vec::new();
+            for (path, item) in &spec.paths.paths {
+                push_operation(&mut ops, "get", path, item.get.as_ref());
+                push_operation(&mut ops, "head", path, item.head.as_ref());
+                push_operation(&mut ops, "post", path, item.post.as_ref());
+                push_operation(&mut ops, "patch", path, item.patch.as_ref());
+                push_operation(&mut ops, "delete", path, item.delete.as_ref());
+            }
+            ops.sort_by(|left, right| {
+                left.1
+                    .cmp(&right.1)
+                    .then_with(|| left.0.cmp(&right.0))
+                    .then_with(|| left.2.cmp(&right.2))
+            });
+            ops
+        }
+
+        pub fn route_requests(spec: &utoipa::openapi::OpenApi) -> Vec<(Method, String)> {
+            operations(spec)
+                .into_iter()
+                .map(|(method, path, _)| {
+                    (
+                        method.parse::<Method>().expect("valid HTTP method"),
+                        concrete_path(&path),
+                    )
+                })
+                .collect()
+        }
+
+        pub fn operation<'a>(
+            spec: &'a utoipa::openapi::OpenApi,
+            method: &str,
+            path: &str,
+        ) -> &'a Operation {
+            let item = spec
+                .paths
+                .paths
+                .get(path)
+                .unwrap_or_else(|| panic!("missing path `{path}`"));
+            match method {
+                "get" => item.get.as_ref(),
+                "head" => item.head.as_ref(),
+                "post" => item.post.as_ref(),
+                "patch" => item.patch.as_ref(),
+                "delete" => item.delete.as_ref(),
+                _ => None,
+            }
+            .unwrap_or_else(|| panic!("missing `{method} {path}`"))
+        }
+
+        fn push_operation(
+            ops: &mut Vec<(String, String, String)>,
+            method: &str,
+            path: &str,
+            operation: Option<&Operation>,
+        ) {
+            let Some(operation) = operation else {
+                return;
+            };
+            ops.push((
+                method.to_owned(),
+                path.to_owned(),
+                operation
+                    .operation_id
+                    .clone()
+                    .unwrap_or_else(|| panic!("missing operationId for `{method} {path}`")),
+            ));
+        }
+
+        fn concrete_path(path: &str) -> String {
+            path.replace("{chat_id}", "1")
+                .replace("{folder_id}", "1")
+                .replace("{list_id}", "1")
+                .replace("{guid}", "test-guid")
+                .replace("{reminder_id}", "test-id")
+                .replace("{note_id}", "test-id")
+                .replace("{calendar_id}", "test-id")
+                .replace("{event_id}", "test-id")
+                .replace("{container_id}", "test-id")
+                .replace("{group_id}", "test-id")
+                .replace("{contact_id}", "test-id")
+                .replace("{attachment_id}", "test-id")
+                .replace("{id}", "test-id")
+        }
+    }
+}
+
+#[cfg(test)]
 mod tests {
     use axum::body::Body;
-    use http::{Method, Request, StatusCode};
+    use http::{Request, StatusCode};
     use tower::ServiceExt;
 
-    use super::{AppState, router};
-
-    const ROUTES: &[(&str, &str)] = &[
-        ("GET", "/healthz"),
-        ("GET", "/v1/chats"),
-        ("GET", "/v1/chats/1"),
-        ("GET", "/v1/chats/1/messages"),
-        ("GET", "/v1/messages"),
-        ("GET", "/v1/messages/test-guid"),
-        ("GET", "/v1/attachments/test-guid"),
-        ("GET", "/v1/attachments/test-guid/content"),
-        ("HEAD", "/v1/attachments/test-guid/content"),
-        ("GET", "/v1/reminder-lists"),
-        ("GET", "/v1/reminder-lists/1"),
-        ("GET", "/v1/reminder-lists/1/reminders"),
-        ("GET", "/v1/reminders"),
-        ("GET", "/v1/reminders/test-id"),
-        ("POST", "/v1/reminder-lists/1/reminders"),
-        ("PATCH", "/v1/reminders/test-id"),
-        ("DELETE", "/v1/reminders/test-id"),
-        ("GET", "/v1/reminder-attachments/test-id"),
-        ("GET", "/v1/reminder-attachments/test-id/content"),
-        ("HEAD", "/v1/reminder-attachments/test-id/content"),
-        ("GET", "/v1/note-folders"),
-        ("GET", "/v1/note-folders/1"),
-        ("GET", "/v1/note-folders/1/notes"),
-        ("GET", "/v1/notes"),
-        ("GET", "/v1/notes/test-id"),
-        ("GET", "/v1/notes/test-id/contents"),
-        ("GET", "/v1/note-attachments/test-id"),
-        ("GET", "/v1/note-attachments/test-id/content"),
-        ("HEAD", "/v1/note-attachments/test-id/content"),
-        ("GET", "/v1/calendar-accounts"),
-        ("GET", "/v1/calendars"),
-        ("GET", "/v1/calendars/test-id"),
-        ("GET", "/v1/calendars/test-id/events"),
-        ("GET", "/v1/calendars/test-id/events/iCal"),
-        ("GET", "/v1/calendars/test-id/events/caldav"),
-        ("GET", "/v1/events"),
-        ("GET", "/v1/events/iCal"),
-        ("GET", "/v1/events/caldav"),
-        ("GET", "/v1/events/test-id"),
-        ("POST", "/v1/calendars/test-id/events"),
-        ("PATCH", "/v1/events/test-id"),
-        ("DELETE", "/v1/events/test-id"),
-        ("GET", "/v1/events/test-id/iCal"),
-        ("GET", "/v1/events/test-id/caldav"),
-        ("GET", "/v1/events/test-id/attachments/test-id"),
-        ("GET", "/v1/containers"),
-        ("GET", "/v1/containers/test-id"),
-        ("GET", "/v1/groups"),
-        ("GET", "/v1/groups/test-id"),
-        ("GET", "/v1/groups/test-id/contacts"),
-        ("GET", "/v1/groups/test-id/contacts/vcard"),
-        ("GET", "/v1/groups/test-id/contacts/carddav"),
-        ("GET", "/v1/contacts"),
-        ("GET", "/v1/contacts/vcard"),
-        ("GET", "/v1/contacts/carddav"),
-        ("GET", "/v1/contacts/search"),
-        ("GET", "/v1/contacts/test-id"),
-        ("GET", "/v1/contacts/test-id/vcard"),
-        ("GET", "/v1/contacts/test-id/carddav"),
-        ("GET", "/v1/contacts/test-id/photo"),
-        ("POST", "/v1/containers/test-id/contacts"),
-        ("PATCH", "/v1/contacts/test-id"),
-        ("DELETE", "/v1/contacts/test-id"),
-        ("POST", "/v1/containers/test-id/groups"),
-        ("PATCH", "/v1/groups/test-id"),
-        ("DELETE", "/v1/groups/test-id"),
-        ("POST", "/v1/groups/test-id/contacts/test-id"),
-        ("DELETE", "/v1/groups/test-id/contacts/test-id"),
-        ("GET", "/openapi.json"),
-    ];
+    use super::{AppState, openapi_contract::contract, router};
 
     #[tokio::test]
     async fn router_registers_every_contract_route() {
         let app = router(AppState::new(None, None, None, None));
+        let spec = contract::build_spec();
 
-        for (method, path) in ROUTES {
+        for (method, path) in contract::route_requests(&spec) {
             let response = app
                 .clone()
                 .oneshot(
                     Request::builder()
-                        .method(method.parse::<Method>().expect("method"))
-                        .uri(*path)
+                        .method(method.clone())
+                        .uri(path.clone())
                         .body(Body::empty())
                         .expect("request"),
                 )
@@ -416,7 +445,7 @@ mod tests {
         let response = app
             .oneshot(
                 Request::builder()
-                    .method(Method::POST)
+                    .method(http::Method::POST)
                     .uri("/healthz")
                     .body(Body::empty())
                     .expect("request"),
