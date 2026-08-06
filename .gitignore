@@ -9,3 +9,8 @@ packages/apple-connector/fixtures/reminders/reminders.db
 packages/apple-connector/fixtures/reminders/reminders.db-*
 packages/apple-connector/fixtures/notes/notes.db
 packages/apple-connector/fixtures/notes/notes.db-*
+packages/apple-connector/fixtures/calendar/calendar.db
+packages/apple-connector/fixtures/calendar/calendar.db-*
+packages/apple-connector/fixtures/contacts/contacts.abcddb
+packages/apple-connector/fixtures/contacts/*.abcddb
+packages/apple-connector/fixtures/contacts/*.abcddb-*
