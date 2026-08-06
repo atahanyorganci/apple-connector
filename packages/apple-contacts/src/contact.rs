@@ -98,19 +98,13 @@ pub(crate) fn validate_labeled_value(
     Ok(())
 }
 
-#[cfg(target_os = "macos")]
-use objc2::rc::Retained;
-#[cfg(target_os = "macos")]
-use objc2::runtime::ProtocolObject;
-#[cfg(target_os = "macos")]
+use objc2::{rc::Retained, runtime::ProtocolObject};
 use objc2_contacts::{
     CNContact, CNContactStore, CNContactVCardSerialization, CNKeyDescriptor, CNLabeledValue,
     CNMutableContact, CNMutablePostalAddress, CNPhoneNumber, CNPostalAddress, CNSaveRequest,
 };
-#[cfg(target_os = "macos")]
 use objc2_foundation::{NSArray, NSMutableCopying, NSString};
 
-#[cfg(target_os = "macos")]
 impl ContactsStore {
     pub async fn create_contact(
         &self,
@@ -171,12 +165,10 @@ impl ContactsStore {
     }
 }
 
-#[cfg(target_os = "macos")]
 pub(crate) fn execute_save(store: &CNContactStore, request: &CNSaveRequest) -> ContactsResult<()> {
     unsafe { store.executeSaveRequest_error(request) }.map_err(crate::error::map_cn_error)
 }
 
-#[cfg(target_os = "macos")]
 pub(crate) fn lookup_contact(
     store: &CNContactStore,
     identifier: &str,
@@ -187,18 +179,15 @@ pub(crate) fn lookup_contact(
         .map_err(crate::error::map_cn_error)
 }
 
-#[cfg(target_os = "macos")]
 fn mutable_contact(contact: &CNContact) -> ContactsResult<Retained<CNMutableContact>> {
     Ok(contact.mutableCopy())
 }
 
-#[cfg(target_os = "macos")]
 fn contact_write_keys() -> Retained<NSArray<ProtocolObject<dyn CNKeyDescriptor>>> {
     let descriptor = unsafe { CNContactVCardSerialization::descriptorForRequiredKeys() };
     NSArray::from_retained_slice(&[descriptor])
 }
 
-#[cfg(target_os = "macos")]
 fn apply_create_fields(
     contact: &CNMutableContact,
     input: &CreateContactInput,
@@ -262,7 +251,6 @@ fn apply_create_fields(
     Ok(())
 }
 
-#[cfg(target_os = "macos")]
 fn apply_update_fields(
     contact: &CNMutableContact,
     input: UpdateContactInput,
@@ -324,7 +312,6 @@ fn apply_update_fields(
     Ok(())
 }
 
-#[cfg(target_os = "macos")]
 fn set_optional_string<F>(contact: &CNMutableContact, value: Option<&str>, setter: F)
 where
     F: FnOnce(&CNMutableContact, &NSString),
@@ -335,7 +322,6 @@ where
     }
 }
 
-#[cfg(target_os = "macos")]
 fn build_phone_numbers(
     inputs: &[LabeledStringInput],
 ) -> ContactsResult<Retained<NSArray<CNLabeledValue<CNPhoneNumber>>>> {
@@ -353,7 +339,6 @@ fn build_phone_numbers(
     Ok(NSArray::from_retained_slice(&values))
 }
 
-#[cfg(target_os = "macos")]
 fn build_string_labeled_values(
     inputs: &[LabeledStringInput],
 ) -> ContactsResult<Retained<NSArray<CNLabeledValue<NSString>>>> {
@@ -369,7 +354,6 @@ fn build_string_labeled_values(
     Ok(NSArray::from_retained_slice(&values))
 }
 
-#[cfg(target_os = "macos")]
 fn build_postal_addresses(
     inputs: &[PostalAddressInput],
 ) -> ContactsResult<Retained<NSArray<CNLabeledValue<CNPostalAddress>>>> {

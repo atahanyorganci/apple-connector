@@ -32,6 +32,9 @@
         (lib.fileset.fileFilter
           (file: lib.hasInfix "/packages/apple-eventkit/" file.name)
           projectRoot)
+        (lib.fileset.fileFilter
+          (file: lib.hasInfix "/packages/apple-contacts/" file.name)
+          projectRoot)
         packageSources
         (lib.fileset.maybeMissing (packageRoot + "/build.rs"))
         (lib.fileset.maybeMissing (packageRoot + "/sqlx"))
