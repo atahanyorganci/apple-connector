@@ -1,10 +1,6 @@
 use crate::error::{ContactsError, ContactsResult};
-
 #[cfg(target_os = "macos")]
-use crate::{
-    container::ContainerResolveHint,
-    store::ContactsStore,
-};
+use crate::{container::ContainerResolveHint, store::ContactsStore};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct LabeledStringInput {
