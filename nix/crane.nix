@@ -23,18 +23,12 @@
     craneLibNightly = craneLib.overrideToolchain rustToolchainFor;
     packageSources =
       lib.fileset.fileFilter
-      (file: lib.hasInfix "/packages/apple-connector/" file.name)
+      (file: lib.hasInfix "/packages/" file.name)
       projectRoot;
     src = lib.fileset.toSource {
       root = projectRoot;
       fileset = lib.fileset.unions [
         (craneLibNightly.fileset.commonCargoSources projectRoot)
-        (lib.fileset.fileFilter
-          (file: lib.hasInfix "/packages/apple-eventkit/" file.name)
-          projectRoot)
-        (lib.fileset.fileFilter
-          (file: lib.hasInfix "/packages/apple-contacts/" file.name)
-          projectRoot)
         packageSources
         (lib.fileset.maybeMissing (packageRoot + "/build.rs"))
         (lib.fileset.maybeMissing (packageRoot + "/sqlx"))
@@ -71,38 +65,40 @@
       SQLX_OFFLINE = "true";
       SQLX_OFFLINE_DIR = "packages/apple-connector/sqlx";
     };
-    commonArgs =
+    workspaceCheckArgs =
       workspaceArgs
       // {
-        cargoExtraArgs = "-p apple-connector";
+        cargoExtraArgs = "--workspace";
       };
-    cargoArtifacts = craneLibNightly.buildDepsOnly commonArgs;
+    cargoArtifacts = craneLibNightly.buildDepsOnly workspaceCheckArgs;
     individualCrateArgs =
-      commonArgs
+      workspaceCheckArgs
       // {
         inherit cargoArtifacts;
         doCheck = false;
+        cargoExtraArgs = "-p apple-connector";
       };
 
     apple-connector = craneLibNightly.buildPackage individualCrateArgs;
   in {
     checks = {
-      apple-connector-audit = craneLib.cargoAudit (workspaceArgs
+      workspace-audit = craneLib.cargoAudit (workspaceArgs
         // {
           advisory-db = inputs.advisory-db;
         });
 
-      apple-connector-deny = craneLib.cargoDeny workspaceArgs;
+      workspace-deny = craneLib.cargoDeny workspaceArgs;
 
-      apple-connector-clippy = craneLibNightly.cargoClippy (commonArgs
+      workspace-clippy = craneLibNightly.cargoClippy (workspaceCheckArgs
         // {
           inherit cargoArtifacts;
           cargoClippyExtraArgs = "--all-targets -- --deny warnings";
         });
 
-      apple-connector-test = craneLibNightly.cargoTest (commonArgs
+      workspace-test = craneLibNightly.cargoTest (workspaceCheckArgs
         // {
           inherit cargoArtifacts;
+          cargoTestExtraArgs = "--all-targets";
         });
     };
     packages = {
