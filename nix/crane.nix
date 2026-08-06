@@ -58,7 +58,10 @@
     workspaceArgs = {
       inherit src;
       strictDeps = true;
-      buildInputs = [pkgs.libiconv pkgs.sqlite];
+      buildInputs =
+        [pkgs.sqlite pkgs.clang]
+        ++ lib.optionals pkgs.stdenv.isDarwin [pkgs.libiconv];
+      LIBCLANG_PATH = "${pkgs.llvmPackages.libclang.lib}/lib";
       cargoToml = projectRoot + "/Cargo.toml";
       pname = "apple-connector";
       version = packageManifest.package.version;
