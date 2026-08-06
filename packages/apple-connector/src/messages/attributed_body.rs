@@ -256,22 +256,24 @@ mod tests {
         include_bytes!("../../../apple-typedstream/fixtures/attributed-body-06-text-url.bin");
 
     #[test]
-    fn decodes_attributed_body_fixture() {
-        let body = decode(HELLO_FIXTURE).expect("decode attributed body fixture");
+    fn decodes_attributed_body_fixture() -> Result<(), Box<dyn std::error::Error>> {
+        let body = decode(HELLO_FIXTURE)?;
         assert_eq!(body.text.as_deref(), Some("Noter test"));
         assert_eq!(body.runs.len(), 1);
         assert_eq!(body.runs[0].part, Some(0));
         assert!(body.runs[0].attributes.is_empty());
+        Ok(())
     }
 
     #[test]
-    fn decodes_i16_length_attributed_body_fixture() {
-        let body = decode(LONG_FIXTURE).expect("decode long attributed body fixture");
-        let text = body.text.expect("text");
+    fn decodes_i16_length_attributed_body_fixture() -> Result<(), Box<dyn std::error::Error>> {
+        let body = decode(LONG_FIXTURE)?;
+        let text = body.text.ok_or("missing text")?;
         assert!(
             text.starts_with("Sed nibh velit,"),
             "unexpected decoded text: {text:?}"
         );
+        Ok(())
     }
 
     #[test]
@@ -297,8 +299,8 @@ mod tests {
     }
 
     #[test]
-    fn parses_photo_caption_file_transfer_run() {
-        let body = decode(PHOTO_CAPTION_FIXTURE).expect("photo caption");
+    fn parses_photo_caption_file_transfer_run() -> Result<(), Box<dyn std::error::Error>> {
+        let body = decode(PHOTO_CAPTION_FIXTURE)?;
         assert_eq!(body.runs.len(), 2);
         assert_eq!(
             body.runs[0].attributes,
@@ -309,19 +311,20 @@ mod tests {
         );
         assert_eq!(body.runs[0].part, Some(0));
         assert_eq!(
-            &body.text.as_ref().unwrap()[body.runs[0].start..body.runs[0].end],
+            &body.text.as_ref().ok_or("missing components")?[body.runs[0].start..body.runs[0].end],
             "\u{fffc}"
         );
         assert_eq!(body.runs[1].part, Some(1));
         assert_eq!(
-            &body.text.as_ref().unwrap()[body.runs[1].start..body.runs[1].end],
+            &body.text.as_ref().ok_or("missing components")?[body.runs[1].start..body.runs[1].end],
             "fixture: photo caption"
         );
+        Ok(())
     }
 
     #[test]
-    fn parses_sticker_inline_file_transfer() {
-        let body = decode(STICKER_FIXTURE).expect("sticker");
+    fn parses_sticker_inline_file_transfer() -> Result<(), Box<dyn std::error::Error>> {
+        let body = decode(STICKER_FIXTURE)?;
         assert_eq!(
             body.runs[0].attributes,
             vec![BodyAttribute::FileTransfer {
@@ -329,11 +332,12 @@ mod tests {
                 inline_sticker: true,
             }]
         );
+        Ok(())
     }
 
     #[test]
-    fn parses_phone_link_run() {
-        let body = decode(PHONE_FIXTURE).expect("phone");
+    fn parses_phone_link_run() -> Result<(), Box<dyn std::error::Error>> {
+        let body = decode(PHONE_FIXTURE)?;
         assert_eq!(body.runs.len(), 2);
         assert!(body.runs[0].attributes.is_empty());
         assert!(body.runs[1].attributes.iter().any(
@@ -345,15 +349,16 @@ mod tests {
                 .contains(&BodyAttribute::PhoneNumber)
         );
         assert_eq!(
-            &body.text.as_ref().unwrap()[body.runs[1].start..body.runs[1].end],
+            &body.text.as_ref().ok_or("missing components")?[body.runs[1].start..body.runs[1].end],
             "+1 (555) 123-4567"
         );
+        Ok(())
     }
 
     #[test]
-    fn reuses_attribute_cache_for_repeated_type_index() {
-        let body = decode(TEXT_URL_FIXTURE).expect("text url");
-        let text = body.text.as_deref().unwrap();
+    fn reuses_attribute_cache_for_repeated_type_index() -> Result<(), Box<dyn std::error::Error>> {
+        let body = decode(TEXT_URL_FIXTURE)?;
+        let text = body.text.as_deref().ok_or("missing text")?;
         assert_eq!(text, "fixture: visit https://example.com today");
         assert_eq!(body.runs.len(), 4);
         assert_eq!(
@@ -376,10 +381,11 @@ mod tests {
                 .attributes
                 .contains(&BodyAttribute::CalendarEvent)
         );
+        Ok(())
     }
 
     #[test]
-    fn rejects_malformed_and_non_attributed_streams() {
+    fn rejects_malformed_and_non_attributed_streams() -> Result<(), Box<dyn std::error::Error>> {
         use crate::messages::model::AttributedBodyDecodeError;
 
         assert_eq!(
@@ -387,10 +393,11 @@ mod tests {
             Err(AttributedBodyDecodeError::InvalidTypedStream)
         );
 
-        let string_stream = apple_typedstream::to_vec("plain NSString").expect("encode NSString");
+        let string_stream = apple_typedstream::to_vec("plain NSString")?;
         assert_eq!(
             decode(&string_stream),
             Err(AttributedBodyDecodeError::NotAttributedString)
         );
+        Ok(())
     }
 }

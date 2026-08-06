@@ -322,13 +322,15 @@ mod tests {
     }
 
     #[test]
-    fn expands_tilde_paths() {
-        let home = std::env::var("HOME").expect("HOME");
-        let resolved = resolve_attachment_path("~/Library/Messages/Attachments/x.bin").unwrap();
+    fn expands_tilde_paths() -> Result<(), Box<dyn std::error::Error>> {
+        let home = std::env::var("HOME")?;
+        let resolved = resolve_attachment_path("~/Library/Messages/Attachments/x.bin")
+            .ok_or("expected path expansion")?;
         assert_eq!(
             resolved,
             PathBuf::from(home).join("Library/Messages/Attachments/x.bin")
         );
         assert!(resolve_attachment_path("").is_none());
+        Ok(())
     }
 }

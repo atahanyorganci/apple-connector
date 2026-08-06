@@ -313,12 +313,12 @@ mod tests {
     use super::PageParams;
 
     #[test]
-    fn default_limit_is_50_and_max_is_200() {
+    fn default_limit_is_50_and_max_is_200() -> Result<(), Box<dyn std::error::Error>> {
         let page = PageParams {
             limit: None,
             cursor: None,
         };
-        assert_eq!(page.validated_limit().expect("default limit"), 50);
+        assert_eq!(page.validated_limit()?, 50);
 
         let invalid_high = PageParams {
             limit: Some(201),
@@ -331,37 +331,40 @@ mod tests {
             cursor: None,
         };
         assert!(invalid_zero.validated_limit().is_err());
+        Ok(())
     }
 
     #[test]
-    fn note_folder_key_accepts_row_id_and_identifier() {
+    fn note_folder_key_accepts_row_id_and_identifier() -> Result<(), Box<dyn std::error::Error>> {
         use super::NoteFolderKey;
 
         assert!(matches!(
-            NoteFolderKey::parse("42").expect("row id"),
+            NoteFolderKey::parse("42")?,
             NoteFolderKey::Row(42)
         ));
         assert!(matches!(
-            NoteFolderKey::parse("DefaultFolder-CloudKit").expect("identifier"),
+            NoteFolderKey::parse("DefaultFolder-CloudKit")?,
             NoteFolderKey::Id(id) if id == "DefaultFolder-CloudKit"
         ));
         assert!(NoteFolderKey::parse("").is_err());
         assert!(NoteFolderKey::parse("0").is_err());
+        Ok(())
     }
 
     #[test]
-    fn cursor_must_be_versioned_and_url_safe_prefix() {
+    fn cursor_must_be_versioned_and_url_safe_prefix() -> Result<(), Box<dyn std::error::Error>> {
         let valid = PageParams {
             limit: None,
             cursor: Some("v1.c2afe".to_owned()),
         };
-        assert_eq!(valid.validated_cursor().expect("cursor"), Some("v1.c2afe"));
+        assert_eq!(valid.validated_cursor()?, Some("v1.c2afe"));
 
         let invalid = PageParams {
             limit: None,
             cursor: Some("offset:10".to_owned()),
         };
         assert!(invalid.validated_cursor().is_err());
+        Ok(())
     }
 
     #[test]
@@ -531,18 +534,24 @@ impl ReminderListParams {
 
         let list_id = match self.list_id.as_deref().map(str::trim) {
             None | Some("") => None,
-            Some(value) if value.parse::<i64>().is_ok() => Some(
-                crate::reminders::ListIdFilter::RowId(value.parse().expect("parsed")),
-            ),
-            Some(value) if is_uuid(value) => {
-                Some(crate::reminders::ListIdFilter::Uuid(value.to_lowercase()))
-            }
-            Some(_) => {
-                return Err(ApiError::validation_with_details(
-                    "list_id must be a positive integer or UUID",
-                    serde_json::json!({ "field": "list_id" }),
-                ));
-            }
+            Some(value) => match value.parse::<i64>() {
+                Ok(row_id) if row_id > 0 => Some(crate::reminders::ListIdFilter::RowId(row_id)),
+                Ok(_) => {
+                    return Err(ApiError::validation_with_details(
+                        "list_id must be a positive integer or UUID",
+                        serde_json::json!({ "field": "list_id" }),
+                    ));
+                }
+                Err(_) if is_uuid(value) => {
+                    Some(crate::reminders::ListIdFilter::Uuid(value.to_lowercase()))
+                }
+                Err(_) => {
+                    return Err(ApiError::validation_with_details(
+                        "list_id must be a positive integer or UUID",
+                        serde_json::json!({ "field": "list_id" }),
+                    ));
+                }
+            },
         };
 
         let due_before = self
@@ -717,10 +726,16 @@ impl NoteListParams {
 
         let folder_id = match self.folder_id.as_deref().map(str::trim) {
             None | Some("") => None,
-            Some(value) if value.parse::<i64>().is_ok() => Some(
-                crate::notes::FolderIdFilter::RowId(value.parse().expect("parsed")),
-            ),
-            Some(value) => Some(crate::notes::FolderIdFilter::Identifier(value.to_owned())),
+            Some(value) => match value.parse::<i64>() {
+                Ok(row_id) if row_id > 0 => Some(crate::notes::FolderIdFilter::RowId(row_id)),
+                Ok(_) => {
+                    return Err(ApiError::validation_with_details(
+                        "folder_id must be a positive integer or Notes folder identifier",
+                        serde_json::json!({ "field": "folder_id" }),
+                    ));
+                }
+                Err(_) => Some(crate::notes::FolderIdFilter::Identifier(value.to_owned())),
+            },
         };
 
         let modified_before = self

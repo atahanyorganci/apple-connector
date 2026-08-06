@@ -18,3 +18,5 @@ unsafe_code = "forbid"
 [workspace.lints.clippy]
 cast_possible_truncation = "warn"
 cast_possible_wrap = "warn"
+unwrap_used = "deny"
+expect_used = "deny"

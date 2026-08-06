@@ -489,12 +489,13 @@ mod tests {
     }
 
     #[test]
-    fn decodes_plain_text_fixture() {
+    fn decodes_plain_text_fixture() -> Result<(), Box<dyn std::error::Error>> {
         let data = read_fixture("plain-text.bin");
         assert_eq!(data.len(), 605);
 
-        let text = decode_plain_text(&data).expect("plain-text fixture should decode");
+        let text = decode_plain_text(&data)?;
         assert!(text.contains("IBAN"), "decoded text: {text}");
+        Ok(())
     }
 
     #[test]
@@ -533,16 +534,20 @@ mod tests {
     }
 
     #[test]
-    fn detects_invalid_gzip() {
-        let err = decode_plain_text(b"not gzip").unwrap_err();
+    fn detects_invalid_gzip() -> Result<(), Box<dyn std::error::Error>> {
+        let err = decode_plain_text(b"not gzip")
+            .err()
+            .ok_or("expected invalid gzip error")?;
         assert!(matches!(err, super::DecodeError::InvalidGzip(_)));
+        Ok(())
     }
 
     #[test]
-    fn protobuf_varint_roundtrip() {
+    fn protobuf_varint_roundtrip() -> Result<(), Box<dyn std::error::Error>> {
         let encoded = [0x96, 0x01];
-        let (value, next) = super::protobuf::read_varint(&encoded, 0).unwrap();
+        let (value, next) = super::protobuf::read_varint(&encoded, 0)?;
         assert_eq!(value, 150);
         assert_eq!(next, 2);
+        Ok(())
     }
 }

@@ -37,16 +37,18 @@ mod tests {
     use super::{default_calendar_attachment_root, default_calendar_database_path};
 
     #[test]
-    fn default_database_path_is_under_group_containers() {
-        let path = default_calendar_database_path().expect("database path");
+    fn default_database_path_is_under_group_containers() -> Result<(), Box<dyn std::error::Error>> {
+        let path = default_calendar_database_path()?;
         assert!(path.to_string_lossy().contains("group.com.apple.calendar"));
         assert!(path.to_string_lossy().ends_with("Calendar.sqlitedb"));
+        Ok(())
     }
 
     #[test]
-    fn default_attachment_root_points_at_attachments() {
-        let path = default_calendar_attachment_root().expect("attachment root");
+    fn default_attachment_root_points_at_attachments() -> Result<(), Box<dyn std::error::Error>> {
+        let path = default_calendar_attachment_root()?;
         assert!(path.to_string_lossy().contains("group.com.apple.calendar"));
         assert!(path.ends_with("Attachments"));
+        Ok(())
     }
 }

@@ -136,9 +136,9 @@ mod tests {
     };
 
     #[tokio::test]
-    async fn list_and_get_reminders_from_fixture() {
-        let fixture = RemindersFixtureDb::seeded().await.expect("fixture");
-        let pool = connect_pool(fixture.path()).await.expect("pool");
+    async fn list_and_get_reminders_from_fixture() -> Result<(), Box<dyn std::error::Error>> {
+        let fixture = RemindersFixtureDb::seeded().await?;
+        let pool = connect_pool(fixture.path()).await?;
         let app = router(AppState::new(None, Some(pool), None, None));
 
         let response = app
@@ -146,22 +146,19 @@ mod tests {
             .oneshot(
                 Request::builder()
                     .uri("/v1/reminders?limit=10")
-                    .body(Body::empty())
-                    .expect("request"),
+                    .body(Body::empty())?,
             )
-            .await
-            .expect("response");
+            .await?;
         assert_eq!(response.status(), StatusCode::OK);
 
         let response = app
             .oneshot(
                 Request::builder()
                     .uri("/v1/reminders/bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb")
-                    .body(Body::empty())
-                    .expect("request"),
+                    .body(Body::empty())?,
             )
-            .await
-            .expect("response");
+            .await?;
         assert_eq!(response.status(), StatusCode::OK);
+        Ok(())
     }
 }

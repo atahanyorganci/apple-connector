@@ -51,6 +51,14 @@ impl AttachmentPathError {
     }
 }
 
+impl std::fmt::Display for AttachmentPathError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.message())
+    }
+}
+
+impl std::error::Error for AttachmentPathError {}
+
 #[cfg(test)]
 mod tests {
     use std::{fs, io::Write};
@@ -60,25 +68,26 @@ mod tests {
     use super::{AttachmentPathError, resolve_attachment_path};
 
     #[test]
-    fn resolves_relative_attachment_path() {
-        let temp = TempDir::new().expect("temp");
+    fn resolves_relative_attachment_path() -> Result<(), Box<dyn std::error::Error>> {
+        let temp = TempDir::new()?;
         let root = temp.path().join("Attachments");
-        fs::create_dir_all(&root).expect("dir");
+        fs::create_dir_all(&root)?;
         let file = root.join("agenda.pdf");
-        fs::File::create(&file)
-            .expect("file")
-            .write_all(b"pdf")
-            .expect("write");
-        let resolved = resolve_attachment_path(&root, "agenda.pdf").expect("resolve");
-        assert_eq!(resolved, file.canonicalize().expect("canonical"));
+        fs::File::create(&file)?.write_all(b"pdf")?;
+        let resolved = resolve_attachment_path(&root, "agenda.pdf")?;
+        assert_eq!(resolved, file.canonicalize()?);
+        Ok(())
     }
 
     #[test]
-    fn rejects_path_traversal() {
-        let temp = TempDir::new().expect("temp");
+    fn rejects_path_traversal() -> Result<(), Box<dyn std::error::Error>> {
+        let temp = TempDir::new()?;
         let root = temp.path().join("Attachments");
-        fs::create_dir_all(&root).expect("dir");
-        let error = resolve_attachment_path(&root, "../secret.txt").unwrap_err();
+        fs::create_dir_all(&root)?;
+        let error = resolve_attachment_path(&root, "../secret.txt")
+            .err()
+            .ok_or("expected path traversal error")?;
         assert_eq!(error, AttachmentPathError::Traversal);
+        Ok(())
     }
 }

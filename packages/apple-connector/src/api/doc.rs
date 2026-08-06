@@ -328,14 +328,16 @@ mod tests {
 
     const COMMITTED_OPENAPI: &str = include_str!("../../../../docs/openapi.json");
 
-    fn assert_no_dangling_refs(spec: &utoipa::openapi::OpenApi) {
+    fn assert_no_dangling_refs(
+        spec: &utoipa::openapi::OpenApi,
+    ) -> Result<(), Box<dyn std::error::Error>> {
         let components = spec
             .components
             .as_ref()
-            .expect("components section should exist");
+            .ok_or("components section should exist")?;
 
         let mut refs = BTreeSet::new();
-        collect_refs(&spec.paths, &mut refs);
+        collect_refs(&spec.paths, &mut refs)?;
 
         for reference in refs {
             let name = reference
@@ -348,11 +350,16 @@ mod tests {
                 "dangling OpenAPI ref `{reference}`"
             );
         }
+        Ok(())
     }
 
-    fn collect_refs(value: &impl serde::Serialize, refs: &mut BTreeSet<String>) {
-        let json = serde_json::to_value(value).expect("serialize openapi fragment");
+    fn collect_refs(
+        value: &impl serde::Serialize,
+        refs: &mut BTreeSet<String>,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let json = serde_json::to_value(value)?;
         collect_refs_value(&json, refs);
+        Ok(())
     }
 
     fn collect_refs_value(value: &serde_json::Value, refs: &mut BTreeSet<String>) {
@@ -392,15 +399,14 @@ mod tests {
     }
 
     #[test]
-    fn exported_openapi_matches_committed_contract() {
-        let generated = build_spec()
-            .to_pretty_json()
-            .expect("serialize generated openapi");
+    fn exported_openapi_matches_committed_contract() -> Result<(), Box<dyn std::error::Error>> {
+        let generated = build_spec().to_pretty_json()?;
         assert_eq!(
             generated.trim(),
             COMMITTED_OPENAPI.trim(),
             "docs/openapi.json is stale; rerun export-openapi"
         );
+        Ok(())
     }
 
     #[test]
@@ -431,18 +437,19 @@ mod tests {
     }
 
     #[test]
-    fn contract_documents_pagination_defaults_and_bounds() {
+    fn contract_documents_pagination_defaults_and_bounds() -> Result<(), Box<dyn std::error::Error>>
+    {
         let spec = build_spec();
-        let json = serde_json::to_value(&spec).expect("spec json");
+        let json = serde_json::to_value(&spec)?;
 
         let list_chats_limit = json["paths"]["/v1/chats"]["get"]["parameters"]
             .as_array()
-            .expect("listChats parameters")
+            .ok_or("listChats parameters")?
             .iter()
             .find(|parameter| parameter["name"] == "limit")
-            .expect("limit parameter")["schema"]
+            .ok_or("limit parameter")?["schema"]
             .as_object()
-            .expect("limit schema");
+            .ok_or("limit schema")?;
         assert_eq!(list_chats_limit.get("minimum"), Some(&serde_json::json!(1)));
         assert_eq!(
             list_chats_limit.get("maximum"),
@@ -455,18 +462,18 @@ mod tests {
 
         let page_meta_limit = json["components"]["schemas"]["PageMetaDto"]["properties"]["limit"]
             .as_object()
-            .expect("PageMetaDto.limit");
+            .ok_or("PageMetaDto.limit")?;
         assert_eq!(page_meta_limit.get("minimum"), Some(&serde_json::json!(1)));
         assert_eq!(
             page_meta_limit.get("maximum"),
             Some(&serde_json::json!(200))
         );
 
-        let serialized = serde_json::to_string(&json).expect("serialize spec");
+        let serialized = serde_json::to_string(&json)?;
         assert!(
             !json["paths"]
                 .as_object()
-                .expect("paths")
+                .ok_or("paths")?
                 .values()
                 .flat_map(|path| path.as_object())
                 .flat_map(|path| path.values())
@@ -479,10 +486,11 @@ mod tests {
             !serialized.contains("\"offset\""),
             "contract must not define an offset parameter"
         );
+        Ok(())
     }
 
     #[test]
-    fn contract_documents_binary_attachment_responses() {
+    fn contract_documents_binary_attachment_responses() -> Result<(), Box<dyn std::error::Error>> {
         let spec = build_spec();
         let operation = operation(&spec, "get", "/v1/attachments/{guid}/content");
 
@@ -497,22 +505,24 @@ mod tests {
             .responses
             .responses
             .get("206")
-            .expect("206 response");
+            .ok_or("206 response")?;
         let headers = match partial {
             RefOr::T(response) => &response.headers,
             RefOr::Ref(_) => panic!("unexpected 206 ref"),
         };
         assert!(headers.contains_key("Content-Range"));
         assert!(headers.contains_key("Accept-Ranges"));
+        Ok(())
     }
 
     #[test]
-    fn contract_documents_list_messages_search_parameters() {
+    fn contract_documents_list_messages_search_parameters() -> Result<(), Box<dyn std::error::Error>>
+    {
         let spec = build_spec();
-        let json = serde_json::to_value(&spec).expect("spec json");
+        let json = serde_json::to_value(&spec)?;
         let parameters = json["paths"]["/v1/messages"]["get"]["parameters"]
             .as_array()
-            .expect("listMessages parameters");
+            .ok_or("listMessages parameters")?;
         let names: Vec<_> = parameters
             .iter()
             .filter_map(|parameter| parameter["name"].as_str())
@@ -533,16 +543,17 @@ mod tests {
                 "missing listMessages parameter `{name}`"
             );
         }
+        Ok(())
     }
 
     #[test]
-    fn contract_documents_structured_errors() {
+    fn contract_documents_structured_errors() -> Result<(), Box<dyn std::error::Error>> {
         let spec = build_spec();
-        let components = spec.components.as_ref().expect("components");
+        let components = spec.components.as_ref().ok_or("components")?;
         let error_response = components
             .schemas
             .get("ErrorResponse")
-            .expect("ErrorResponse schema");
+            .ok_or("ErrorResponse schema")?;
         assert!(matches!(error_response, RefOr::T(_)));
 
         let list_messages = operation(&spec, "get", "/v1/messages");
@@ -552,11 +563,13 @@ mod tests {
                 "listMessages missing {status}"
             );
         }
+        Ok(())
     }
 
     #[test]
-    fn contract_has_no_dangling_refs() {
-        assert_no_dangling_refs(&build_spec());
+    fn contract_has_no_dangling_refs() -> Result<(), Box<dyn std::error::Error>> {
+        assert_no_dangling_refs(&build_spec())?;
+        Ok(())
     }
 
     #[test]

@@ -150,7 +150,7 @@ mod tests {
     }
 
     #[test]
-    fn decodes_url_balloon_fixture() {
+    fn decodes_url_balloon_fixture() -> Result<(), Box<dyn std::error::Error>> {
         let bytes = include_bytes!("../../../fixtures/messages/balloons/url.plist");
         let balloon = decode(
             "com.apple.messages.URLBalloonProvider".to_owned(),
@@ -165,11 +165,17 @@ mod tests {
                     url.original_url.as_deref(),
                     Some("https://share.google/ZpgCQPccKACrHSLm1")
                 );
-                assert!(url.title.as_deref().unwrap().contains("Michelin"));
+                assert!(
+                    url.title
+                        .as_deref()
+                        .ok_or("missing title")?
+                        .contains("Michelin")
+                );
                 assert_eq!(url.site_name.as_deref(), Some("www.google.com"));
             }
             other => panic!("expected Url, got {other:?}"),
         }
+        Ok(())
     }
 
     #[test]
@@ -191,7 +197,7 @@ mod tests {
     }
 
     #[test]
-    fn decodes_photos_balloon_fixture() {
+    fn decodes_photos_balloon_fixture() -> Result<(), Box<dyn std::error::Error>> {
         let bytes = include_bytes!("../../../fixtures/messages/balloons/photos.plist");
         let balloon = decode(
             "com.apple.messages.MSMessageExtensionBalloonPlugin:0000000000:com.apple.mobileslideshow.PhotosMessagesApp"
@@ -210,12 +216,13 @@ mod tests {
                     photos
                         .url
                         .as_deref()
-                        .unwrap()
+                        .ok_or("missing photos url")?
                         .starts_with("https://share.icloud.com/photos/")
                 );
             }
             other => panic!("expected Photos, got {other:?}"),
         }
+        Ok(())
     }
 
     #[test]

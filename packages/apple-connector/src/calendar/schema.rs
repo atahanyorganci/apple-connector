@@ -63,10 +63,11 @@ mod tests {
     use crate::{connect_pool, fixtures::CalendarFixtureDb};
 
     #[tokio::test]
-    async fn fixture_uses_modern_schema() {
-        let fixture = CalendarFixtureDb::empty().await.expect("fixture");
-        let pool = connect_pool(fixture.path()).await.expect("pool");
-        let variant = detect_schema_variant(&pool).await.expect("detect");
+    async fn fixture_uses_modern_schema() -> Result<(), Box<dyn std::error::Error>> {
+        let fixture = CalendarFixtureDb::empty().await?;
+        let pool = connect_pool(fixture.path()).await?;
+        let variant = detect_schema_variant(&pool).await?;
         assert_eq!(variant, CalendarSchemaVariant::CalendarItem);
+        Ok(())
     }
 }

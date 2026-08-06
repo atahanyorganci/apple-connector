@@ -504,26 +504,26 @@ mod tests {
     use crate::{connect_pool, fixtures::RemindersFixtureDb};
 
     #[tokio::test]
-    async fn repository_reads_seeded_lists_and_reminders() {
-        let fixture = RemindersFixtureDb::seeded().await.expect("fixture");
-        let pool = connect_pool(fixture.path()).await.expect("pool");
+    async fn repository_reads_seeded_lists_and_reminders() -> Result<(), Box<dyn std::error::Error>>
+    {
+        let fixture = RemindersFixtureDb::seeded().await?;
+        let pool = connect_pool(fixture.path()).await?;
         let repo = ReminderRepository::new(&pool);
 
-        let lists = repo.list_lists(10, None).await.expect("lists");
+        let lists = repo.list_lists(10, None).await?;
         assert!(!lists.items.is_empty());
 
         let reminders = repo
             .list_reminders(&Default::default(), 10, None, false, false, None)
-            .await
-            .expect("reminders");
+            .await?;
         assert!(!reminders.items.is_empty());
 
         let detail = repo
             .get_reminder("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb")
-            .await
-            .expect("detail")
-            .expect("reminder");
+            .await?
+            .ok_or("reminder not found")?;
         assert_eq!(detail.title, "Fixture Reminder");
         assert!(!detail.subtasks.is_empty());
+        Ok(())
     }
 }

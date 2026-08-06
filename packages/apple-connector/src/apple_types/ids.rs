@@ -177,23 +177,25 @@ mod tests {
     use super::{ChatId, MessageId};
 
     #[test]
-    fn string_id_serializes_transparently() {
-        let json = serde_json::to_string(&MessageId::new("guid-1")).expect("serialize");
+    fn string_id_serializes_transparently() -> Result<(), Box<dyn std::error::Error>> {
+        let json = serde_json::to_string(&MessageId::new("guid-1"))?;
         assert_eq!(json, "\"guid-1\"");
+        Ok(())
     }
 
     #[test]
-    fn string_id_round_trips() {
+    fn string_id_round_trips() -> Result<(), Box<dyn std::error::Error>> {
         let value = MessageId::new("guid-2");
-        let decoded: MessageId =
-            serde_json::from_str("\"guid-2\"").expect("deserialize message id");
+        let decoded: MessageId = serde_json::from_str("\"guid-2\"")?;
         assert_eq!(decoded, value);
         assert_eq!(value.as_str(), "guid-2");
+        Ok(())
     }
 
     #[test]
-    fn chat_id_serializes_as_integer() {
-        let json = serde_json::to_string(&ChatId::new(7)).expect("serialize");
+    fn chat_id_serializes_as_integer() -> Result<(), Box<dyn std::error::Error>> {
+        let json = serde_json::to_string(&ChatId::new(7))?;
         assert_eq!(json, "7");
+        Ok(())
     }
 }

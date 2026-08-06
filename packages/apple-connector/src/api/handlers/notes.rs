@@ -188,20 +188,19 @@ mod tests {
     };
 
     #[tokio::test]
-    async fn get_note_contents_returns_markdown_with_tags() {
-        let fixture = NotesFixtureDb::seeded().await.expect("fixture");
-        let pool = connect_pool(fixture.path()).await.expect("pool");
+    async fn get_note_contents_returns_markdown_with_tags() -> Result<(), Box<dyn std::error::Error>>
+    {
+        let fixture = NotesFixtureDb::seeded().await?;
+        let pool = connect_pool(fixture.path()).await?;
         let app = router(AppState::new(None, None, Some(pool), None));
 
         let response = app
             .oneshot(
                 Request::builder()
                     .uri(format!("/v1/notes/{SEED_CHECKLIST_NOTE_ID}/contents"))
-                    .body(Body::empty())
-                    .expect("request"),
+                    .body(Body::empty())?,
             )
-            .await
-            .expect("response");
+            .await?;
 
         assert_eq!(response.status(), StatusCode::OK);
         assert_eq!(
@@ -212,13 +211,8 @@ mod tests {
             Some("text/markdown; charset=utf-8")
         );
 
-        let body = response
-            .into_body()
-            .collect()
-            .await
-            .expect("body")
-            .to_bytes();
-        let document = String::from_utf8(body.to_vec()).expect("utf-8");
+        let body = response.into_body().collect().await?.to_bytes();
+        let document = String::from_utf8(body.to_vec())?;
 
         assert!(document.starts_with("---\n"));
         assert!(document.contains("schema_version: 1"));
@@ -228,34 +222,30 @@ mod tests {
             document.contains("- [ ]") || document.contains("- [x]"),
             "document: {document}"
         );
+        Ok(())
     }
 
     #[tokio::test]
-    async fn get_note_contents_locked_note_has_empty_body() {
-        let fixture = NotesFixtureDb::seeded().await.expect("fixture");
-        let pool = connect_pool(fixture.path()).await.expect("pool");
+    async fn get_note_contents_locked_note_has_empty_body() -> Result<(), Box<dyn std::error::Error>>
+    {
+        let fixture = NotesFixtureDb::seeded().await?;
+        let pool = connect_pool(fixture.path()).await?;
         let app = router(AppState::new(None, None, Some(pool), None));
 
         let response = app
             .oneshot(
                 Request::builder()
                     .uri(format!("/v1/notes/{SEED_LOCKED_NOTE_ID}/contents"))
-                    .body(Body::empty())
-                    .expect("request"),
+                    .body(Body::empty())?,
             )
-            .await
-            .expect("response");
+            .await?;
 
         assert_eq!(response.status(), StatusCode::OK);
-        let body = response
-            .into_body()
-            .collect()
-            .await
-            .expect("body")
-            .to_bytes();
-        let document = String::from_utf8(body.to_vec()).expect("utf-8");
+        let body = response.into_body().collect().await?.to_bytes();
+        let document = String::from_utf8(body.to_vec())?;
 
         assert!(document.contains("is_locked: true"));
         assert!(document.trim_end().ends_with("---"));
+        Ok(())
     }
 }

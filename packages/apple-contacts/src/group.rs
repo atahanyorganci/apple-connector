@@ -153,11 +153,14 @@ mod tests {
     use crate::ContactsError;
 
     #[test]
-    fn empty_group_name_is_invalid() {
+    fn empty_group_name_is_invalid() -> Result<(), Box<dyn std::error::Error>> {
         assert_eq!(
-            validate_group_name("   ").unwrap_err(),
+            validate_group_name("   ")
+                .err()
+                .ok_or("expected empty group name error")?,
             ContactsError::ValidationFailed("group name cannot be empty".into())
         );
+        Ok(())
     }
 
     #[test]

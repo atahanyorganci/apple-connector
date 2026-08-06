@@ -113,9 +113,12 @@ fn join_error(_: JoinError) -> EventKitError {
 
 impl Clone for EventKitStore {
     fn clone(&self) -> Self {
-        let store = self.inner.lock().expect("eventkit lock");
+        let store = match self.inner.lock() {
+            Ok(guard) => guard.clone(),
+            Err(poisoned) => poisoned.into_inner().clone(),
+        };
         Self {
-            inner: Mutex::new(store.clone()),
+            inner: Mutex::new(store),
             auth: AuthSnapshot::new(),
         }
     }

@@ -15,54 +15,57 @@ use axum::{Router, body::Body};
 use http::{Request, StatusCode};
 use tower::ServiceExt;
 
-async fn post_json(app: Router, uri: &str, body: &str) -> StatusCode {
+async fn post_json(
+    app: Router,
+    uri: &str,
+    body: &str,
+) -> Result<StatusCode, Box<dyn std::error::Error>> {
     let response = app
         .oneshot(
             Request::builder()
                 .method("POST")
                 .uri(uri)
                 .header("content-type", "application/json")
-                .body(Body::from(body.to_owned()))
-                .expect("request"),
+                .body(Body::from(body.to_owned()))?,
         )
-        .await
-        .expect("response");
-    response.status()
+        .await?;
+    Ok(response.status())
 }
 
-async fn patch_json(app: Router, uri: &str, body: &str) -> StatusCode {
+async fn patch_json(
+    app: Router,
+    uri: &str,
+    body: &str,
+) -> Result<StatusCode, Box<dyn std::error::Error>> {
     let response = app
         .oneshot(
             Request::builder()
                 .method("PATCH")
                 .uri(uri)
                 .header("content-type", "application/json")
-                .body(Body::from(body.to_owned()))
-                .expect("request"),
+                .body(Body::from(body.to_owned()))?,
         )
-        .await
-        .expect("response");
-    response.status()
+        .await?;
+    Ok(response.status())
 }
 
-async fn delete_route(app: Router, uri: &str) -> StatusCode {
+async fn delete_route(app: Router, uri: &str) -> Result<StatusCode, Box<dyn std::error::Error>> {
     let response = app
         .oneshot(
             Request::builder()
                 .method("DELETE")
                 .uri(uri)
-                .body(Body::empty())
-                .expect("request"),
+                .body(Body::empty())?,
         )
-        .await
-        .expect("response");
-    response.status()
+        .await?;
+    Ok(response.status())
 }
 
 #[tokio::test]
-async fn reminder_mutations_return_503_without_eventkit() {
-    let fixture = RemindersFixtureDb::seeded().await.expect("fixture");
-    let pool = connect_pool(fixture.path()).await.expect("pool");
+async fn reminder_mutations_return_503_without_eventkit() -> Result<(), Box<dyn std::error::Error>>
+{
+    let fixture = RemindersFixtureDb::seeded().await?;
+    let pool = connect_pool(fixture.path()).await?;
     let app = router(AppState::with_eventkit(None, Some(pool), None, None, None));
 
     assert_eq!(
@@ -71,7 +74,7 @@ async fn reminder_mutations_return_503_without_eventkit() {
             "/v1/reminder-lists/00000000-0000-0000-0000-000000000001/reminders",
             r#"{"title":"Test"}"#
         )
-        .await,
+        .await?,
         StatusCode::SERVICE_UNAVAILABLE
     );
     assert_eq!(
@@ -80,19 +83,20 @@ async fn reminder_mutations_return_503_without_eventkit() {
             "/v1/reminders/00000000-0000-0000-0000-000000000001",
             r#"{"title":"Updated"}"#
         )
-        .await,
+        .await?,
         StatusCode::SERVICE_UNAVAILABLE
     );
     assert_eq!(
-        delete_route(app, "/v1/reminders/00000000-0000-0000-0000-000000000001").await,
+        delete_route(app, "/v1/reminders/00000000-0000-0000-0000-000000000001").await?,
         StatusCode::SERVICE_UNAVAILABLE
     );
+    Ok(())
 }
 
 #[tokio::test]
-async fn event_mutations_return_503_without_eventkit() {
-    let fixture = CalendarFixtureDb::seeded().await.expect("fixture");
-    let pool = connect_pool(fixture.path()).await.expect("pool");
+async fn event_mutations_return_503_without_eventkit() -> Result<(), Box<dyn std::error::Error>> {
+    let fixture = CalendarFixtureDb::seeded().await?;
+    let pool = connect_pool(fixture.path()).await?;
     let app = router(AppState::with_eventkit(None, None, None, Some(pool), None));
 
     assert_eq!(
@@ -101,7 +105,7 @@ async fn event_mutations_return_503_without_eventkit() {
             &format!("/v1/calendars/{SEED_CALENDAR_ID}/events"),
             r#"{"summary":"Test","start":1705320000,"end":1705323600}"#
         )
-        .await,
+        .await?,
         StatusCode::SERVICE_UNAVAILABLE
     );
     assert_eq!(
@@ -110,13 +114,14 @@ async fn event_mutations_return_503_without_eventkit() {
             "/v1/events/00000000-0000-0000-0000-000000000001",
             r#"{"summary":"Updated"}"#
         )
-        .await,
+        .await?,
         StatusCode::SERVICE_UNAVAILABLE
     );
     assert_eq!(
-        delete_route(app, "/v1/events/00000000-0000-0000-0000-000000000001").await,
+        delete_route(app, "/v1/events/00000000-0000-0000-0000-000000000001").await?,
         StatusCode::SERVICE_UNAVAILABLE
     );
+    Ok(())
 }
 
 fn contacts_app(pool: sqlx::SqlitePool) -> Router {
@@ -136,9 +141,10 @@ fn contacts_app(pool: sqlx::SqlitePool) -> Router {
 }
 
 #[tokio::test]
-async fn contact_mutations_return_503_without_contacts_store() {
-    let fixture = ContactsFixtureDb::seeded().await.expect("fixture");
-    let pool = connect_pool(fixture.path()).await.expect("pool");
+async fn contact_mutations_return_503_without_contacts_store()
+-> Result<(), Box<dyn std::error::Error>> {
+    let fixture = ContactsFixtureDb::seeded().await?;
+    let pool = connect_pool(fixture.path()).await?;
     let app = contacts_app(pool);
 
     assert_eq!(
@@ -147,7 +153,7 @@ async fn contact_mutations_return_503_without_contacts_store() {
             &format!("/v1/containers/{SEED_CONTAINER_ID}/contacts"),
             r#"{"given_name":"Test","family_name":"User"}"#
         )
-        .await,
+        .await?,
         StatusCode::SERVICE_UNAVAILABLE
     );
     assert_eq!(
@@ -156,7 +162,7 @@ async fn contact_mutations_return_503_without_contacts_store() {
             "/v1/contacts/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
             r#"{"given_name":"Updated"}"#
         )
-        .await,
+        .await?,
         StatusCode::SERVICE_UNAVAILABLE
     );
     assert_eq!(
@@ -164,7 +170,7 @@ async fn contact_mutations_return_503_without_contacts_store() {
             app.clone(),
             "/v1/contacts/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"
         )
-        .await,
+        .await?,
         StatusCode::SERVICE_UNAVAILABLE
     );
     assert_eq!(
@@ -173,7 +179,7 @@ async fn contact_mutations_return_503_without_contacts_store() {
             &format!("/v1/containers/{SEED_CONTAINER_ID}/groups"),
             r#"{"name":"Test Group"}"#
         )
-        .await,
+        .await?,
         StatusCode::SERVICE_UNAVAILABLE
     );
     assert_eq!(
@@ -182,11 +188,11 @@ async fn contact_mutations_return_503_without_contacts_store() {
             &format!("/v1/groups/{SEED_GROUP_ID}"),
             r#"{"name":"Renamed"}"#
         )
-        .await,
+        .await?,
         StatusCode::SERVICE_UNAVAILABLE
     );
     assert_eq!(
-        delete_route(app.clone(), &format!("/v1/groups/{SEED_GROUP_ID}")).await,
+        delete_route(app.clone(), &format!("/v1/groups/{SEED_GROUP_ID}")).await?,
         StatusCode::SERVICE_UNAVAILABLE
     );
     assert_eq!(
@@ -195,7 +201,7 @@ async fn contact_mutations_return_503_without_contacts_store() {
             &format!("/v1/groups/{SEED_GROUP_ID}/contacts/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"),
             "{}"
         )
-        .await,
+        .await?,
         StatusCode::SERVICE_UNAVAILABLE
     );
     assert_eq!(
@@ -203,7 +209,8 @@ async fn contact_mutations_return_503_without_contacts_store() {
             app,
             &format!("/v1/groups/{SEED_GROUP_ID}/contacts/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa")
         )
-        .await,
+        .await?,
         StatusCode::SERVICE_UNAVAILABLE
     );
+    Ok(())
 }

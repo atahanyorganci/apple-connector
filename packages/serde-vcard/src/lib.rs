@@ -69,7 +69,7 @@ mod tests {
     use super::{StructuredName, Telephone, VCard, from_str, to_string};
 
     #[test]
-    fn round_trip_minimal_contact() {
+    fn round_trip_minimal_contact() -> Result<(), Box<dyn std::error::Error>> {
         let card = VCard {
             formatted_name: Some("Jane Doe".to_owned()),
             structured_name: Some(StructuredName {
@@ -79,15 +79,16 @@ mod tests {
             }),
             ..VCard::default()
         };
-        let vcf = to_string(&card).expect("serialize");
+        let vcf = to_string(&card)?;
         assert!(vcf.contains("BEGIN:VCARD"));
         assert!(vcf.contains("FN:Jane Doe"));
-        let decoded: VCard = from_str(&vcf).expect("deserialize");
+        let decoded: VCard = from_str(&vcf)?;
         assert_eq!(decoded.formatted_name, card.formatted_name);
+        Ok(())
     }
 
     #[test]
-    fn round_trip_multi_value_tel_email() {
+    fn round_trip_multi_value_tel_email() -> Result<(), Box<dyn std::error::Error>> {
         let card = VCard {
             formatted_name: Some("Test User".to_owned()),
             phones: vec![
@@ -111,25 +112,27 @@ mod tests {
             }],
             ..VCard::default()
         };
-        let vcf = to_string(&card).expect("serialize");
-        let decoded: VCard = from_str(&vcf).expect("deserialize");
+        let vcf = to_string(&card)?;
+        let decoded: VCard = from_str(&vcf)?;
         assert_eq!(decoded.phones.len(), 2);
         assert_eq!(decoded.emails.len(), 1);
+        Ok(())
     }
 
     #[test]
-    fn utf8_name_round_trip() {
+    fn utf8_name_round_trip() -> Result<(), Box<dyn std::error::Error>> {
         let card = VCard {
             formatted_name: Some("田中 太郎".to_owned()),
             ..VCard::default()
         };
-        let vcf = to_string(&card).expect("serialize");
-        let decoded: VCard = from_str(&vcf).expect("deserialize");
+        let vcf = to_string(&card)?;
+        let decoded: VCard = from_str(&vcf)?;
         assert_eq!(decoded.formatted_name, card.formatted_name);
+        Ok(())
     }
 
     #[test]
-    fn folds_long_lines_with_newlines_without_hanging() {
+    fn folds_long_lines_with_newlines_without_hanging() -> Result<(), Box<dyn std::error::Error>> {
         let card = VCard {
             formatted_name: Some("Mehmet Dora".to_owned()),
             addresses: vec![super::Address {
@@ -141,7 +144,7 @@ mod tests {
             }],
             ..VCard::default()
         };
-        let vcf = to_string(&card).expect("serialize long ADR");
+        let vcf = to_string(&card)?;
         assert!(vcf.contains("BEGIN:VCARD"));
         assert!(vcf.contains("ADR"));
         assert!(
@@ -151,5 +154,6 @@ mod tests {
             }),
             "folded lines must stay within 75 octets: {vcf}"
         );
+        Ok(())
     }
 }

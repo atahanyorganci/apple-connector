@@ -71,11 +71,12 @@ mod tests {
     use crate::{connect_pool, fixtures::RemindersFixtureDb};
 
     #[tokio::test]
-    async fn inventory_counts_seeded_fixture() {
-        let fixture = RemindersFixtureDb::seeded().await.expect("fixture");
-        let pool = connect_pool(fixture.path()).await.expect("pool");
-        let inventory = load_inventory(&pool).await.expect("inventory");
+    async fn inventory_counts_seeded_fixture() -> Result<(), Box<dyn std::error::Error>> {
+        let fixture = RemindersFixtureDb::seeded().await?;
+        let pool = connect_pool(fixture.path()).await?;
+        let inventory = load_inventory(&pool).await?;
         assert!(inventory.lists >= 2);
         assert!(inventory.reminders >= 2);
+        Ok(())
     }
 }

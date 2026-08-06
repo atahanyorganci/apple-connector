@@ -196,8 +196,7 @@ pub fn parse_apple_timestamp(nanos_since_apple_epoch: i64) -> Option<DateTime<Ut
     }
 
     let secs = nanos_since_apple_epoch.div_euclid(1_000_000_000) + APPLE_EPOCH_UNIX_SECS;
-    let nsecs = u32::try_from(nanos_since_apple_epoch.rem_euclid(1_000_000_000))
-        .expect("nanoseconds fit in u32");
+    let nsecs = u32::try_from(nanos_since_apple_epoch.rem_euclid(1_000_000_000)).ok()?;
     DateTime::from_timestamp(secs, nsecs)
 }
 
@@ -244,15 +243,17 @@ mod tests {
     }
 
     #[test]
-    fn parses_known_unix_instant() {
+    fn parses_known_unix_instant() -> Result<(), Box<dyn std::error::Error>> {
         // 2026-02-15 06:25:12 UTC
         let unix_secs = Utc
             .with_ymd_and_hms(2026, 2, 15, 6, 25, 12)
-            .unwrap()
+            .single()
+            .ok_or("invalid timestamp")?
             .timestamp();
         let apple_nanos = (unix_secs - 978_307_200) * 1_000_000_000;
 
-        let parsed = parse_apple_timestamp(apple_nanos).unwrap();
+        let parsed = parse_apple_timestamp(apple_nanos).ok_or("missing timestamp")?;
         assert_eq!(parsed.to_rfc3339(), "2026-02-15T06:25:12+00:00");
+        Ok(())
     }
 }

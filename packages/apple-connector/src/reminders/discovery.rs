@@ -163,9 +163,10 @@ mod tests {
     use super::{default_reminders_attachment_root, default_reminders_stores_dir};
 
     #[test]
-    fn default_stores_dir_is_under_group_containers() {
-        let path = default_reminders_stores_dir().expect("stores dir");
+    fn default_stores_dir_is_under_group_containers() -> Result<(), Box<dyn std::error::Error>> {
+        let path = default_reminders_stores_dir()?;
         assert!(path.to_string_lossy().contains("group.com.apple.reminders"));
+        Ok(())
     }
 
     #[test]

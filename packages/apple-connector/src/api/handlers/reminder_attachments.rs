@@ -152,7 +152,7 @@ async fn serve_bytes(
         .method(method)
         .uri("/")
         .body(Body::empty())
-        .expect("request");
+        .map_err(|_| ApiError::internal("failed to build attachment request"))?;
     if let Some(range) = headers.get(header::RANGE) {
         request.headers_mut().insert(header::RANGE, range.clone());
     }

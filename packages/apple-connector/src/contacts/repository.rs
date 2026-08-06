@@ -254,12 +254,13 @@ mod tests {
     };
 
     #[tokio::test]
-    async fn fixture_lists_containers_groups_and_contacts() {
-        let fixture = ContactsFixtureDb::seeded().await.expect("fixture");
-        let pool = connect_pool(fixture.path()).await.expect("pool");
+    async fn fixture_lists_containers_groups_and_contacts() -> Result<(), Box<dyn std::error::Error>>
+    {
+        let fixture = ContactsFixtureDb::seeded().await?;
+        let pool = connect_pool(fixture.path()).await?;
         let repo = ContactsRepository::new(&pool, SourceId::new("fixture-source"));
 
-        let containers = repo.list_containers().await.expect("containers");
+        let containers = repo.list_containers().await?;
         assert!(!containers.is_empty());
         assert!(
             containers
@@ -267,13 +268,10 @@ mod tests {
                 .any(|c| c.id.as_str() == SEED_CONTAINER_ID)
         );
 
-        let groups = repo.list_groups(50, None).await.expect("groups");
+        let groups = repo.list_groups(50, None).await?;
         assert!(groups.items.iter().any(|g| g.id.as_str() == SEED_GROUP_ID));
 
-        let contacts = repo
-            .list_contacts(50, None, &Default::default())
-            .await
-            .expect("contacts");
+        let contacts = repo.list_contacts(50, None, &Default::default()).await?;
         assert!(
             contacts
                 .items
@@ -283,11 +281,11 @@ mod tests {
 
         let detail = repo
             .get_contact(SEED_CONTACT_ID)
-            .await
-            .expect("detail")
-            .expect("contact");
+            .await?
+            .ok_or("contact not found")?;
         assert_eq!(detail.first_name.as_deref(), Some("Jane"));
         assert_eq!(detail.phones.len(), 1);
         assert_eq!(detail.emails.len(), 1);
+        Ok(())
     }
 }

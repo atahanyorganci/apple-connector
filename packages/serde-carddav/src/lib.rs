@@ -79,7 +79,7 @@ mod tests {
     use super::{CardDavAddressObject, CardDavMultistatus, from_str, to_string};
 
     #[test]
-    fn stub_round_trip_carddav_object() {
+    fn stub_round_trip_carddav_object() -> Result<(), Box<dyn std::error::Error>> {
         let object = CardDavAddressObject {
             href: Some("/addressbooks/home/contact.vcf".to_owned()),
             etag: None,
@@ -89,15 +89,16 @@ mod tests {
                 ..VCard::default()
             },
         };
-        let xml = to_string(&object).expect("serialize");
+        let xml = to_string(&object)?;
         assert!(xml.contains("multistatus"));
         assert!(xml.contains("address-data"));
-        let decoded: CardDavAddressObject = from_str(&xml).expect("deserialize");
+        let decoded: CardDavAddressObject = from_str(&xml)?;
         assert_eq!(decoded.href, object.href);
+        Ok(())
     }
 
     #[test]
-    fn multistatus_round_trip() {
+    fn multistatus_round_trip() -> Result<(), Box<dyn std::error::Error>> {
         let multistatus = CardDavMultistatus {
             responses: vec![super::CardDavResponse {
                 href: Some("/contacts/1.vcf".to_owned()),
@@ -112,8 +113,9 @@ mod tests {
                 }),
             }],
         };
-        let xml = to_string(&multistatus).expect("serialize");
-        let decoded: CardDavMultistatus = from_str(&xml).expect("deserialize");
+        let xml = to_string(&multistatus)?;
+        let decoded: CardDavMultistatus = from_str(&xml)?;
         assert_eq!(decoded.responses.len(), 1);
+        Ok(())
     }
 }

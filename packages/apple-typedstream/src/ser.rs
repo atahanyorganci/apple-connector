@@ -514,10 +514,12 @@ impl<W: Write> Encoder<W> {
 
     fn write_integer(&mut self, value: i64, signed: bool) -> Result<()> {
         if signed && (-128..=127).contains(&value) && !(-128..=-111).contains(&value) {
-            let byte = i8::try_from(value).expect("single-byte signed integer range");
+            let byte = i8::try_from(value)
+                .map_err(|_| Error::custom("single-byte signed integer range"))?;
             self.writer.write_all(&[byte.cast_unsigned()])?;
         } else if !signed && (0..=255).contains(&value) && !(128..=145).contains(&value) {
-            let byte = u8::try_from(value).expect("single-byte unsigned integer range");
+            let byte = u8::try_from(value)
+                .map_err(|_| Error::custom("single-byte unsigned integer range"))?;
             self.writer.write_all(&[byte])?;
         } else if signed {
             if let Ok(narrowed) = i16::try_from(value) {

@@ -77,13 +77,15 @@ mod tests {
     }
 
     #[test]
-    fn parses_known_unix_instant() {
+    fn parses_known_unix_instant() -> Result<(), Box<dyn std::error::Error>> {
         let unix_secs = Utc
             .with_ymd_and_hms(2026, 1, 15, 12, 0, 0)
-            .unwrap()
+            .single()
+            .ok_or("invalid timestamp")?
             .timestamp();
         let core_data_secs = (unix_secs - CORE_DATA_EPOCH_UNIX_SECS) as f64;
-        let parsed = parse_core_data_timestamp(Some(core_data_secs)).unwrap();
+        let parsed = parse_core_data_timestamp(Some(core_data_secs)).ok_or("missing timestamp")?;
         assert_eq!(parsed.to_rfc3339(), "2026-01-15T12:00:00+00:00");
+        Ok(())
     }
 }

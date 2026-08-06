@@ -22,12 +22,12 @@ fn f64_to_i64_secs(value: f64) -> i64 {
     }
 }
 
-fn i32_to_isize(value: i32) -> isize {
-    isize::try_from(value).expect("i32 fits in isize")
+fn i32_to_isize(value: i32) -> EventKitResult<isize> {
+    isize::try_from(value).map_err(|_| EventKitError::Framework("i32 does not fit in isize".into()))
 }
 
-fn u32_to_isize(value: u32) -> isize {
-    isize::try_from(value).expect("u32 fits in isize")
+fn u32_to_isize(value: u32) -> EventKitResult<isize> {
+    isize::try_from(value).map_err(|_| EventKitError::Framework("u32 does not fit in isize".into()))
 }
 
 pub fn unix_to_ns_date(secs: i64) -> EventKitResult<objc2::rc::Retained<NSDate>> {
@@ -56,17 +56,17 @@ pub fn unix_to_date_components(
         .single()
         .ok_or_else(|| EventKitError::ValidationFailed("invalid unix timestamp".into()))?;
     let components = NSDateComponents::new();
-    components.setYear(i32_to_isize(dt.year()));
-    components.setMonth(u32_to_isize(dt.month()));
-    components.setDay(u32_to_isize(dt.day()));
+    components.setYear(i32_to_isize(dt.year())?);
+    components.setMonth(u32_to_isize(dt.month())?);
+    components.setDay(u32_to_isize(dt.day())?);
     if all_day {
         components.setHour(NSDateComponentUndefined);
         components.setMinute(NSDateComponentUndefined);
         components.setSecond(NSDateComponentUndefined);
     } else {
-        components.setHour(u32_to_isize(dt.hour()));
-        components.setMinute(u32_to_isize(dt.minute()));
-        components.setSecond(u32_to_isize(dt.second()));
+        components.setHour(u32_to_isize(dt.hour())?);
+        components.setMinute(u32_to_isize(dt.minute())?);
+        components.setSecond(u32_to_isize(dt.second())?);
     }
     Ok(components)
 }
@@ -92,9 +92,10 @@ pub fn date_components_to_unix(
             .ok_or_else(|| EventKitError::ValidationFailed("invalid unix timestamp".into()))?;
         let date = NaiveDate::from_ymd_opt(dt.year(), dt.month(), dt.day())
             .ok_or_else(|| EventKitError::ValidationFailed("invalid date".into()))?;
-        return Ok(Utc
-            .from_utc_datetime(&date.and_hms_opt(0, 0, 0).expect("midnight"))
-            .timestamp());
+        let midnight = date.and_hms_opt(0, 0, 0).ok_or_else(|| {
+            EventKitError::ValidationFailed("invalid all-day midnight timestamp".into())
+        })?;
+        return Ok(Utc.from_utc_datetime(&midnight).timestamp());
     }
     Ok(secs)
 }
@@ -104,20 +105,25 @@ mod tests {
     use super::*;
 
     #[test]
-    fn unix_round_trip_timed() {
+    fn unix_round_trip_timed() -> Result<(), Box<dyn std::error::Error>> {
         let secs = 1_700_000_000_i64;
-        let components = unix_to_date_components(secs, false).expect("components");
-        let back = date_components_to_unix(&components, false).expect("unix");
+        let components = unix_to_date_components(secs, false)?;
+        let back = date_components_to_unix(&components, false)?;
         assert_eq!(back, secs);
+        Ok(())
     }
 
     #[test]
-    fn unix_round_trip_all_day() {
+    fn unix_round_trip_all_day() -> Result<(), Box<dyn std::error::Error>> {
         let secs = 1_700_000_000_i64;
-        let components = unix_to_date_components(secs, true).expect("components");
-        let back = date_components_to_unix(&components, true).expect("unix");
-        let dt = Utc.timestamp_opt(back, 0).single().expect("dt");
+        let components = unix_to_date_components(secs, true)?;
+        let back = date_components_to_unix(&components, true)?;
+        let dt = Utc
+            .timestamp_opt(back, 0)
+            .single()
+            .ok_or("invalid timestamp")?;
         assert_eq!(dt.hour(), 0);
         assert_eq!(dt.minute(), 0);
+        Ok(())
     }
 }

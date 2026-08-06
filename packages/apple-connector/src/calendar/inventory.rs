@@ -53,12 +53,13 @@ mod tests {
     use crate::{connect_pool, fixtures::CalendarFixtureDb};
 
     #[tokio::test]
-    async fn inventory_counts_seeded_fixture() {
-        let fixture = CalendarFixtureDb::seeded().await.expect("fixture");
-        let pool = connect_pool(fixture.path()).await.expect("pool");
-        let inventory = load_inventory(&pool).await.expect("inventory");
+    async fn inventory_counts_seeded_fixture() -> Result<(), Box<dyn std::error::Error>> {
+        let fixture = CalendarFixtureDb::seeded().await?;
+        let pool = connect_pool(fixture.path()).await?;
+        let inventory = load_inventory(&pool).await?;
         assert_eq!(inventory.schema_variant, "CalendarItem");
         assert!(inventory.calendars >= 1);
         assert!(inventory.events >= 2);
+        Ok(())
     }
 }

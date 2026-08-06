@@ -30,9 +30,9 @@ where
     let value = parse::parse(bytes)?;
     if TypeId::of::<T>() == TypeId::of::<Value>() {
         let value: Box<dyn Any> = Box::new(value);
-        return Ok(*value
-            .downcast::<T>()
-            .expect("type id checked before downcast"));
+        return Ok(*value.downcast::<T>().map_err(|_| {
+            Error::custom("typedstream value downcast failed after type-id check")
+        })?);
     }
     de::from_value(value)
 }

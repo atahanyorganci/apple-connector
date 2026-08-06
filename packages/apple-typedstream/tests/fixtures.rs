@@ -3,10 +3,11 @@ use apple_typedstream::{Value, from_slice};
 macro_rules! fixture_test {
     ($name:ident, $file:literal) => {
         #[test]
-        fn $name() {
+        fn $name() -> Result<(), Box<dyn std::error::Error>> {
             let data = include_bytes!(concat!("../fixtures/", $file));
-            let value: Value = from_slice(data).expect(concat!("decode ", $file));
+            let value: Value = from_slice(data)?;
             insta::assert_debug_snapshot!(value);
+            Ok(())
         }
     };
 }

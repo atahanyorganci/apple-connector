@@ -35,16 +35,16 @@ fn calendar_hint() -> CalendarResolveHint {
     }
 }
 
-async fn store() -> EventKitStore {
-    let store = EventKitStore::new().expect("EventKit store");
-    store.request_access().await.expect("EventKit access");
-    store
+async fn store() -> Result<EventKitStore, Box<dyn std::error::Error>> {
+    let store = EventKitStore::new()?;
+    store.request_access().await?;
+    Ok(store)
 }
 
 #[tokio::test]
 #[ignore = "requires EventKit permissions and live Apple data stores"]
-async fn reminder_create_update_delete_round_trip() {
-    let store = store().await;
+async fn reminder_create_update_delete_round_trip() -> Result<(), Box<dyn std::error::Error>> {
+    let store = store().await?;
     let list = reminder_list_hint();
 
     let saved = store
@@ -62,8 +62,7 @@ async fn reminder_create_update_delete_round_trip() {
                 recurrence: None,
             },
         )
-        .await
-        .expect("create reminder");
+        .await?;
 
     store
         .update_reminder(
@@ -82,19 +81,18 @@ async fn reminder_create_update_delete_round_trip() {
                 recurrence: None,
             },
         )
-        .await
-        .expect("update reminder");
+        .await?;
 
     store
         .delete_reminder(&saved.calendar_item_id, Some(saved.external_id.as_str()))
-        .await
-        .expect("delete reminder");
+        .await?;
+    Ok(())
 }
 
 #[tokio::test]
 #[ignore = "requires EventKit permissions and live Apple data stores"]
-async fn event_create_update_delete_round_trip() {
-    let store = store().await;
+async fn event_create_update_delete_round_trip() -> Result<(), Box<dyn std::error::Error>> {
+    let store = store().await?;
     let calendar = calendar_hint();
     let start = chrono::Utc::now().timestamp() + 86_400;
     let end = start + 3_600;
@@ -115,8 +113,7 @@ async fn event_create_update_delete_round_trip() {
                 recurrence: None,
             },
         )
-        .await
-        .expect("create event");
+        .await?;
 
     store
         .update_event(
@@ -138,8 +135,7 @@ async fn event_create_update_delete_round_trip() {
                 span: EventSpan::This,
             },
         )
-        .await
-        .expect("update event");
+        .await?;
 
     store
         .delete_event(
@@ -150,14 +146,14 @@ async fn event_create_update_delete_round_trip() {
                 occurrence_start: None,
             },
         )
-        .await
-        .expect("delete event");
+        .await?;
+    Ok(())
 }
 
 #[tokio::test]
 #[ignore = "requires EventKit permissions and live Apple data stores"]
-async fn recurring_event_edit_with_span_this() {
-    let store = store().await;
+async fn recurring_event_edit_with_span_this() -> Result<(), Box<dyn std::error::Error>> {
+    let store = store().await?;
     let calendar = calendar_hint();
     let start = chrono::Utc::now().timestamp() + 172_800;
     let end = start + 3_600;
@@ -183,8 +179,7 @@ async fn recurring_event_edit_with_span_this() {
                 }),
             },
         )
-        .await
-        .expect("create recurring event");
+        .await?;
 
     store
         .update_event(
@@ -206,8 +201,7 @@ async fn recurring_event_edit_with_span_this() {
                 span: EventSpan::This,
             },
         )
-        .await
-        .expect("update single occurrence");
+        .await?;
 
     store
         .delete_event(
@@ -218,6 +212,6 @@ async fn recurring_event_edit_with_span_this() {
                 occurrence_start: None,
             },
         )
-        .await
-        .expect("delete recurring series");
+        .await?;
+    Ok(())
 }

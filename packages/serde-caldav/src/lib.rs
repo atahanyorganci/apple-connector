@@ -70,17 +70,18 @@ mod tests {
     use super::{CalDavCalendarObject, from_str, to_string};
 
     #[test]
-    fn stub_round_trip_caldav_object() {
+    fn stub_round_trip_caldav_object() -> Result<(), Box<dyn std::error::Error>> {
         let object = CalDavCalendarObject {
             href: Some("/calendars/home/event.ics".to_owned()),
             etag: None,
             content_type: Some("text/calendar; charset=utf-8".to_owned()),
             event: CalendarEvent::default(),
         };
-        let xml = to_string(&object).expect("serialize");
+        let xml = to_string(&object)?;
         assert!(xml.contains("multistatus"));
         assert!(xml.contains("calendar-data"));
-        let decoded: CalDavCalendarObject = from_str(&xml).expect("deserialize");
+        let decoded: CalDavCalendarObject = from_str(&xml)?;
         assert_eq!(decoded.href, object.href);
+        Ok(())
     }
 }

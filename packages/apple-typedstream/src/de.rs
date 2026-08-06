@@ -100,7 +100,9 @@ impl<'de> de::Deserializer<'de> for Deserializer {
         match self.value {
             Value::String(value) => visitor.visit_enum(value.into_deserializer()),
             Value::Map(mut values) if values.len() == 1 => {
-                let (variant, value) = values.pop_first().expect("length checked");
+                let (variant, value) = values
+                    .pop_first()
+                    .ok_or_else(|| Error::custom("enum map variant missing after length check"))?;
                 visitor.visit_enum(ValueEnumAccess {
                     variant,
                     value: Some(value),

@@ -163,7 +163,7 @@ pub async fn head_attachment_content(
         .method(Method::HEAD)
         .uri("/")
         .body(Body::empty())
-        .expect("head request");
+        .map_err(|_| ApiError::internal("failed to build head request"))?;
     copy_conditional_headers(&headers, request.headers_mut());
     serve_attachment_bytes(attachment, validated_path, request).await
 }
@@ -220,12 +220,12 @@ async fn serve_attachment_bytes(
         && let Ok(value) = if_none_match.to_str()
         && if_none_match_satisfied(value, &validators.etag)
     {
-        return Ok(Response::builder()
+        return Response::builder()
             .status(StatusCode::NOT_MODIFIED)
             .header(header::ETAG, &validators.etag)
             .header(header::LAST_MODIFIED, &validators.last_modified)
             .body(Body::empty())
-            .expect("304 response"));
+            .map_err(|_| ApiError::internal("failed to build not modified response"));
     }
 
     let serve_file = ServeFile::new(path);
@@ -332,37 +332,33 @@ mod tests {
     }
 
     impl AttachmentFixture {
-        async fn new() -> Self {
-            let root_dir = tempfile::tempdir().expect("attachment root tempdir");
+        async fn new() -> Result<Self, Box<dyn std::error::Error>> {
+            let root_dir = tempfile::tempdir()?;
             let root = root_dir.path().join("Attachments");
-            fs::create_dir_all(&root).expect("create attachments dir");
+            fs::create_dir_all(&root)?;
 
-            let db = FixtureDb::empty().await.expect("empty fixture");
-            let mut connection = sqlx::SqliteConnection::connect(db.path().to_str().unwrap())
-                .await
-                .expect("connect");
+            let db = FixtureDb::empty().await?;
+            let mut connection =
+                sqlx::SqliteConnection::connect(db.path().to_str().ok_or("invalid path")?).await?;
 
             for statement in [
                 "DROP TRIGGER IF EXISTS verify_chat_insert",
                 "DROP TRIGGER IF EXISTS verify_chat_update",
             ] {
-                sqlx::query(statement)
-                    .execute(&mut connection)
-                    .await
-                    .expect("drop trigger");
+                sqlx::query(statement).execute(&mut connection).await?;
             }
 
             connection.close().await.ok();
-            Self {
+            Ok(Self {
                 db,
                 root,
                 _root_dir: root_dir,
-            }
+            })
         }
 
-        fn app(&self, pool: sqlx::SqlitePool) -> axum::Router {
-            let root = canonicalize_attachment_root(&self.root).expect("canonical root");
-            router(AppState::with_attachment_roots(
+        fn app(&self, pool: sqlx::SqlitePool) -> Result<axum::Router, Box<dyn std::error::Error>> {
+            let root = canonicalize_attachment_root(&self.root)?;
+            Ok(router(AppState::with_attachment_roots(
                 Some(pool),
                 None,
                 None,
@@ -374,7 +370,7 @@ mod tests {
                 PathBuf::from("/var/empty/calendar-attachments"),
                 None,
                 None,
-            ))
+            )))
         }
 
         async fn seed_attachment(
@@ -385,20 +381,17 @@ mod tests {
             transfer_state: i64,
             mime_type: Option<&str>,
             transfer_name: Option<&str>,
-        ) {
+        ) -> Result<(), Box<dyn std::error::Error>> {
             let file_path = self.root.join(filename);
             if let Some(parent) = file_path.parent() {
-                fs::create_dir_all(parent).expect("parent dirs");
+                fs::create_dir_all(parent)?;
             }
-            fs::write(&file_path, bytes).expect("write attachment bytes");
-            let stored_filename = fs::canonicalize(&file_path)
-                .expect("canonical file")
-                .to_string_lossy()
-                .into_owned();
+            fs::write(&file_path, bytes)?;
+            let stored_filename = fs::canonicalize(&file_path)?.to_string_lossy().into_owned();
 
-            let mut connection = sqlx::SqliteConnection::connect(self.db.path().to_str().unwrap())
-                .await
-                .expect("connect");
+            let mut connection =
+                sqlx::SqliteConnection::connect(self.db.path().to_str().ok_or("invalid path")?)
+                    .await?;
             sqlx::query(
                 "INSERT INTO attachment (guid, original_guid, filename, mime_type, transfer_name, total_bytes, transfer_state) \
                  VALUES (?1, ?1, ?2, ?3, ?4, ?5, ?6)",
@@ -407,30 +400,26 @@ mod tests {
             .bind(stored_filename)
             .bind(mime_type)
             .bind(transfer_name)
-            .bind(i64::try_from(bytes.len()).expect("test attachment size fits in i64"))
+            .bind(i64::try_from(bytes.len()).map_err(|e| -> Box<dyn std::error::Error> {
+                Box::new(e)
+            })?)
             .bind(transfer_state)
             .execute(&mut connection)
-            .await
-            .expect("insert attachment");
+            .await?;
             connection.close().await.ok();
+            Ok(())
         }
     }
 
     async fn response_bytes(
         app: axum::Router,
         request: Request<Body>,
-    ) -> (StatusCode, HeaderMap, Vec<u8>) {
-        let response = app.oneshot(request).await.expect("response");
+    ) -> Result<(StatusCode, HeaderMap, Vec<u8>), Box<dyn std::error::Error>> {
+        let response = app.oneshot(request).await?;
         let status = response.status();
         let headers = response.headers().clone();
-        let body = response
-            .into_body()
-            .collect()
-            .await
-            .expect("body")
-            .to_bytes()
-            .to_vec();
-        (status, headers, body)
+        let body = response.into_body().collect().await?.to_bytes().to_vec();
+        Ok((status, headers, body))
     }
 
     fn assert_safe_payload(payload: &str) {
@@ -443,8 +432,9 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn metadata_exposes_availability_and_content_url_without_paths() {
-        let fixture = AttachmentFixture::new().await;
+    async fn metadata_exposes_availability_and_content_url_without_paths()
+    -> Result<(), Box<dyn std::error::Error>> {
+        let fixture = AttachmentFixture::new().await?;
         fixture
             .seed_attachment(
                 "at-meta",
@@ -454,34 +444,34 @@ mod tests {
                 Some("image/jpeg"),
                 Some("vacation.jpg"),
             )
-            .await;
+            .await?;
 
-        let pool = connect_pool(fixture.db.path()).await.expect("pool");
-        let app = fixture.app(pool);
+        let pool = connect_pool(fixture.db.path()).await?;
+        let app = fixture.app(pool)?;
         let (status, headers, body) = response_bytes(
             app,
             Request::builder()
                 .uri("/v1/attachments/at-meta")
-                .body(Body::empty())
-                .expect("request"),
+                .body(Body::empty())?,
         )
-        .await;
-
+        .await?;
         assert_eq!(status, StatusCode::OK);
-        let payload = String::from_utf8(body).expect("utf-8");
+        let payload = String::from_utf8(body)?;
         assert_safe_payload(&payload);
-        let json: serde_json::Value = serde_json::from_str(&payload).expect("json");
+        let json: serde_json::Value = serde_json::from_str(&payload)?;
         assert_eq!(json["guid"], "at-meta");
         assert_eq!(json["present_on_disk"], true);
         assert_eq!(json["transfer_complete"], true);
         assert_eq!(json["content_url"], "/v1/attachments/at-meta/content");
         assert!(json.get("filename").is_none());
         assert!(headers.get("content-disposition").is_none());
+        Ok(())
     }
 
     #[tokio::test]
-    async fn get_head_range_and_conditional_requests_work() {
-        let fixture = AttachmentFixture::new().await;
+    async fn get_head_range_and_conditional_requests_work() -> Result<(), Box<dyn std::error::Error>>
+    {
+        let fixture = AttachmentFixture::new().await?;
         fixture
             .seed_attachment(
                 "at-bytes",
@@ -491,54 +481,62 @@ mod tests {
                 None,
                 Some("note.txt"),
             )
-            .await;
+            .await?;
 
-        let pool = connect_pool(fixture.db.path()).await.expect("pool");
-        let app = fixture.app(pool);
+        let pool = connect_pool(fixture.db.path()).await?;
+        let app = fixture.app(pool)?;
 
         let (status, headers, body) = response_bytes(
             app.clone(),
             Request::builder()
                 .uri("/v1/attachments/at-bytes/content")
-                .body(Body::empty())
-                .expect("request"),
+                .body(Body::empty())?,
         )
-        .await;
+        .await?;
         assert_eq!(status, StatusCode::OK);
         assert_eq!(body, b"0123456789");
         assert_eq!(
-            headers.get("content-type").unwrap(),
+            headers
+                .get("content-type")
+                .ok_or("missing content-type header")?,
             "application/octet-stream"
         );
-        assert_eq!(headers.get("accept-ranges").unwrap(), "bytes");
-        assert_eq!(headers.get("x-content-type-options").unwrap(), "nosniff");
+        assert_eq!(
+            headers
+                .get("accept-ranges")
+                .ok_or("missing accept-ranges header")?,
+            "bytes"
+        );
+        assert_eq!(
+            headers
+                .get("x-content-type-options")
+                .ok_or("missing x-content-type-options header")?,
+            "nosniff"
+        );
         assert!(
             headers
                 .get("content-disposition")
-                .unwrap()
-                .to_str()
-                .unwrap()
+                .ok_or("missing content-disposition header")?
+                .to_str()?
                 .contains("note.txt")
         );
-        let etag = headers.get("etag").unwrap().clone();
+        let etag = headers.get("etag").ok_or("missing etag header")?.clone();
 
         let (status, headers, body) = response_bytes(
             app.clone(),
             Request::builder()
                 .uri("/v1/attachments/at-bytes/content")
                 .header("Range", "bytes=0-4")
-                .body(Body::empty())
-                .expect("request"),
+                .body(Body::empty())?,
         )
-        .await;
+        .await?;
         assert_eq!(status, StatusCode::PARTIAL_CONTENT);
         assert_eq!(body, b"01234");
         assert!(
             headers
                 .get("content-range")
-                .unwrap()
-                .to_str()
-                .unwrap()
+                .ok_or("missing content-range header")?
+                .to_str()?
                 .contains("0-4/10")
         );
 
@@ -547,10 +545,9 @@ mod tests {
             Request::builder()
                 .method("HEAD")
                 .uri("/v1/attachments/at-bytes/content")
-                .body(Body::empty())
-                .expect("request"),
+                .body(Body::empty())?,
         )
-        .await;
+        .await?;
         assert_eq!(status, StatusCode::OK);
         assert!(body.is_empty());
 
@@ -559,17 +556,18 @@ mod tests {
             Request::builder()
                 .uri("/v1/attachments/at-bytes/content")
                 .header("If-None-Match", etag)
-                .body(Body::empty())
-                .expect("request"),
+                .body(Body::empty())?,
         )
-        .await;
+        .await?;
         assert_eq!(status, StatusCode::NOT_MODIFIED);
         assert!(body.is_empty());
+        Ok(())
     }
 
     #[tokio::test]
-    async fn invalid_range_missing_file_and_incomplete_transfer_are_handled() {
-        let fixture = AttachmentFixture::new().await;
+    async fn invalid_range_missing_file_and_incomplete_transfer_are_handled()
+    -> Result<(), Box<dyn std::error::Error>> {
+        let fixture = AttachmentFixture::new().await?;
         fixture
             .seed_attachment(
                 "at-range",
@@ -579,10 +577,10 @@ mod tests {
                 None,
                 None,
             )
-            .await;
+            .await?;
         fixture
             .seed_attachment("at-incomplete", "pending.bin", b"pending", 1, None, None)
-            .await;
+            .await?;
         fixture
             .seed_attachment(
                 "at-missing",
@@ -592,63 +590,57 @@ mod tests {
                 None,
                 None,
             )
-            .await;
+            .await?;
 
-        fs::remove_file(fixture.root.join("missing.bin")).expect("remove missing file");
+        fs::remove_file(fixture.root.join("missing.bin"))?;
 
-        let pool = connect_pool(fixture.db.path()).await.expect("pool");
-        let app = fixture.app(pool);
+        let pool = connect_pool(fixture.db.path()).await?;
+        let app = fixture.app(pool)?;
 
         let (status, _, body) = response_bytes(
             app.clone(),
             Request::builder()
                 .uri("/v1/attachments/at-range/content")
                 .header("Range", "bytes=100-200")
-                .body(Body::empty())
-                .expect("request"),
+                .body(Body::empty())?,
         )
-        .await;
+        .await?;
         assert_eq!(status, StatusCode::RANGE_NOT_SATISFIABLE);
-        let payload = String::from_utf8(body).expect("utf-8");
+        let payload = String::from_utf8(body)?;
         assert!(payload.contains("range_not_satisfiable"));
 
         for guid in ["at-incomplete", "at-missing", "at-absent"] {
             let uri = format!("/v1/attachments/{guid}/content");
             let (status, _, body) = response_bytes(
                 app.clone(),
-                Request::builder()
-                    .uri(uri)
-                    .body(Body::empty())
-                    .expect("request"),
+                Request::builder().uri(uri).body(Body::empty())?,
             )
-            .await;
+            .await?;
             assert_eq!(status, StatusCode::NOT_FOUND, "guid {guid}");
-            assert_safe_payload(&String::from_utf8(body).expect("utf-8"));
+            assert_safe_payload(&String::from_utf8(body)?);
         }
+        Ok(())
     }
 
     #[tokio::test]
-    async fn traversal_and_symlink_paths_are_denied() {
-        let fixture = AttachmentFixture::new().await;
+    async fn traversal_and_symlink_paths_are_denied() -> Result<(), Box<dyn std::error::Error>> {
+        let fixture = AttachmentFixture::new().await?;
         let outside = fixture._root_dir.path().join("outside");
-        fs::create_dir_all(&outside).expect("outside dir");
-        fs::write(outside.join("secret.bin"), b"secret").expect("secret file");
+        fs::create_dir_all(&outside)?;
+        fs::write(outside.join("secret.bin"), b"secret")?;
 
         let link = fixture.root.join("escape-link");
-        symlink(outside.join("secret.bin"), &link).expect("symlink");
+        symlink(outside.join("secret.bin"), &link)?;
 
-        let mut connection = sqlx::SqliteConnection::connect(fixture.db.path().to_str().unwrap())
-            .await
-            .expect("connect");
+        let mut connection =
+            sqlx::SqliteConnection::connect(fixture.db.path().to_str().ok_or("invalid path")?)
+                .await?;
         for (guid, filename) in [
             ("at-escape", "escape-link"),
             ("at-traversal", "../outside/secret.bin"),
         ] {
             let stored_filename = if filename == "escape-link" {
-                fs::canonicalize(&link)
-                    .expect("canonical link")
-                    .to_string_lossy()
-                    .into_owned()
+                fs::canonicalize(&link)?.to_string_lossy().into_owned()
             } else {
                 fixture.root.join(filename).to_string_lossy().into_owned()
             };
@@ -660,45 +652,44 @@ mod tests {
             .bind(stored_filename)
             .bind(TRANSFER_STATE_COMPLETE)
             .execute(&mut connection)
-            .await
-            .expect("insert attachment");
+            .await?;
         }
         connection.close().await.ok();
 
-        let pool = connect_pool(fixture.db.path()).await.expect("pool");
-        let app = fixture.app(pool);
+        let pool = connect_pool(fixture.db.path()).await?;
+        let app = fixture.app(pool)?;
 
         for guid in ["at-escape", "at-traversal"] {
             let (status, _, body) = response_bytes(
                 app.clone(),
                 Request::builder()
                     .uri(format!("/v1/attachments/{guid}/content"))
-                    .body(Body::empty())
-                    .expect("request"),
+                    .body(Body::empty())?,
             )
-            .await;
+            .await?;
             assert_eq!(status, StatusCode::NOT_FOUND);
-            assert_safe_payload(&String::from_utf8(body).expect("utf-8"));
+            assert_safe_payload(&String::from_utf8(body)?);
         }
+        Ok(())
     }
 
     #[tokio::test]
-    async fn large_attachment_is_streamed() {
-        let fixture = AttachmentFixture::new().await;
-        let mut temp_file = tempfile::NamedTempFile::new_in(&fixture.root).expect("temp file");
+    async fn large_attachment_is_streamed() -> Result<(), Box<dyn std::error::Error>> {
+        let fixture = AttachmentFixture::new().await?;
+        let mut temp_file = tempfile::NamedTempFile::new_in(&fixture.root)?;
         let size = 256 * 1024;
         let mut written = 0usize;
         let chunk = vec![b'x'; 8192];
         while written < size {
-            temp_file.write_all(&chunk).expect("write chunk");
+            temp_file.write_all(&chunk)?;
             written += chunk.len();
         }
-        temp_file.flush().expect("flush");
+        temp_file.flush()?;
         let file_name = temp_file
             .path()
             .file_name()
             .and_then(|name| name.to_str())
-            .expect("file name")
+            .ok_or("missing temp file name")?
             .to_owned();
 
         fixture
@@ -710,29 +701,28 @@ mod tests {
                 Some("application/octet-stream"),
                 Some("large.bin"),
             )
-            .await;
+            .await?;
 
-        let pool = connect_pool(fixture.db.path()).await.expect("pool");
-        let app = fixture.app(pool);
+        let pool = connect_pool(fixture.db.path()).await?;
+        let app = fixture.app(pool)?;
 
         let response = app
             .oneshot(
                 Request::builder()
                     .uri("/v1/attachments/at-large/content")
-                    .body(Body::empty())
-                    .expect("request"),
+                    .body(Body::empty())?,
             )
-            .await
-            .expect("response");
+            .await?;
         assert_eq!(response.status(), StatusCode::OK);
         let mut body = response.into_body();
         let mut total = 0usize;
         while let Some(frame) = body.frame().await {
-            let frame = frame.expect("frame");
+            let frame = frame?;
             if let Some(chunk) = frame.data_ref() {
                 total += chunk.len();
             }
         }
         assert_eq!(total, size);
+        Ok(())
     }
 }

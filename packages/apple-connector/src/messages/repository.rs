@@ -264,7 +264,13 @@ impl<'a> MessageRepository<'a> {
     ) -> Result<Page<Message>, sqlx::Error> {
         use super::search::{CANDIDATE_CHUNK_SIZE, MESSAGE_SCAN_BUDGET, text_matches};
 
-        let query = filters.q.as_deref().expect("search requires q");
+        let Some(query) = filters.q.as_deref() else {
+            return Ok(Page {
+                items: Vec::new(),
+                has_more: false,
+                next_cursor: None,
+            });
+        };
         let mut matching_rows = Vec::new();
         let mut scanned = 0_u32;
         let mut scan_position = cursor.map(|value| (value.date, value.row_id));
@@ -397,6 +403,16 @@ pub enum ChatLookupError {
     NotFound,
 }
 
+impl std::fmt::Display for ChatLookupError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::NotFound => write!(f, "chat not found"),
+        }
+    }
+}
+
+impl std::error::Error for ChatLookupError {}
+
 fn split_page<T>(mut rows: Vec<T>, limit: u32) -> (Vec<T>, bool) {
     let has_more = rows.len() > limit as usize;
     if has_more {
@@ -452,35 +468,31 @@ mod tests {
 
     use super::{MessageListCursor, MessageRepository};
     use crate::{
-        api::cursor::{ChatMessageCursor, GlobalMessageCursor},
+        api::cursor::{ChatMessageCursor, GlobalMessageCursor, decode},
         db::connect_pool,
         fixtures::FixtureDb,
         messages::search::MessageFilters,
     };
 
-    async fn seed_pagination_fixture() -> FixtureDb {
-        let fixture = FixtureDb::empty().await.expect("empty fixture");
-        let mut connection = sqlx::SqliteConnection::connect(fixture.path().to_str().unwrap())
-            .await
-            .expect("connect");
+    async fn seed_pagination_fixture() -> Result<FixtureDb, Box<dyn std::error::Error>> {
+        let fixture = FixtureDb::empty().await?;
+        let mut connection =
+            sqlx::SqliteConnection::connect(fixture.path().to_str().ok_or("invalid fixture path")?)
+                .await?;
 
         sqlx::query!("DROP TRIGGER IF EXISTS verify_chat_insert")
             .execute(&mut connection)
-            .await
-            .expect("drop insert trigger");
+            .await?;
         sqlx::query!("DROP TRIGGER IF EXISTS verify_chat_update")
             .execute(&mut connection)
-            .await
-            .expect("drop update trigger");
+            .await?;
 
         sqlx::query!("INSERT INTO handle (id, service) VALUES ('+15550000001', 'iMessage')")
             .execute(&mut connection)
-            .await
-            .expect("handle");
+            .await?;
         sqlx::query!("INSERT INTO handle (id, service) VALUES ('+15550000002', 'iMessage')")
             .execute(&mut connection)
-            .await
-            .expect("handle");
+            .await?;
 
         for chat_index in 0..3 {
             let chat_guid = format!("chat-{chat_index}");
@@ -492,8 +504,7 @@ mod tests {
                 chat_identifier
             )
             .execute(&mut connection)
-            .await
-            .expect("chat");
+            .await?;
         }
 
         for message_index in 0..5 {
@@ -508,8 +519,7 @@ mod tests {
                 sent_at
             )
             .execute(&mut connection)
-            .await
-            .expect("message");
+            .await?;
         }
 
         sqlx::query!(
@@ -518,8 +528,7 @@ mod tests {
                     ('message-tie-b', 'tie-b', 'iMessage', 1, 500)"
         )
         .execute(&mut connection)
-        .await
-        .expect("tie messages");
+        .await?;
 
         sqlx::query!(
             "INSERT INTO chat_message_join (chat_id, message_id, message_date) \
@@ -527,25 +536,24 @@ mod tests {
              FROM chat JOIN message ON message.guid LIKE 'message-%'"
         )
         .execute(&mut connection)
-        .await
-        .expect("join all messages to all chats");
+        .await?;
 
         sqlx::query!(
             "INSERT INTO chat_handle_join (chat_id, handle_id) \
              SELECT chat.ROWID, handle.ROWID FROM chat, handle"
         )
         .execute(&mut connection)
-        .await
-        .expect("chat handles");
+        .await?;
 
         connection.close().await.ok();
-        fixture
+        Ok(fixture)
     }
 
     #[tokio::test]
-    async fn global_messages_paginate_without_dupes_or_gaps() {
-        let fixture = seed_pagination_fixture().await;
-        let pool = connect_pool(fixture.path()).await.expect("connect pool");
+    async fn global_messages_paginate_without_dupes_or_gaps()
+    -> Result<(), Box<dyn std::error::Error>> {
+        let fixture = seed_pagination_fixture().await?;
+        let pool = connect_pool(fixture.path()).await?;
         let repository = MessageRepository::new(&pool);
 
         let mut seen = Vec::new();
@@ -559,8 +567,7 @@ mod tests {
                     None,
                     cursor.map(MessageListCursor::Global),
                 )
-                .await
-                .expect("list messages");
+                .await?;
             for message in &page.items {
                 assert!(
                     !seen.contains(&message.envelope.row_id),
@@ -574,41 +581,35 @@ mod tests {
                 break;
             }
 
-            let next = page.next_cursor.expect("next cursor");
-            cursor = Some(
-                crate::api::cursor::decode::<GlobalMessageCursor>(&next).expect("decode cursor"),
-            );
+            let next = page.next_cursor.ok_or("missing next cursor")?;
+            cursor = Some(decode::<GlobalMessageCursor>(&next)?);
         }
 
         assert_eq!(seen.len(), 7);
+        Ok(())
     }
 
     #[tokio::test]
-    async fn chat_messages_use_message_date_ordering() {
-        let fixture = seed_pagination_fixture().await;
-        let pool = connect_pool(fixture.path()).await.expect("connect pool");
+    async fn chat_messages_use_message_date_ordering() -> Result<(), Box<dyn std::error::Error>> {
+        let fixture = seed_pagination_fixture().await?;
+        let pool = connect_pool(fixture.path()).await?;
         let repository = MessageRepository::new(&pool);
         let chat_id = sqlx::query_scalar!("SELECT ROWID AS \"row_id!\" FROM chat LIMIT 1")
             .fetch_one(&pool)
-            .await
-            .expect("chat id");
+            .await?;
 
-        let first_page = repository
-            .list_chat_messages(chat_id, 3, None)
-            .await
-            .expect("list chat messages")
-            .expect("chat exists");
+        let first_page = repository.list_chat_messages(chat_id, 3, None).await??;
         let second_page = repository
             .list_chat_messages(
                 chat_id,
                 3,
-                first_page.next_cursor.as_deref().map(|cursor| {
-                    crate::api::cursor::decode::<ChatMessageCursor>(cursor).expect("decode cursor")
-                }),
+                first_page
+                    .next_cursor
+                    .as_deref()
+                    .map(decode::<ChatMessageCursor>)
+                    .transpose()?,
             )
-            .await
-            .expect("second page")
-            .expect("chat exists");
+            .await??;
 
         let first_ids: Vec<_> = first_page
             .items
@@ -621,31 +622,34 @@ mod tests {
             .map(|message| message.envelope.row_id)
             .collect();
         assert!(first_ids.iter().all(|id| !second_ids.contains(id)));
+        Ok(())
     }
 
     #[tokio::test]
-    async fn list_chats_orders_by_recent_activity() {
-        let fixture = seed_pagination_fixture().await;
-        let pool = connect_pool(fixture.path()).await.expect("connect pool");
+    async fn list_chats_orders_by_recent_activity() -> Result<(), Box<dyn std::error::Error>> {
+        let fixture = seed_pagination_fixture().await?;
+        let pool = connect_pool(fixture.path()).await?;
         let repository = MessageRepository::new(&pool);
 
-        let page = repository.list_chats(10, None).await.expect("list chats");
+        let page = repository.list_chats(10, None).await?;
         assert_eq!(page.items.len(), 3);
+        Ok(())
     }
 
     #[tokio::test]
-    async fn get_message_by_guid_returns_classified_message() {
-        let fixture = FixtureDb::seeded().await.expect("seeded fixture");
-        let pool = connect_pool(fixture.path()).await.expect("connect pool");
+    async fn get_message_by_guid_returns_classified_message()
+    -> Result<(), Box<dyn std::error::Error>> {
+        let fixture = FixtureDb::seeded().await?;
+        let pool = connect_pool(fixture.path()).await?;
         let repository = MessageRepository::new(&pool);
 
         let message = repository
             .get_message_by_guid("fixture-message-guid")
-            .await
-            .expect("lookup")
-            .expect("message");
+            .await?
+            .ok_or("fixture message not found")?;
 
         assert_eq!(message.envelope.guid, "fixture-message-guid");
         assert!(!message.envelope.chat_ids.is_empty());
+        Ok(())
     }
 }

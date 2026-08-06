@@ -84,6 +84,18 @@ pub enum AttributedBodyDecodeError {
     MissingText,
 }
 
+impl std::fmt::Display for AttributedBodyDecodeError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::InvalidTypedStream => write!(f, "invalid typedstream payload"),
+            Self::NotAttributedString => write!(f, "payload is not an NSAttributedString"),
+            Self::MissingText => write!(f, "attributed string text is missing"),
+        }
+    }
+}
+
+impl std::error::Error for AttributedBodyDecodeError {}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct AttributedRun {
     /// UTF-8 byte offset into [`MessageBody::text`].

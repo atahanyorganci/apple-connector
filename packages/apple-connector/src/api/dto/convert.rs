@@ -362,18 +362,19 @@ mod tests {
         "payload_data",
     ];
 
-    fn assert_safe_json(value: &serde_json::Value) {
-        let serialized = serde_json::to_string(value).expect("serialize dto");
+    fn assert_safe_json(value: &serde_json::Value) -> Result<(), Box<dyn std::error::Error>> {
+        let serialized = serde_json::to_string(value)?;
         for forbidden in FORBIDDEN_SUBSTRINGS {
             assert!(
                 !serialized.contains(forbidden),
                 "serialized dto leaked `{forbidden}`: {serialized}"
             );
         }
+        Ok(())
     }
 
     #[test]
-    fn attachment_dto_omits_local_paths() {
+    fn attachment_dto_omits_local_paths() -> Result<(), Box<dyn std::error::Error>> {
         let attachment = Attachment {
             guid: "at-guid".to_owned(),
             original_guid: "at-guid".to_owned(),
@@ -393,34 +394,31 @@ mod tests {
         };
 
         let dto = attachment_detail_to_dto(&attachment);
-        assert_safe_json(&serde_json::to_value(dto).expect("dto json"));
+        assert_safe_json(&serde_json::to_value(dto)?)?;
+        Ok(())
     }
 
     #[tokio::test]
-    async fn seeded_fixture_dtos_do_not_leak_paths_or_payloads() {
+    async fn seeded_fixture_dtos_do_not_leak_paths_or_payloads()
+    -> Result<(), Box<dyn std::error::Error>> {
         use sqlx::{Connection, sqlite::SqliteConnectOptions};
 
-        let fixture = FixtureDb::seeded().await.expect("seeded fixture");
+        let fixture = FixtureDb::seeded().await?;
         let options = SqliteConnectOptions::new()
             .filename(fixture.path())
             .read_only(true);
-        let mut connection = sqlx::SqliteConnection::connect_with(&options)
-            .await
-            .expect("connect fixture");
-        let chats = load_chats(&mut connection).await.expect("load chats");
+        let mut connection = sqlx::SqliteConnection::connect_with(&options).await?;
+        let chats = load_chats(&mut connection).await?;
 
         for chat in &chats {
-            assert_safe_json(&serde_json::to_value(chat_summary_to_dto(chat)).expect("chat json"));
-            assert_safe_json(&serde_json::to_value(chat_detail_to_dto(chat)).expect("chat json"));
+            assert_safe_json(&serde_json::to_value(chat_summary_to_dto(chat))?)?;
+            assert_safe_json(&serde_json::to_value(chat_detail_to_dto(chat))?)?;
 
             for message in &chat.messages {
-                assert_safe_json(
-                    &serde_json::to_value(message_summary_to_dto(message)).expect("message json"),
-                );
-                assert_safe_json(
-                    &serde_json::to_value(message_detail_to_dto(message)).expect("message json"),
-                );
+                assert_safe_json(&serde_json::to_value(message_summary_to_dto(message))?)?;
+                assert_safe_json(&serde_json::to_value(message_detail_to_dto(message))?)?;
             }
         }
+        Ok(())
     }
 }

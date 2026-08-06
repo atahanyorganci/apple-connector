@@ -22,9 +22,13 @@ const INFO_PLIST: &str = r#"<?xml version="1.0" encoding="UTF-8"?>
 
 fn main() {
     if env::var("CARGO_CFG_TARGET_OS").is_ok_and(|os| os == "macos") {
-        let out_dir = PathBuf::from(env::var("OUT_DIR").expect("OUT_DIR"));
-        let plist_path = out_dir.join("Info.plist");
-        fs::write(&plist_path, INFO_PLIST).expect("write Info.plist");
+        let Ok(out_dir) = env::var("OUT_DIR") else {
+            return;
+        };
+        let plist_path = PathBuf::from(out_dir).join("Info.plist");
+        if fs::write(&plist_path, INFO_PLIST).is_err() {
+            return;
+        }
         println!(
             "cargo:rustc-link-arg=-Wl,-sectcreate,__TEXT,__info_plist,{}",
             plist_path.display()

@@ -87,13 +87,13 @@ mod tests {
     use super::{AttachmentPathError, validate_attachment_path};
 
     #[test]
-    fn rejects_path_traversal() {
-        let temp = tempfile::tempdir().expect("tempdir");
+    fn rejects_path_traversal() -> Result<(), Box<dyn std::error::Error>> {
+        let temp = tempfile::tempdir()?;
         let root = temp.path().join("Accounts");
         let account = root.join("11111111-1111-1111-1111-111111111111");
-        fs::create_dir_all(&account).expect("account dir");
+        fs::create_dir_all(&account)?;
         let outside = temp.path().join("outside.txt");
-        fs::write(&outside, b"secret").expect("write");
+        fs::write(&outside, b"secret")?;
 
         let result = validate_attachment_path(
             &root,
@@ -101,5 +101,6 @@ mod tests {
             "../outside.txt",
         );
         assert!(matches!(result, Err(AttachmentPathError::EscapesRoot)));
+        Ok(())
     }
 }

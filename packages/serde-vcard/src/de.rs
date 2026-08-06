@@ -210,31 +210,34 @@ mod tests {
     use super::{parse_vcard, parse_vcards};
 
     #[test]
-    fn parses_vcard_3_and_4() {
+    fn parses_vcard_3_and_4() -> Result<(), Box<dyn std::error::Error>> {
         let v3 = "BEGIN:VCARD\r\nVERSION:3.0\r\nFN:Alice\r\nEND:VCARD\r\n";
-        let card = parse_vcard(v3.as_bytes()).expect("parse v3");
+        let card = parse_vcard(v3.as_bytes())?;
         assert_eq!(card.formatted_name.as_deref(), Some("Alice"));
 
         let v4 = "BEGIN:VCARD\nVERSION:4.0\nFN:Bob\nEND:VCARD\n";
-        let card = parse_vcard(v4.as_bytes()).expect("parse v4");
+        let card = parse_vcard(v4.as_bytes())?;
         assert_eq!(card.formatted_name.as_deref(), Some("Bob"));
+        Ok(())
     }
 
     #[test]
-    fn parses_multiple_cards() {
+    fn parses_multiple_cards() -> Result<(), Box<dyn std::error::Error>> {
         let input = "BEGIN:VCARD\nFN:One\nEND:VCARD\nBEGIN:VCARD\nFN:Two\nEND:VCARD\n";
-        let cards = parse_vcards(input).expect("parse");
+        let cards = parse_vcards(input)?;
         assert_eq!(cards.len(), 2);
+        Ok(())
     }
 
     #[test]
-    fn preserves_x_properties() {
+    fn preserves_x_properties() -> Result<(), Box<dyn std::error::Error>> {
         let input = "BEGIN:VCARD\nFN:Test\nX-CUSTOM:hello\nEND:VCARD\n";
-        let card = parse_vcard(input.as_bytes()).expect("parse");
-        let extensions = card.extensions.expect("extensions");
+        let card = parse_vcard(input.as_bytes())?;
+        let extensions = card.extensions.ok_or("missing extensions")?;
         assert_eq!(
             extensions.properties.get("X-CUSTOM").map(String::as_str),
             Some("hello")
         );
+        Ok(())
     }
 }

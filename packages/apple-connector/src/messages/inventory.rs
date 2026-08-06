@@ -186,8 +186,7 @@ impl fmt::Display for MessageInventory {
             f,
             "      missing_text: {}",
             self.attributed_body_missing_text
-        )?;
-        Ok(())
+        )
     }
 }
 

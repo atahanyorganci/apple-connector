@@ -44,6 +44,7 @@ Requires **Apple Silicon macOS**, **Full Disk Access** (SQLite reads), **Reminde
 - SQL uses compile-time `query!` / `query_as!` / `query_scalar!`; refresh offline cache with `bash scripts/sqlx-prepare-all.sh` and commit `packages/apple-connector/sqlx/`.
 - Date values are UTC Unix seconds (integers), not RFC 3339 strings in JSON responses.
 - After handler or schema changes: `cargo run -p apple-connector --bin export-openapi docs/openapi.json`.
+- Do not use `.unwrap()` or `.expect()` anywhere (production or tests). Propagate errors with `?` and map into domain errors (`thiserror`); in tests return `Result<(), Box<dyn std::error::Error>>` and use `?`.
 - Use conventional commits; link issues in PRs; never merge to `main` without maintainer approval.
 
 ## Planning

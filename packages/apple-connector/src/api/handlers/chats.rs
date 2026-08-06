@@ -163,33 +163,23 @@ mod tests {
     };
 
     #[tokio::test]
-    async fn list_chats_returns_seeded_chat() {
-        let fixture = FixtureDb::seeded().await.expect("seeded fixture");
-        let pool = connect_pool(fixture.path()).await.expect("connect pool");
+    async fn list_chats_returns_seeded_chat() -> Result<(), Box<dyn std::error::Error>> {
+        let fixture = FixtureDb::seeded().await?;
+        let pool = connect_pool(fixture.path()).await?;
         let app = router(AppState::new(Some(pool), None, None, None));
 
         let response = app
-            .oneshot(
-                Request::builder()
-                    .uri("/v1/chats")
-                    .body(Body::empty())
-                    .expect("request"),
-            )
-            .await
-            .expect("response");
+            .oneshot(Request::builder().uri("/v1/chats").body(Body::empty())?)
+            .await?;
 
         assert_eq!(response.status(), StatusCode::OK);
 
-        let body = response
-            .into_body()
-            .collect()
-            .await
-            .expect("body")
-            .to_bytes();
-        let payload: serde_json::Value = serde_json::from_slice(&body).expect("json");
+        let body = response.into_body().collect().await?.to_bytes();
+        let payload: serde_json::Value = serde_json::from_slice(&body)?;
         assert_eq!(
             payload["items"].as_array().map(|items| items.len()),
             Some(1)
         );
+        Ok(())
     }
 }

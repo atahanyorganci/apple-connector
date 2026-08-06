@@ -171,11 +171,13 @@ mod tests {
     use super::default_contacts_sources_dir;
 
     #[test]
-    fn default_sources_dir_is_under_application_support() {
-        let path = default_contacts_sources_dir().expect("sources dir");
+    fn default_sources_dir_is_under_application_support() -> Result<(), Box<dyn std::error::Error>>
+    {
+        let path = default_contacts_sources_dir()?;
         assert!(
             path.to_string_lossy()
                 .contains("Application Support/AddressBook/Sources")
         );
+        Ok(())
     }
 }

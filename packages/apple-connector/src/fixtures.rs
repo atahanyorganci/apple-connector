@@ -371,129 +371,114 @@ mod tests {
     };
 
     #[tokio::test]
-    async fn empty_fixture_is_deterministic() {
-        let first = FixtureDb::empty().await.expect("first fixture");
-        let second = FixtureDb::empty().await.expect("second fixture");
+    async fn empty_fixture_is_deterministic() -> Result<(), Box<dyn std::error::Error>> {
+        let first = FixtureDb::empty().await?;
+        let second = FixtureDb::empty().await?;
 
         assert_ne!(first.path(), second.path());
         assert!(first.path().is_file());
         assert!(second.path().is_file());
+        Ok(())
     }
 
     #[tokio::test]
-    async fn seeded_fixture_contains_expected_rows() {
-        let fixture = FixtureDb::seeded().await.expect("seeded fixture");
+    async fn seeded_fixture_contains_expected_rows() -> Result<(), Box<dyn std::error::Error>> {
+        let fixture = FixtureDb::seeded().await?;
         let options = SqliteConnectOptions::new()
             .filename(fixture.path())
             .read_only(true);
-        let pool = sqlx::SqlitePool::connect_with(options)
-            .await
-            .expect("connect read-only pool");
+        let pool = sqlx::SqlitePool::connect_with(options).await?;
 
         let handle_count: i64 = sqlx::query_scalar!(
             "SELECT COUNT(*) AS \"count!\" FROM handle WHERE id = ?1",
             SEED_HANDLE_ID
         )
         .fetch_one(&pool)
-        .await
-        .expect("handle count");
+        .await?;
 
         let chat_count: i64 = sqlx::query_scalar!(
             "SELECT COUNT(*) AS \"count!\" FROM chat WHERE guid = ?1",
             SEED_CHAT_GUID
         )
         .fetch_one(&pool)
-        .await
-        .expect("chat count");
+        .await?;
 
         let message_count: i64 = sqlx::query_scalar!(
             "SELECT COUNT(*) AS \"count!\" FROM message WHERE guid = ?1",
             SEED_MESSAGE_GUID
         )
         .fetch_one(&pool)
-        .await
-        .expect("message count");
+        .await?;
 
         assert_eq!(handle_count, 1);
         assert_eq!(chat_count, 1);
         assert_eq!(message_count, 1);
+        Ok(())
     }
 
     #[tokio::test]
-    async fn empty_reminders_fixture_loads_schema() {
-        let fixture = RemindersFixtureDb::empty()
-            .await
-            .expect("empty reminders fixture");
+    async fn empty_reminders_fixture_loads_schema() -> Result<(), Box<dyn std::error::Error>> {
+        let fixture = RemindersFixtureDb::empty().await?;
         let options = SqliteConnectOptions::new()
             .filename(fixture.path())
             .read_only(true);
-        let pool = sqlx::SqlitePool::connect_with(options)
-            .await
-            .expect("connect read-only pool");
+        let pool = sqlx::SqlitePool::connect_with(options).await?;
 
         let table_count: i64 = sqlx::query_scalar!(
             "SELECT COUNT(*) AS \"count!\" FROM sqlite_master WHERE name = 'ZREMCDREMINDER'"
         )
         .fetch_one(&pool)
-        .await
-        .expect("table count");
+        .await?;
 
         assert_eq!(table_count, 1);
+        Ok(())
     }
 
     #[tokio::test]
-    async fn seeded_reminders_fixture_contains_expected_rows() {
-        let fixture = RemindersFixtureDb::seeded()
-            .await
-            .expect("seeded reminders fixture");
+    async fn seeded_reminders_fixture_contains_expected_rows()
+    -> Result<(), Box<dyn std::error::Error>> {
+        let fixture = RemindersFixtureDb::seeded().await?;
         let options = SqliteConnectOptions::new()
             .filename(fixture.path())
             .read_only(true);
-        let pool = sqlx::SqlitePool::connect_with(options)
-            .await
-            .expect("connect read-only pool");
+        let pool = sqlx::SqlitePool::connect_with(options).await?;
 
         let reminder_count: i64 = sqlx::query_scalar!(
             "SELECT COUNT(*) AS \"count!\" FROM ZREMCDREMINDER WHERE ZMARKEDFORDELETION = 0"
         )
         .fetch_one(&pool)
-        .await
-        .expect("reminder count");
+        .await?;
 
         assert!(reminder_count >= 2);
+        Ok(())
     }
 
     #[tokio::test]
-    async fn empty_notes_fixture_loads_schema() {
-        let fixture = NotesFixtureDb::empty().await.expect("empty notes fixture");
+    async fn empty_notes_fixture_loads_schema() -> Result<(), Box<dyn std::error::Error>> {
+        let fixture = NotesFixtureDb::empty().await?;
         let options = SqliteConnectOptions::new()
             .filename(fixture.path())
             .read_only(true);
-        let pool = sqlx::SqlitePool::connect_with(options)
-            .await
-            .expect("connect read-only pool");
+        let pool = sqlx::SqlitePool::connect_with(options).await?;
 
         let table_count: i64 = sqlx::query_scalar!(
             "SELECT COUNT(*) AS \"count!\" FROM sqlite_master WHERE name = 'ZICCLOUDSYNCINGOBJECT'"
         )
         .fetch_one(&pool)
-        .await
-        .expect("table count");
+        .await?;
 
         assert_eq!(table_count, 1);
+        Ok(())
     }
 
     #[tokio::test]
-    async fn seeded_notes_fixture_contains_expected_rows() {
-        let fixture = NotesFixtureDb::seeded()
-            .await
-            .expect("seeded notes fixture");
+    async fn seeded_notes_fixture_contains_expected_rows() -> Result<(), Box<dyn std::error::Error>>
+    {
+        let fixture = NotesFixtureDb::seeded().await?;
         let options = SqliteConnectOptions::new()
             .filename(fixture.path())
             .read_only(true);
-        let pool = sqlx::SqlitePool::connect_with(options)
-            .await
-            .expect("connect read-only pool");
+        let pool = sqlx::SqlitePool::connect_with(options).await?;
 
         let folder_count: i64 = sqlx::query_scalar!(
             "SELECT COUNT(*) AS \"count!\" FROM ZICCLOUDSYNCINGOBJECT \
@@ -501,16 +486,14 @@ mod tests {
             SEED_NOTES_FOLDER_ID
         )
         .fetch_one(&pool)
-        .await
-        .expect("folder count");
+        .await?;
 
         let note_count: i64 = sqlx::query_scalar!(
             "SELECT COUNT(*) AS \"count!\" FROM ZICCLOUDSYNCINGOBJECT \
              WHERE Z_ENT = 12 AND ZMARKEDFORDELETION = 0"
         )
         .fetch_one(&pool)
-        .await
-        .expect("note count");
+        .await?;
 
         let locked_count: i64 = sqlx::query_scalar!(
             "SELECT COUNT(*) AS \"count!\" FROM ZICCLOUDSYNCINGOBJECT \
@@ -518,8 +501,7 @@ mod tests {
             SEED_LOCKED_NOTE_ID
         )
         .fetch_one(&pool)
-        .await
-        .expect("locked count");
+        .await?;
 
         let checklist_count: i64 = sqlx::query_scalar!(
             "SELECT COUNT(*) AS \"count!\" FROM ZICCLOUDSYNCINGOBJECT \
@@ -527,8 +509,7 @@ mod tests {
             SEED_CHECKLIST_NOTE_ID
         )
         .fetch_one(&pool)
-        .await
-        .expect("checklist count");
+        .await?;
 
         let body_count: i64 = sqlx::query_scalar!(
             "SELECT COUNT(*) AS \"count!\" FROM ZICNOTEDATA nd \
@@ -537,8 +518,7 @@ mod tests {
             SEED_PLAIN_TEXT_NOTE_ID
         )
         .fetch_one(&pool)
-        .await
-        .expect("body count");
+        .await?;
 
         let hashtag_count: i64 = sqlx::query_scalar!(
             "SELECT COUNT(*) AS \"count!\" FROM ZICCLOUDSYNCINGOBJECT \
@@ -546,8 +526,7 @@ mod tests {
                AND ZNOTE1 = 6 AND ZALTTEXT = '#reading'"
         )
         .fetch_one(&pool)
-        .await
-        .expect("hashtag count");
+        .await?;
 
         assert_eq!(folder_count, 1);
         assert!(note_count >= 5);
@@ -555,5 +534,6 @@ mod tests {
         assert_eq!(checklist_count, 1);
         assert_eq!(body_count, 1);
         assert_eq!(hashtag_count, 1);
+        Ok(())
     }
 }

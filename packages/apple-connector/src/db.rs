@@ -35,6 +35,18 @@ pub enum DatabaseError {
     Connect(String),
 }
 
+impl std::fmt::Display for DatabaseError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::NotFound => write!(f, "database not found"),
+            Self::PermissionDenied => write!(f, "database permission denied"),
+            Self::Connect(message) => write!(f, "database connect error: {message}"),
+        }
+    }
+}
+
+impl std::error::Error for DatabaseError {}
+
 impl DatabaseError {
     pub fn startup_message(&self, path: &Path) -> String {
         match self {
@@ -122,18 +134,18 @@ mod tests {
     use crate::fixtures::FixtureDb;
 
     #[tokio::test]
-    async fn read_only_pool_can_run_health_query() {
-        let fixture = FixtureDb::empty().await.expect("fixture database");
-        let pool = connect_pool(fixture.path())
-            .await
-            .expect("connect read-only pool");
+    async fn read_only_pool_can_run_health_query() -> Result<(), Box<dyn std::error::Error>> {
+        let fixture = FixtureDb::empty().await?;
+        let pool = connect_pool(fixture.path()).await?;
 
         assert!(is_pool_healthy(&pool).await);
+        Ok(())
     }
 
     #[tokio::test]
-    async fn missing_database_is_reported_without_creating_file() {
-        let temp_dir = tempfile::tempdir().expect("temp dir");
+    async fn missing_database_is_reported_without_creating_file()
+    -> Result<(), Box<dyn std::error::Error>> {
+        let temp_dir = tempfile::tempdir()?;
         let path = temp_dir.path().join("missing-chat.db");
 
         assert!(matches!(
@@ -141,5 +153,6 @@ mod tests {
             Err(super::DatabaseError::NotFound)
         ));
         assert!(!path.exists());
+        Ok(())
     }
 }

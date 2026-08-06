@@ -175,19 +175,21 @@ mod tests {
     use super::{Cli, default_messages_database_path};
 
     #[test]
-    fn defaults_to_loopback_port_and_home_database() {
-        let cli = Cli::try_parse_from(["apple-connector"]).expect("parse defaults");
+    fn defaults_to_loopback_port_and_home_database() -> Result<(), Box<dyn std::error::Error>> {
+        let cli = Cli::try_parse_from(["apple-connector"])?;
 
         assert_eq!(cli.address, IpAddr::V4(Ipv4Addr::LOCALHOST));
         assert_eq!(cli.port, 3000);
         assert_eq!(
-            cli.messages_database_path().expect("database path"),
-            default_messages_database_path().expect("default database path")
+            cli.messages_database_path()?,
+            default_messages_database_path()?
         );
+        Ok(())
     }
 
     #[test]
-    fn address_port_and_database_override_independently() {
+    fn address_port_and_database_override_independently() -> Result<(), Box<dyn std::error::Error>>
+    {
         let cli = Cli::try_parse_from([
             "apple-connector",
             "--address",
@@ -196,43 +198,46 @@ mod tests {
             "8080",
             "--messages-database",
             "/tmp/chat.db",
-        ])
-        .expect("parse overrides");
+        ])?;
 
         assert_eq!(cli.address, IpAddr::V4(Ipv4Addr::new(127, 0, 0, 2)));
         assert_eq!(cli.port, 8080);
-        assert_eq!(
-            cli.messages_database_path().expect("database path"),
-            PathBuf::from("/tmp/chat.db")
-        );
+        assert_eq!(cli.messages_database_path()?, PathBuf::from("/tmp/chat.db"));
+        Ok(())
     }
 
     #[test]
-    fn accepts_ipv6_loopback_and_all_interfaces_ipv4() {
-        let cli_v6 = Cli::try_parse_from(["apple-connector", "--address", "::1"])
-            .expect("parse ipv6 loopback");
+    fn accepts_ipv6_loopback_and_all_interfaces_ipv4() -> Result<(), Box<dyn std::error::Error>> {
+        let cli_v6 = Cli::try_parse_from(["apple-connector", "--address", "::1"])?;
         assert!(matches!(cli_v6.address, IpAddr::V6(_)));
 
-        let cli_v4 = Cli::try_parse_from(["apple-connector", "--address", "0.0.0.0"])
-            .expect("parse all interfaces");
+        let cli_v4 = Cli::try_parse_from(["apple-connector", "--address", "0.0.0.0"])?;
         assert_eq!(cli_v4.address, IpAddr::V4(Ipv4Addr::UNSPECIFIED));
         assert!(cli_v4.warns_about_public_binding());
+        Ok(())
     }
 
     #[test]
-    fn rejects_invalid_address_port_and_malformed_args() {
-        let invalid_ip =
-            Cli::try_parse_from(["apple-connector", "--address", "not-an-ip"]).unwrap_err();
+    fn rejects_invalid_address_port_and_malformed_args() -> Result<(), Box<dyn std::error::Error>> {
+        let invalid_ip = Cli::try_parse_from(["apple-connector", "--address", "not-an-ip"])
+            .err()
+            .ok_or("expected invalid IP address error")?;
         assert!(invalid_ip.to_string().contains("invalid IP address"));
 
-        let public_ip =
-            Cli::try_parse_from(["apple-connector", "--address", "192.168.1.1"]).unwrap_err();
+        let public_ip = Cli::try_parse_from(["apple-connector", "--address", "192.168.1.1"])
+            .err()
+            .ok_or("expected public IP error")?;
         assert!(public_ip.to_string().contains("not allowed"));
 
-        let zero_port = Cli::try_parse_from(["apple-connector", "--port", "0"]).unwrap_err();
+        let zero_port = Cli::try_parse_from(["apple-connector", "--port", "0"])
+            .err()
+            .ok_or("expected zero port error")?;
         assert!(zero_port.to_string().contains("greater than 0"));
 
-        let unknown_flag = Cli::try_parse_from(["apple-connector", "--unknown"]).unwrap_err();
+        let unknown_flag = Cli::try_parse_from(["apple-connector", "--unknown"])
+            .err()
+            .ok_or("expected unknown flag error")?;
         assert!(unknown_flag.to_string().contains("unexpected"));
+        Ok(())
     }
 }

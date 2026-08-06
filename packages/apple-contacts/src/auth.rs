@@ -66,7 +66,9 @@ fn request_contacts_access(store: &CNContactStore) -> ContactsResult<()> {
     let (tx, rx) = mpsc::sync_channel(1);
     let slot = Mutex::new(Some(tx));
     let block = block2::RcBlock::new(move |granted: objc2::runtime::Bool, _| {
-        if let Some(tx) = slot.lock().expect("auth slot").take() {
+        if let Ok(mut guard) = slot.lock()
+            && let Some(tx) = guard.take()
+        {
             let _ = tx.send(granted.as_bool());
         }
     });

@@ -144,17 +144,12 @@ mod tests {
     };
 
     #[tokio::test]
-    async fn healthz_reports_ok_when_both_databases_are_healthy() {
-        let messages_fixture = FixtureDb::empty().await.expect("messages fixture");
-        let reminders_fixture = RemindersFixtureDb::empty()
-            .await
-            .expect("reminders fixture");
-        let messages_pool = connect_pool(messages_fixture.path())
-            .await
-            .expect("messages pool");
-        let reminders_pool = connect_pool(reminders_fixture.path())
-            .await
-            .expect("reminders pool");
+    async fn healthz_reports_ok_when_both_databases_are_healthy()
+    -> Result<(), Box<dyn std::error::Error>> {
+        let messages_fixture = FixtureDb::empty().await?;
+        let reminders_fixture = RemindersFixtureDb::empty().await?;
+        let messages_pool = connect_pool(messages_fixture.path()).await?;
+        let reminders_pool = connect_pool(reminders_fixture.path()).await?;
         let app = router(AppState::new(
             Some(messages_pool),
             Some(reminders_pool),
@@ -163,25 +158,14 @@ mod tests {
         ));
 
         let response = app
-            .oneshot(
-                Request::builder()
-                    .uri("/healthz")
-                    .body(Body::empty())
-                    .expect("request"),
-            )
-            .await
-            .expect("response");
+            .oneshot(Request::builder().uri("/healthz").body(Body::empty())?)
+            .await?;
 
         assert_eq!(response.status(), StatusCode::SERVICE_UNAVAILABLE);
 
-        let body = response
-            .into_body()
-            .collect()
-            .await
-            .expect("body")
-            .to_bytes();
+        let body = response.into_body().collect().await?.to_bytes();
         assert_eq!(
-            serde_json::from_slice::<serde_json::Value>(&body).expect("json"),
+            serde_json::from_slice::<serde_json::Value>(&body)?,
             serde_json::json!({
                 "messages": "ok",
                 "reminders": "ok",
@@ -193,33 +177,24 @@ mod tests {
                 "contacts_auth": "unavailable",
             })
         );
+        Ok(())
     }
 
     #[tokio::test]
-    async fn healthz_reports_unavailable_without_leaking_paths() {
+    async fn healthz_reports_unavailable_without_leaking_paths()
+    -> Result<(), Box<dyn std::error::Error>> {
         let app = router(AppState::new(None, None, None, None));
 
         let response = app
-            .oneshot(
-                Request::builder()
-                    .uri("/healthz")
-                    .body(Body::empty())
-                    .expect("request"),
-            )
-            .await
-            .expect("response");
+            .oneshot(Request::builder().uri("/healthz").body(Body::empty())?)
+            .await?;
 
         assert_eq!(response.status(), StatusCode::SERVICE_UNAVAILABLE);
 
-        let body = response
-            .into_body()
-            .collect()
-            .await
-            .expect("body")
-            .to_bytes();
-        let payload = String::from_utf8(body.to_vec()).expect("utf-8");
+        let body = response.into_body().collect().await?.to_bytes();
+        let payload = String::from_utf8(body.to_vec())?;
         assert_eq!(
-            serde_json::from_str::<serde_json::Value>(&payload).expect("json"),
+            serde_json::from_str::<serde_json::Value>(&payload)?,
             serde_json::json!({
                 "messages": "unavailable",
                 "reminders": "unavailable",
@@ -234,17 +209,16 @@ mod tests {
         assert!(!payload.contains("chat.db"));
         assert!(!payload.contains("Library/Messages"));
         assert!(!payload.contains("Group Containers"));
+        Ok(())
     }
 
     #[test]
-    fn health_status_serializes_as_snake_case() {
+    fn health_status_serializes_as_snake_case() -> Result<(), Box<dyn std::error::Error>> {
+        assert_eq!(serde_json::to_string(&HealthStatus::Ok)?, "\"ok\"");
         assert_eq!(
-            serde_json::to_string(&HealthStatus::Ok).expect("serialize"),
-            "\"ok\""
-        );
-        assert_eq!(
-            serde_json::to_string(&EventKitAuthStatusDto::Authorized).expect("serialize"),
+            serde_json::to_string(&EventKitAuthStatusDto::Authorized)?,
             "\"authorized\""
         );
+        Ok(())
     }
 }

@@ -102,9 +102,12 @@ fn join_error(_: JoinError) -> ContactsError {
 
 impl Clone for ContactsStore {
     fn clone(&self) -> Self {
-        let store = self.inner.lock().expect("contacts lock");
+        let store = match self.inner.lock() {
+            Ok(guard) => guard.clone(),
+            Err(poisoned) => poisoned.into_inner().clone(),
+        };
         Self {
-            inner: Mutex::new(store.clone()),
+            inner: Mutex::new(store),
             auth: AuthSnapshot::new(),
         }
     }

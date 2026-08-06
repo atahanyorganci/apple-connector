@@ -99,23 +99,27 @@ mod tests {
     use super::UnixTimestamp;
 
     #[test]
-    fn serializes_as_bare_integer() {
-        let json = serde_json::to_string(&UnixTimestamp::from_seconds(1_705_320_000))
-            .expect("serialize timestamp");
+    fn serializes_as_bare_integer() -> Result<(), Box<dyn std::error::Error>> {
+        let json = serde_json::to_string(&UnixTimestamp::from_seconds(1_705_320_000))?;
         assert_eq!(json, "1705320000");
+        Ok(())
     }
 
     #[test]
-    fn round_trips_through_json() {
+    fn round_trips_through_json() -> Result<(), Box<dyn std::error::Error>> {
         let value = UnixTimestamp::from_seconds(42);
-        let decoded: UnixTimestamp =
-            serde_json::from_str(&serde_json::to_string(&value).expect("encode")).expect("decode");
+        let decoded: UnixTimestamp = serde_json::from_str(&serde_json::to_string(&value)?)?;
         assert_eq!(decoded, value);
+        Ok(())
     }
 
     #[test]
-    fn converts_from_utc_datetime_to_seconds() {
-        let dt = chrono::Utc.with_ymd_and_hms(2024, 1, 15, 12, 0, 0).unwrap();
+    fn converts_from_utc_datetime_to_seconds() -> Result<(), Box<dyn std::error::Error>> {
+        let dt = chrono::Utc
+            .with_ymd_and_hms(2024, 1, 15, 12, 0, 0)
+            .single()
+            .ok_or("invalid timestamp")?;
         assert_eq!(UnixTimestamp::from(dt).seconds(), dt.timestamp());
+        Ok(())
     }
 }

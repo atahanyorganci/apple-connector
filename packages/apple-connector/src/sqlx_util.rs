@@ -2,7 +2,7 @@
 
 /// Serialize row ids for SQLite `json_each(?)` IN-clause lookups.
 pub fn json_ids(ids: &[i64]) -> String {
-    serde_json::to_string(ids).expect("serialize id list")
+    serde_json::to_string(ids).unwrap_or_else(|_| "[]".to_owned())
 }
 
 /// Map an optional bool filter to `None` (no filter) or `Some(0/1)`.

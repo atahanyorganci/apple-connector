@@ -323,7 +323,10 @@ fn split_page<T>(mut rows: Vec<T>, limit: u32) -> (Vec<T>, bool) {
 
 pub fn unix_to_core_data_secs(unix: i64) -> f64 {
     use chrono::TimeZone;
-    core_data_secs_from_timestamp(chrono::Utc.timestamp_opt(unix, 0).unwrap())
+    match chrono::Utc.timestamp_opt(unix, 0).single() {
+        Some(dt) => core_data_secs_from_timestamp(dt),
+        None => 0.0,
+    }
 }
 
 #[cfg(test)]
@@ -336,57 +339,50 @@ mod tests {
     };
 
     #[tokio::test]
-    async fn lists_seeded_events() {
-        let fixture = CalendarFixtureDb::seeded().await.expect("fixture");
-        let pool = connect_pool(fixture.path()).await.expect("pool");
+    async fn lists_seeded_events() -> Result<(), Box<dyn std::error::Error>> {
+        let fixture = CalendarFixtureDb::seeded().await?;
+        let pool = connect_pool(fixture.path()).await?;
         let repo = CalendarRepository::new(&pool);
-        let page = repo
-            .list_events(&Default::default(), 10, None)
-            .await
-            .expect("list");
+        let page = repo.list_events(&Default::default(), 10, None).await?;
         assert!(!page.items.is_empty());
+        Ok(())
     }
 
     #[tokio::test]
-    async fn calendar_event_cursor_round_trips_through_pagination() {
-        let fixture = CalendarFixtureDb::seeded().await.expect("fixture");
-        let pool = connect_pool(fixture.path()).await.expect("pool");
+    async fn calendar_event_cursor_round_trips_through_pagination()
+    -> Result<(), Box<dyn std::error::Error>> {
+        let fixture = CalendarFixtureDb::seeded().await?;
+        let pool = connect_pool(fixture.path()).await?;
         let repo = CalendarRepository::new(&pool);
-        let calendars = repo.list_calendars(1, None).await.expect("calendars");
+        let calendars = repo.list_calendars(1, None).await?;
         let calendar_id = calendars.items[0].id.clone();
 
         let first = repo
             .list_calendar_events(&calendar_id, &Default::default(), 1, None)
-            .await
-            .expect("first page");
+            .await?;
         assert!(first.has_more);
-        let cursor = first.next_cursor.expect("next cursor");
+        let cursor = first.next_cursor.ok_or("missing cursor")?;
 
         let second = repo
-            .list_calendar_events(
-                &calendar_id,
-                &Default::default(),
-                1,
-                Some(decode(&cursor).expect("decode calendar cursor")),
-            )
-            .await
-            .expect("second page");
+            .list_calendar_events(&calendar_id, &Default::default(), 1, Some(decode(&cursor)?))
+            .await?;
         assert_ne!(first.items[0].id, second.items[0].id);
+        Ok(())
     }
 
     #[tokio::test]
-    async fn gets_event_detail() {
-        let fixture = CalendarFixtureDb::seeded().await.expect("fixture");
-        let pool = connect_pool(fixture.path()).await.expect("pool");
+    async fn gets_event_detail() -> Result<(), Box<dyn std::error::Error>> {
+        let fixture = CalendarFixtureDb::seeded().await?;
+        let pool = connect_pool(fixture.path()).await?;
         let repo = CalendarRepository::new(&pool);
         let event = repo
             .get_event(SEED_EVENT_ID)
-            .await
-            .expect("get")
-            .expect("event");
+            .await?
+            .ok_or("event not found")?;
         assert_eq!(event.summary.id, SEED_EVENT_ID);
         assert!(!event.attendees.is_empty());
         assert!(event.location.is_some());
+        Ok(())
     }
 
     #[test]

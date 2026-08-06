@@ -242,27 +242,40 @@ mod tests {
     use super::{ChatListCursor, GlobalMessageCursor, decode, encode};
 
     #[test]
-    fn round_trips_global_message_cursor() {
+    fn round_trips_global_message_cursor() -> Result<(), Box<dyn std::error::Error>> {
         let cursor = GlobalMessageCursor {
             date: 123,
             row_id: 456,
         };
-        let encoded = encode(&cursor).expect("encode");
+        let encoded = encode(&cursor).map_err(|e| -> Box<dyn std::error::Error> {
+            Box::new(std::io::Error::other(format!("{e:?}")))
+        })?;
         assert!(encoded.starts_with("v1."));
         assert_eq!(
-            decode::<GlobalMessageCursor>(&encoded).expect("decode"),
+            decode::<GlobalMessageCursor>(&encoded).map_err(|e| -> Box<dyn std::error::Error> {
+                Box::new(std::io::Error::other(format!("{e:?}")))
+            })?,
             cursor
         );
+        Ok(())
     }
 
     #[test]
-    fn round_trips_chat_list_cursor() {
+    fn round_trips_chat_list_cursor() -> Result<(), Box<dyn std::error::Error>> {
         let cursor = ChatListCursor {
             message_date: 100,
             message_id: 200,
             chat_id: 3,
         };
-        let encoded = encode(&cursor).expect("encode");
-        assert_eq!(decode::<ChatListCursor>(&encoded).expect("decode"), cursor);
+        let encoded = encode(&cursor).map_err(|e| -> Box<dyn std::error::Error> {
+            Box::new(std::io::Error::other(format!("{e:?}")))
+        })?;
+        assert_eq!(
+            decode::<ChatListCursor>(&encoded).map_err(|e| -> Box<dyn std::error::Error> {
+                Box::new(std::io::Error::other(format!("{e:?}")))
+            })?,
+            cursor
+        );
+        Ok(())
     }
 }

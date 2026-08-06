@@ -240,7 +240,13 @@ impl<'a> NoteRepository<'a> {
             CANDIDATE_CHUNK_SIZE, NOTE_SCAN_BUDGET, metadata_filters, text_matches,
         };
 
-        let query = filters.q.as_deref().expect("search requires q");
+        let Some(query) = filters.q.as_deref() else {
+            return Ok(Page {
+                items: Vec::new(),
+                has_more: false,
+                next_cursor: None,
+            });
+        };
         let sql_filters = metadata_filters(filters);
         let entity_ids = load_entity_ids(self.pool).await?;
         let mut matching_rows = Vec::new();

@@ -93,11 +93,11 @@ fn acnp_emoji_formatting_3() {
 }
 
 #[test]
-fn acnp_url_link_runs() {
+fn acnp_url_link_runs() -> Result<(), Box<dyn std::error::Error>> {
     let data = read_acnp_fixture("url_gzipped.bin");
     let body = decode_note_body(&data);
     assert!(body.decode_error.is_none(), "{:?}", body.decode_error);
-    let text = body.text.as_deref().expect("decoded text");
+    let text = body.text.as_deref().ok_or("missing text")?;
     assert!(text.contains("Jim Nettles"), "text: {text}");
     assert!(text.contains("his older brother"), "text: {text}");
     let link_runs = body.runs.iter().filter(|run| run.link.is_some()).count();
@@ -106,6 +106,7 @@ fn acnp_url_link_runs() {
         "expected at least one link run, got {link_runs}; runs={:?}",
         body.runs
     );
+    Ok(())
 }
 
 #[test]

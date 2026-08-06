@@ -355,8 +355,8 @@ async fn resolve_contacts_sources(cli: &Cli) -> contacts::ContactsSources {
 }
 
 async fn shutdown_signal() {
-    tokio::signal::ctrl_c()
-        .await
-        .expect("failed to install Ctrl-C handler");
-    info!("shutdown signal received");
+    match tokio::signal::ctrl_c().await {
+        Ok(()) => info!("shutdown signal received"),
+        Err(error) => warn!(error = %error, "failed to install Ctrl-C handler"),
+    }
 }

@@ -18,7 +18,9 @@ pub(crate) fn lookup_reminder(
         .collect();
     match reminders.len() {
         0 => Err(EventKitError::NotFound),
-        1 => Ok(reminders.into_iter().next().expect("one reminder")),
+        1 => Ok(reminders.into_iter().next().ok_or_else(|| {
+            EventKitError::Framework("reminder iterator unexpectedly empty".into())
+        })?),
         n => Err(EventKitError::AmbiguousMatch(format!(
             "{n} reminders matched identifier '{api_id}'"
         ))),
@@ -50,7 +52,9 @@ pub(crate) fn lookup_event(
             .collect();
         return match matches.len() {
             0 => Err(EventKitError::NotFound),
-            1 => Ok(matches.into_iter().next().expect("one event")),
+            1 => Ok(matches.into_iter().next().ok_or_else(|| {
+                EventKitError::Framework("event iterator unexpectedly empty".into())
+            })?),
             n => Err(EventKitError::AmbiguousMatch(format!(
                 "{n} event occurrences matched start {start}"
             ))),
@@ -59,7 +63,10 @@ pub(crate) fn lookup_event(
 
     match events.len() {
         0 => Err(EventKitError::NotFound),
-        1 => Ok(events.into_iter().next().expect("one event")),
+        1 => Ok(events
+            .into_iter()
+            .next()
+            .ok_or_else(|| EventKitError::Framework("event iterator unexpectedly empty".into()))?),
         n => Err(EventKitError::AmbiguousMatch(format!(
             "{n} events matched identifier '{api_id}'; pass occurrence_start to disambiguate"
         ))),

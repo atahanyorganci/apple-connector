@@ -13,46 +13,30 @@ use http::{Request, StatusCode};
 use http_body_util::BodyExt;
 use tower::ServiceExt;
 
-async fn response_json(app: Router, uri: &str) -> (StatusCode, serde_json::Value) {
+async fn response_json(
+    app: Router,
+    uri: &str,
+) -> Result<(StatusCode, serde_json::Value), Box<dyn std::error::Error>> {
     let response = app
-        .oneshot(
-            Request::builder()
-                .uri(uri)
-                .body(Body::empty())
-                .expect("request"),
-        )
-        .await
-        .expect("response");
+        .oneshot(Request::builder().uri(uri).body(Body::empty())?)
+        .await?;
     let status = response.status();
-    let body = response
-        .into_body()
-        .collect()
-        .await
-        .expect("body")
-        .to_bytes();
+    let body = response.into_body().collect().await?.to_bytes();
     let payload = serde_json::from_slice(&body)
         .unwrap_or(serde_json::json!({ "raw": String::from_utf8_lossy(&body) }));
-    (status, payload)
+    Ok((status, payload))
 }
 
-async fn response_text(app: Router, uri: &str) -> (StatusCode, String) {
+async fn response_text(
+    app: Router,
+    uri: &str,
+) -> Result<(StatusCode, String), Box<dyn std::error::Error>> {
     let response = app
-        .oneshot(
-            Request::builder()
-                .uri(uri)
-                .body(Body::empty())
-                .expect("request"),
-        )
-        .await
-        .expect("response");
+        .oneshot(Request::builder().uri(uri).body(Body::empty())?)
+        .await?;
     let status = response.status();
-    let body = response
-        .into_body()
-        .collect()
-        .await
-        .expect("body")
-        .to_bytes();
-    (status, String::from_utf8_lossy(&body).into_owned())
+    let body = response.into_body().collect().await?.to_bytes();
+    Ok((status, String::from_utf8_lossy(&body).into_owned()))
 }
 
 fn contacts_app(pool: sqlx::SqlitePool) -> Router {
@@ -72,16 +56,16 @@ fn contacts_app(pool: sqlx::SqlitePool) -> Router {
 }
 
 #[tokio::test]
-async fn integration_containers_groups_and_contacts() {
-    let fixture = ContactsFixtureDb::seeded().await.expect("fixture");
-    let pool = connect_pool(fixture.path()).await.expect("pool");
+async fn integration_containers_groups_and_contacts() -> Result<(), Box<dyn std::error::Error>> {
+    let fixture = ContactsFixtureDb::seeded().await?;
+    let pool = connect_pool(fixture.path()).await?;
     let app = contacts_app(pool);
 
-    let (status, payload) = response_json(app.clone(), "/healthz").await;
+    let (status, payload) = response_json(app.clone(), "/healthz").await?;
     assert_eq!(status, StatusCode::SERVICE_UNAVAILABLE);
     assert_eq!(payload["contacts"], "ok");
 
-    let (status, containers) = response_json(app.clone(), "/v1/containers").await;
+    let (status, containers) = response_json(app.clone(), "/v1/containers").await?;
     assert_eq!(status, StatusCode::OK);
     assert!(
         containers["items"]
@@ -89,7 +73,7 @@ async fn integration_containers_groups_and_contacts() {
             .is_some_and(|items| { items.iter().any(|item| item["id"] == SEED_CONTAINER_ID) })
     );
 
-    let (status, groups) = response_json(app.clone(), "/v1/groups?limit=10").await;
+    let (status, groups) = response_json(app.clone(), "/v1/groups?limit=10").await?;
     assert_eq!(status, StatusCode::OK);
     assert!(
         groups["items"]
@@ -97,7 +81,7 @@ async fn integration_containers_groups_and_contacts() {
             .is_some_and(|items| items.iter().any(|item| item["id"] == SEED_GROUP_ID))
     );
 
-    let (status, contacts) = response_json(app.clone(), "/v1/contacts?limit=10").await;
+    let (status, contacts) = response_json(app.clone(), "/v1/contacts?limit=10").await?;
     assert_eq!(status, StatusCode::OK);
     assert!(
         contacts["items"]
@@ -106,7 +90,7 @@ async fn integration_containers_groups_and_contacts() {
     );
 
     let (status, detail) =
-        response_json(app.clone(), &format!("/v1/contacts/{SEED_CONTACT_ID}")).await;
+        response_json(app.clone(), &format!("/v1/contacts/{SEED_CONTACT_ID}")).await?;
     assert_eq!(status, StatusCode::OK);
     assert_eq!(detail["id"], SEED_CONTACT_ID);
     assert_eq!(detail["first_name"], "Jane");
@@ -115,15 +99,17 @@ async fn integration_containers_groups_and_contacts() {
             .as_array()
             .is_some_and(|items| !items.is_empty())
     );
+    Ok(())
 }
 
 #[tokio::test]
-async fn integration_contacts_search_vcard_and_carddav() {
-    let fixture = ContactsFixtureDb::seeded().await.expect("fixture");
-    let pool = connect_pool(fixture.path()).await.expect("pool");
+async fn integration_contacts_search_vcard_and_carddav() -> Result<(), Box<dyn std::error::Error>> {
+    let fixture = ContactsFixtureDb::seeded().await?;
+    let pool = connect_pool(fixture.path()).await?;
     let app = contacts_app(pool);
 
-    let (status, search) = response_json(app.clone(), "/v1/contacts/search?q=Jane&limit=10").await;
+    let (status, search) =
+        response_json(app.clone(), "/v1/contacts/search?q=Jane&limit=10").await?;
     assert_eq!(status, StatusCode::OK);
     assert!(
         search["items"]
@@ -135,7 +121,7 @@ async fn integration_contacts_search_vcard_and_carddav() {
         app.clone(),
         &format!("/v1/contacts/{SEED_CONTACT_ID}/vcard"),
     )
-    .await;
+    .await?;
     assert_eq!(status, StatusCode::OK);
     assert!(vcard.contains("BEGIN:VCARD"));
     assert!(vcard.contains("Jane"));
@@ -144,11 +130,11 @@ async fn integration_contacts_search_vcard_and_carddav() {
         app.clone(),
         &format!("/v1/contacts/{SEED_CONTACT_ID}/carddav"),
     )
-    .await;
+    .await?;
     assert_eq!(status, StatusCode::OK);
     assert!(carddav.contains("address-data"));
 
-    let (status, list_vcard) = response_text(app.clone(), "/v1/contacts/vcard?limit=10").await;
+    let (status, list_vcard) = response_text(app.clone(), "/v1/contacts/vcard?limit=10").await?;
     assert_eq!(status, StatusCode::OK);
     assert!(list_vcard.contains("BEGIN:VCARD"));
 
@@ -156,31 +142,34 @@ async fn integration_contacts_search_vcard_and_carddav() {
         app.clone(),
         &format!("/v1/groups/{SEED_GROUP_ID}/contacts?limit=10"),
     )
-    .await;
+    .await?;
     assert_eq!(status, StatusCode::OK);
     assert!(
         group_contacts["items"]
             .as_array()
             .is_some_and(|items| !items.is_empty())
     );
+    Ok(())
 }
 
 #[tokio::test]
-async fn integration_contacts_unavailable_without_sources() {
+async fn integration_contacts_unavailable_without_sources() -> Result<(), Box<dyn std::error::Error>>
+{
     let app = router(AppState::new(None, None, None, None));
-    let (status, _) = response_json(app, "/v1/contacts").await;
+    let (status, _) = response_json(app, "/v1/contacts").await?;
     assert_eq!(status, StatusCode::SERVICE_UNAVAILABLE);
+    Ok(())
 }
 
 #[tokio::test]
 #[ignore = "requires macOS Contacts permission and live AddressBook sources"]
-async fn integration_contacts_mutations_on_macos() {
+async fn integration_contacts_mutations_on_macos() -> Result<(), Box<dyn std::error::Error>> {
     use apple_contacts::{
         ContactsStore, ContainerResolveHint, CreateContactInput, UpdateContactInput,
     };
 
-    let store = ContactsStore::new().expect("Contacts store");
-    store.request_access().await.expect("Contacts access");
+    let store = ContactsStore::new()?;
+    store.request_access().await?;
 
     let container = ContainerResolveHint {
         api_id: "integration-test-container".into(),
@@ -210,8 +199,7 @@ async fn integration_contacts_mutations_on_macos() {
                 url_addresses: Vec::new(),
             },
         )
-        .await
-        .expect("create contact");
+        .await?;
 
     store
         .update_contact(
@@ -231,11 +219,8 @@ async fn integration_contacts_mutations_on_macos() {
                 url_addresses: None,
             },
         )
-        .await
-        .expect("update contact");
+        .await?;
 
-    store
-        .delete_contact(&saved.identifier)
-        .await
-        .expect("delete contact");
+    store.delete_contact(&saved.identifier).await?;
+    Ok(())
 }

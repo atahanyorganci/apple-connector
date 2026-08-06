@@ -110,181 +110,166 @@ mod tests {
     const HELLO_FIXTURE: &[u8] =
         include_bytes!("../../../fixtures/messages/attributed-body-hello.bin");
 
-    async fn seed_search_fixture() -> FixtureDb {
-        let fixture = FixtureDb::empty().await.expect("empty fixture");
-        let mut connection = sqlx::SqliteConnection::connect(fixture.path().to_str().unwrap())
-            .await
-            .expect("connect");
+    async fn seed_search_fixture() -> Result<crate::fixtures::FixtureDb, Box<dyn std::error::Error>>
+    {
+        let fixture = FixtureDb::empty().await?;
+        let mut connection =
+            sqlx::SqliteConnection::connect(fixture.path().to_str().ok_or("invalid path")?).await?;
 
         sqlx::query!("DROP TRIGGER IF EXISTS verify_chat_insert")
             .execute(&mut connection)
-            .await
-            .expect("seed statement");
+            .await?;
         sqlx::query!("DROP TRIGGER IF EXISTS verify_chat_update")
             .execute(&mut connection)
-            .await
-            .expect("seed statement");
+            .await?;
         sqlx::query!(
             "INSERT INTO handle (ROWID, id, service) VALUES (1, '+15550000001', 'iMessage')"
         )
         .execute(&mut connection)
-        .await
-        .expect("seed statement");
+        .await?;
         sqlx::query!("INSERT INTO handle (ROWID, id, service) VALUES (2, '+15550000002', 'SMS')")
             .execute(&mut connection)
-            .await
-            .expect("seed statement");
+            .await?;
         sqlx::query!(
             "INSERT INTO chat (ROWID, guid, style, chat_identifier, service_name) VALUES (1, 'chat-a', 45, '+15550000001', 'iMessage')"
         )
         .execute(&mut connection)
-        .await
-        .expect("seed statement");
+        .await?;
         sqlx::query!(
             "INSERT INTO chat (ROWID, guid, style, chat_identifier, service_name) VALUES (2, 'chat-b', 45, '+15550000002', 'SMS')"
         )
         .execute(&mut connection)
-        .await
-        .expect("seed statement");
+        .await?;
         sqlx::query!(
             "INSERT INTO message (ROWID, guid, text, service, is_from_me, date, handle_id, cache_has_attachments) VALUES (1, 'msg-plain', 'Hello World filter text', 'iMessage', 0, 300, 1, 0)"
         )
         .execute(&mut connection)
-        .await
-        .expect("seed statement");
+        .await?;
         sqlx::query!(
             "INSERT INTO message (ROWID, guid, text, service, is_from_me, date, handle_id, cache_has_attachments) VALUES (2, 'msg-attributed', NULL, 'iMessage', 0, 200, 1, 0)"
         )
         .execute(&mut connection)
-        .await
-        .expect("seed statement");
+        .await?;
         sqlx::query!(
             "INSERT INTO message (ROWID, guid, text, service, is_from_me, date, handle_id, cache_has_attachments) VALUES (3, 'msg-sent', 'Sent only body', 'iMessage', 1, 100, 0, 0)"
         )
         .execute(&mut connection)
-        .await
-        .expect("seed statement");
+        .await?;
         sqlx::query!(
             "INSERT INTO message (ROWID, guid, text, service, is_from_me, date, handle_id, cache_has_attachments, item_type) VALUES (4, 'msg-group', 'Group title', 'SMS', 0, 50, 2, 0, 2)"
         )
         .execute(&mut connection)
-        .await
-        .expect("seed statement");
+        .await?;
         sqlx::query!(
             "INSERT INTO message (ROWID, guid, text, service, is_from_me, date, handle_id, cache_has_attachments) VALUES (5, 'msg-noise-1', 'noise alpha', 'iMessage', 0, 40, 1, 0)"
         )
         .execute(&mut connection)
-        .await
-        .expect("seed statement");
+        .await?;
         sqlx::query!(
             "INSERT INTO message (ROWID, guid, text, service, is_from_me, date, handle_id, cache_has_attachments) VALUES (6, 'msg-noise-2', 'noise beta', 'iMessage', 0, 30, 1, 0)"
         )
         .execute(&mut connection)
-        .await
-        .expect("seed statement");
+        .await?;
         sqlx::query!(
             "INSERT INTO message (ROWID, guid, text, service, is_from_me, date, handle_id, cache_has_attachments) VALUES (7, 'msg-noise-3', 'noise gamma', 'iMessage', 0, 20, 1, 0)"
         )
         .execute(&mut connection)
-        .await
-        .expect("seed statement");
+        .await?;
         sqlx::query!(
             "INSERT INTO chat_message_join (chat_id, message_id, message_date) SELECT 1, message.ROWID, message.date FROM message WHERE message.ROWID IN (1,2,3,5,6,7)"
         )
         .execute(&mut connection)
-        .await
-        .expect("seed statement");
+        .await?;
         sqlx::query!(
             "INSERT INTO chat_message_join (chat_id, message_id, message_date) SELECT 2, message.ROWID, message.date FROM message WHERE message.ROWID IN (4)"
         )
         .execute(&mut connection)
-        .await
-        .expect("seed statement");
+        .await?;
 
         sqlx::query!(
             "UPDATE message SET attributedBody = ?1 WHERE guid = 'msg-attributed'",
             HELLO_FIXTURE
         )
         .execute(&mut connection)
-        .await
-        .expect("attributed body");
+        .await?;
 
         connection.close().await.ok();
-        fixture
+        Ok(fixture)
     }
 
-    async fn response_json(app: axum::Router, uri: &str) -> (StatusCode, serde_json::Value) {
+    async fn response_json(
+        app: axum::Router,
+        uri: &str,
+    ) -> Result<(http::StatusCode, serde_json::Value), Box<dyn std::error::Error>> {
         let response = app
-            .oneshot(
-                Request::builder()
-                    .uri(uri)
-                    .body(Body::empty())
-                    .expect("request"),
-            )
-            .await
-            .expect("response");
+            .oneshot(Request::builder().uri(uri).body(Body::empty())?)
+            .await?;
         let status = response.status();
-        let body = response
-            .into_body()
-            .collect()
-            .await
-            .expect("body")
-            .to_bytes();
+        let body = response.into_body().collect().await?.to_bytes();
         let payload = serde_json::from_slice(&body)
             .unwrap_or(serde_json::json!({ "raw": String::from_utf8_lossy(&body) }));
-        (status, payload)
+        Ok((status, payload))
     }
 
     #[tokio::test]
-    async fn get_message_returns_seeded_message() {
-        let fixture = FixtureDb::seeded().await.expect("seeded fixture");
-        let pool = connect_pool(fixture.path()).await.expect("connect pool");
+    async fn get_message_returns_seeded_message() -> Result<(), Box<dyn std::error::Error>> {
+        let fixture = FixtureDb::seeded().await?;
+        let pool = connect_pool(fixture.path()).await?;
         let app = router(AppState::new(Some(pool), None, None, None));
 
-        let (status, payload) = response_json(app, "/v1/messages/fixture-message-guid").await;
+        let (status, payload) = response_json(app, "/v1/messages/fixture-message-guid").await?;
         assert_eq!(status, StatusCode::OK);
         assert_eq!(
             payload.get("guid").and_then(|value| value.as_str()),
             Some("fixture-message-guid")
         );
+        Ok(())
     }
 
     #[tokio::test]
-    async fn search_finds_attributed_body_only_text() {
-        let fixture = seed_search_fixture().await;
-        let pool = connect_pool(fixture.path()).await.expect("connect pool");
+    async fn search_finds_attributed_body_only_text() -> Result<(), Box<dyn std::error::Error>> {
+        let fixture = seed_search_fixture().await?;
+        let pool = connect_pool(fixture.path()).await?;
         let app = router(AppState::new(Some(pool), None, None, None));
 
-        let (status, payload) = response_json(app, "/v1/messages?q=noter").await;
+        let (status, payload) = response_json(app, "/v1/messages?q=noter").await?;
         assert_eq!(status, StatusCode::OK);
         let guids: Vec<_> = payload["items"]
             .as_array()
-            .unwrap()
+            .ok_or("expected array")?
             .iter()
             .filter_map(|item| item["guid"].as_str())
             .collect();
         assert_eq!(guids, vec!["msg-attributed"]);
+        Ok(())
     }
 
     #[tokio::test]
-    async fn metadata_filters_work_alone_and_in_combination() {
-        let fixture = seed_search_fixture().await;
-        let pool = connect_pool(fixture.path()).await.expect("connect pool");
+    async fn metadata_filters_work_alone_and_in_combination()
+    -> Result<(), Box<dyn std::error::Error>> {
+        let fixture = seed_search_fixture().await?;
+        let pool = connect_pool(fixture.path()).await?;
         let app = router(AppState::new(Some(pool), None, None, None));
 
-        let (status, payload) = response_json(app.clone(), "/v1/messages?direction=sent").await;
+        let (status, payload) = response_json(app.clone(), "/v1/messages?direction=sent").await?;
         assert_eq!(status, StatusCode::OK);
-        assert_eq!(payload["items"].as_array().unwrap().len(), 1);
+        assert_eq!(
+            payload["items"].as_array().ok_or("expected array")?.len(),
+            1
+        );
         assert_eq!(payload["items"][0]["guid"], "msg-sent");
 
-        let (_, payload) = response_json(app.clone(), "/v1/messages?transport=sms").await;
-        assert_eq!(payload["items"].as_array().unwrap().len(), 1);
+        let (_, payload) = response_json(app.clone(), "/v1/messages?transport=sms").await?;
+        assert_eq!(
+            payload["items"].as_array().ok_or("expected array")?.len(),
+            1
+        );
         assert_eq!(payload["items"][0]["guid"], "msg-group");
 
-        let (_, payload) = response_json(app.clone(), "/v1/messages?sender=%2B15550000001").await;
+        let (_, payload) = response_json(app.clone(), "/v1/messages?sender=%2B15550000001").await?;
         let guids: Vec<_> = payload["items"]
             .as_array()
-            .unwrap()
+            .ok_or("expected array")?
             .iter()
             .filter_map(|item| item["guid"].as_str())
             .collect();
@@ -295,118 +280,132 @@ mod tests {
             app.clone(),
             "/v1/messages?chat_id=1&direction=received&transport=imessage",
         )
-        .await;
+        .await?;
         let guids: Vec<_> = payload["items"]
             .as_array()
-            .unwrap()
+            .ok_or("expected array")?
             .iter()
             .filter_map(|item| item["guid"].as_str())
             .collect();
         assert!(guids.contains(&"msg-plain"));
         let (_, payload) =
-            response_json(app.clone(), "/v1/messages?content_type=group_event").await;
-        assert_eq!(payload["items"].as_array().unwrap().len(), 1);
+            response_json(app.clone(), "/v1/messages?content_type=group_event").await?;
+        assert_eq!(
+            payload["items"].as_array().ok_or("expected array")?.len(),
+            1
+        );
         assert_eq!(payload["items"][0]["guid"], "msg-group");
 
         let (_, payload) =
-            response_json(app.clone(), "/v1/messages?has_attachments=false&q=Hello").await;
-        assert_eq!(payload["items"].as_array().unwrap().len(), 1);
+            response_json(app.clone(), "/v1/messages?has_attachments=false&q=Hello").await?;
+        assert_eq!(
+            payload["items"].as_array().ok_or("expected array")?.len(),
+            1
+        );
         assert_eq!(payload["items"][0]["guid"], "msg-plain");
+        Ok(())
     }
 
     #[tokio::test]
-    async fn invalid_filters_return_structured_400() {
-        let fixture = seed_search_fixture().await;
-        let pool = connect_pool(fixture.path()).await.expect("connect pool");
+    async fn invalid_filters_return_structured_400() -> Result<(), Box<dyn std::error::Error>> {
+        let fixture = seed_search_fixture().await?;
+        let pool = connect_pool(fixture.path()).await?;
         let app = router(AppState::new(Some(pool), None, None, None));
 
         let (status, payload) = response_json(
             app.clone(),
             "/v1/messages?before=2024-01-01T00:00:00Z&after=2024-02-01T00:00:00Z",
         )
-        .await;
+        .await?;
         assert_eq!(status, StatusCode::BAD_REQUEST);
         assert_eq!(payload["error"]["code"], "validation_error");
 
         let long_q = "a".repeat(257);
-        let (status, _) = response_json(app.clone(), &format!("/v1/messages?q={long_q}")).await;
+        let (status, _) = response_json(app.clone(), &format!("/v1/messages?q={long_q}")).await?;
         assert_eq!(status, StatusCode::BAD_REQUEST);
 
-        let (status, _) = response_json(app.clone(), "/v1/messages?before=not-a-date").await;
+        let (status, _) = response_json(app.clone(), "/v1/messages?before=not-a-date").await?;
         assert_eq!(status, StatusCode::BAD_REQUEST);
+        Ok(())
     }
 
     #[tokio::test]
-    async fn sparse_search_is_resumable() {
-        let fixture = seed_search_fixture().await;
-        let pool = connect_pool(fixture.path()).await.expect("connect pool");
+    async fn sparse_search_is_resumable() -> Result<(), Box<dyn std::error::Error>> {
+        let fixture = seed_search_fixture().await?;
+        let pool = connect_pool(fixture.path()).await?;
         let app = router(AppState::new(Some(pool), None, None, None));
 
-        let (status, first) = response_json(app.clone(), "/v1/messages?q=noise&limit=1").await;
+        let (status, first) = response_json(app.clone(), "/v1/messages?q=noise&limit=1").await?;
         assert_eq!(status, StatusCode::OK);
         assert_eq!(first["page"]["has_more"], true);
         let cursor = first["page"]["next_cursor"]
             .as_str()
-            .expect("continuation cursor");
+            .ok_or("expected string")?;
 
         let (_, second) = response_json(
             app.clone(),
             &format!("/v1/messages?q=noise&limit=1&cursor={cursor}"),
         )
-        .await;
-        assert_eq!(second["items"].as_array().unwrap().len(), 1);
+        .await?;
+        assert_eq!(second["items"].as_array().ok_or("expected array")?.len(), 1);
         assert_ne!(
             first["items"][0]["guid"], second["items"][0]["guid"],
             "pages must advance"
         );
+        Ok(())
     }
 
     #[tokio::test]
-    async fn cursor_filter_mismatch_returns_400() {
-        let fixture = seed_search_fixture().await;
-        let pool = connect_pool(fixture.path()).await.expect("connect pool");
+    async fn cursor_filter_mismatch_returns_400() -> Result<(), Box<dyn std::error::Error>> {
+        let fixture = seed_search_fixture().await?;
+        let pool = connect_pool(fixture.path()).await?;
         let app = router(AppState::new(Some(pool), None, None, None));
 
         let (_, first) = response_json(
             app.clone(),
             "/v1/messages?chat_id=1&direction=received&limit=1",
         )
-        .await;
+        .await?;
         let cursor = first["page"]["next_cursor"]
             .as_str()
-            .expect("cursor for filtered page");
+            .ok_or("expected string")?;
 
         let (status, payload) = response_json(
             app,
             &format!("/v1/messages?chat_id=2&direction=received&limit=1&cursor={cursor}"),
         )
-        .await;
+        .await?;
         assert_eq!(status, StatusCode::BAD_REQUEST);
         assert_eq!(payload["error"]["code"], "validation_error");
+        Ok(())
     }
 
     #[tokio::test]
-    async fn new_matching_row_visible_without_restart() {
-        let fixture = seed_search_fixture().await;
-        let pool = connect_pool(fixture.path()).await.expect("connect pool");
+    async fn new_matching_row_visible_without_restart() -> Result<(), Box<dyn std::error::Error>> {
+        let fixture = seed_search_fixture().await?;
+        let pool = connect_pool(fixture.path()).await?;
         let app = router(AppState::new(Some(pool), None, None, None));
 
-        let (_, before) = response_json(app.clone(), "/v1/messages?q=brand-new-term").await;
-        assert!(before["items"].as_array().unwrap().is_empty());
+        let (_, before) = response_json(app.clone(), "/v1/messages?q=brand-new-term").await?;
+        assert!(
+            before["items"]
+                .as_array()
+                .ok_or("expected array")?
+                .is_empty()
+        );
 
-        let mut connection = sqlx::SqliteConnection::connect(fixture.path().to_str().unwrap())
-            .await
-            .expect("write");
+        let mut connection =
+            sqlx::SqliteConnection::connect(fixture.path().to_str().ok_or("invalid path")?).await?;
         sqlx::query!(
             "INSERT INTO message (guid, text, service, is_from_me, date) VALUES ('msg-live', 'brand-new-term appears', 'iMessage', 1, 400)"
         )
         .execute(&mut connection)
-        .await
-        .expect("insert live row");
+        .await?;
         connection.close().await.ok();
 
-        let (_, after) = response_json(app, "/v1/messages?q=brand-new-term").await;
-        assert_eq!(after["items"].as_array().unwrap().len(), 1);
+        let (_, after) = response_json(app, "/v1/messages?q=brand-new-term").await?;
+        assert_eq!(after["items"].as_array().ok_or("expected array")?.len(), 1);
         assert_eq!(after["items"][0]["guid"], "msg-live");
+        Ok(())
     }
 }

@@ -312,7 +312,9 @@ pub(crate) mod openapi_contract {
                 .into_iter()
                 .map(|(method, path, _)| {
                     (
-                        method.parse::<Method>().expect("valid HTTP method"),
+                        method.parse::<Method>().unwrap_or_else(|error| {
+                            panic!("invalid HTTP method `{method}` in OpenAPI spec: {error}")
+                        }),
                         concrete_path(&path),
                     )
                 })
@@ -386,7 +388,7 @@ mod tests {
     use super::{AppState, openapi_contract::contract, router};
 
     #[tokio::test]
-    async fn router_registers_every_contract_route() {
+    async fn router_registers_every_contract_route() -> Result<(), Box<dyn std::error::Error>> {
         let app = router(AppState::new(None, None, None, None));
         let spec = contract::build_spec();
 
@@ -397,11 +399,9 @@ mod tests {
                     Request::builder()
                         .method(method.clone())
                         .uri(path.clone())
-                        .body(Body::empty())
-                        .expect("request"),
+                        .body(Body::empty())?,
                 )
-                .await
-                .expect("response");
+                .await?;
 
             assert_ne!(
                 response.status(),
@@ -409,25 +409,28 @@ mod tests {
                 "missing route {method} {path}"
             );
         }
+        Ok(())
     }
 
     #[tokio::test]
-    async fn unknown_route_returns_json_404_with_security_headers() {
+    async fn unknown_route_returns_json_404_with_security_headers()
+    -> Result<(), Box<dyn std::error::Error>> {
         let app = router(AppState::new(None, None, None, None));
 
         let response = app
             .oneshot(
                 Request::builder()
                     .uri("/secret/path?token=abc")
-                    .body(Body::empty())
-                    .expect("request"),
+                    .body(Body::empty())?,
             )
-            .await
-            .expect("response");
+            .await?;
 
         assert_eq!(response.status(), StatusCode::NOT_FOUND);
         assert_eq!(
-            response.headers().get("x-content-type-options").unwrap(),
+            response
+                .headers()
+                .get("x-content-type-options")
+                .ok_or("missing nosniff header")?,
             "nosniff"
         );
         assert!(
@@ -436,10 +439,11 @@ mod tests {
                 .get("access-control-allow-origin")
                 .is_none()
         );
+        Ok(())
     }
 
     #[tokio::test]
-    async fn unsupported_method_returns_json_405() {
+    async fn unsupported_method_returns_json_405() -> Result<(), Box<dyn std::error::Error>> {
         let app = router(AppState::new(None, None, None, None));
 
         let response = app
@@ -447,28 +451,21 @@ mod tests {
                 Request::builder()
                     .method(http::Method::POST)
                     .uri("/healthz")
-                    .body(Body::empty())
-                    .expect("request"),
+                    .body(Body::empty())?,
             )
-            .await
-            .expect("response");
+            .await?;
 
         assert_eq!(response.status(), StatusCode::METHOD_NOT_ALLOWED);
+        Ok(())
     }
 
     #[tokio::test]
-    async fn api_docs_are_served_at_docs() {
+    async fn api_docs_are_served_at_docs() -> Result<(), Box<dyn std::error::Error>> {
         let app = router(AppState::new(None, None, None, None));
 
         let response = app
-            .oneshot(
-                Request::builder()
-                    .uri("/docs")
-                    .body(Body::empty())
-                    .expect("request"),
-            )
-            .await
-            .expect("response");
+            .oneshot(Request::builder().uri("/docs").body(Body::empty())?)
+            .await?;
 
         assert_eq!(response.status(), StatusCode::OK);
         assert!(
@@ -478,5 +475,6 @@ mod tests {
                 .and_then(|value| value.to_str().ok())
                 .is_some_and(|value| value.starts_with("text/html"))
         );
+        Ok(())
     }
 }

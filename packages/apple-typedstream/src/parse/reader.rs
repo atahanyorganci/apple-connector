@@ -97,7 +97,10 @@ impl<'a> Reader<'a> {
 
         match roots.len() {
             0 => Err(Error::syntax(self.offset, "stream contains no values")),
-            1 => Ok(roots.pop().expect("length checked")),
+            1 => Ok(roots
+                .into_iter()
+                .next()
+                .ok_or_else(|| Error::syntax(self.offset, "stream contains no root value"))?),
             _ => Ok(Value::Array(roots)),
         }
     }
@@ -358,7 +361,10 @@ impl<'a> Reader<'a> {
         }
         match head {
             TAG_INTEGER_2 => {
-                let bytes: [u8; 2] = self.read_exact(2)?.try_into().expect("length checked");
+                let bytes: [u8; 2] = self
+                    .read_exact(2)?
+                    .try_into()
+                    .map_err(|_| Error::syntax(self.offset, "invalid 2-byte integer"))?;
                 Ok(if signed {
                     i64::from(match self.byte_order {
                         ByteOrder::Little => i16::from_le_bytes(bytes),
@@ -372,7 +378,10 @@ impl<'a> Reader<'a> {
                 })
             }
             TAG_INTEGER_4 => {
-                let bytes: [u8; 4] = self.read_exact(4)?.try_into().expect("length checked");
+                let bytes: [u8; 4] = self
+                    .read_exact(4)?
+                    .try_into()
+                    .map_err(|_| Error::syntax(self.offset, "invalid 4-byte integer"))?;
                 Ok(if signed {
                     i64::from(match self.byte_order {
                         ByteOrder::Little => i32::from_le_bytes(bytes),
@@ -397,7 +406,10 @@ impl<'a> Reader<'a> {
         if head != TAG_FLOATING_POINT {
             return Ok(self.read_integer_with_head(head, true)? as f32);
         }
-        let bytes: [u8; 4] = self.read_exact(4)?.try_into().expect("length checked");
+        let bytes: [u8; 4] = self
+            .read_exact(4)?
+            .try_into()
+            .map_err(|_| Error::syntax(self.offset, "invalid 4-byte float"))?;
         Ok(match self.byte_order {
             ByteOrder::Little => f32::from_le_bytes(bytes),
             ByteOrder::Big => f32::from_be_bytes(bytes),
@@ -409,7 +421,10 @@ impl<'a> Reader<'a> {
         if head != TAG_FLOATING_POINT {
             return Ok(self.read_integer_with_head(head, true)? as f64);
         }
-        let bytes: [u8; 8] = self.read_exact(8)?.try_into().expect("length checked");
+        let bytes: [u8; 8] = self
+            .read_exact(8)?
+            .try_into()
+            .map_err(|_| Error::syntax(self.offset, "invalid 8-byte double"))?;
         Ok(match self.byte_order {
             ByteOrder::Little => f64::from_le_bytes(bytes),
             ByteOrder::Big => f64::from_be_bytes(bytes),

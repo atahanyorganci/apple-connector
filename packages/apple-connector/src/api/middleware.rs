@@ -91,67 +91,74 @@ mod tests {
     use super::{not_found, security_headers, trace_request};
 
     #[tokio::test]
-    async fn security_headers_are_applied() {
+    async fn security_headers_are_applied() -> Result<(), Box<dyn std::error::Error>> {
         let app = Router::new()
             .route("/ok", get(|| async { "ok" }))
             .layer(from_fn(security_headers));
 
         let response = app
-            .oneshot(
-                Request::builder()
-                    .uri("/ok")
-                    .body(Body::empty())
-                    .expect("request"),
-            )
-            .await
-            .expect("response");
+            .oneshot(Request::builder().uri("/ok").body(Body::empty())?)
+            .await?;
 
         assert_eq!(
-            response.headers().get("x-content-type-options").unwrap(),
+            response
+                .headers()
+                .get("x-content-type-options")
+                .ok_or("missing x-content-type-options")?,
             "nosniff"
         );
-        assert_eq!(response.headers().get("x-frame-options").unwrap(), "DENY");
         assert_eq!(
-            response.headers().get("referrer-policy").unwrap(),
+            response
+                .headers()
+                .get("x-frame-options")
+                .ok_or("missing x-frame-options")?,
+            "DENY"
+        );
+        assert_eq!(
+            response
+                .headers()
+                .get("referrer-policy")
+                .ok_or("missing referrer-policy")?,
             "no-referrer"
         );
-        assert_eq!(response.headers().get("cache-control").unwrap(), "no-store");
+        assert_eq!(
+            response
+                .headers()
+                .get("cache-control")
+                .ok_or("missing cache-control")?,
+            "no-store"
+        );
         assert!(
             response
                 .headers()
                 .get("access-control-allow-origin")
                 .is_none()
         );
+        Ok(())
     }
 
     #[tokio::test]
-    async fn unknown_route_returns_json_not_found() {
+    async fn unknown_route_returns_json_not_found() -> Result<(), Box<dyn std::error::Error>> {
         let app = Router::new().fallback(not_found);
 
         let response = app
             .oneshot(
                 Request::builder()
                     .uri("/missing?secret=1")
-                    .body(Body::empty())
-                    .expect("request"),
+                    .body(Body::empty())?,
             )
-            .await
-            .expect("response");
+            .await?;
 
         assert_eq!(response.status(), StatusCode::NOT_FOUND);
-        let body = response
-            .into_body()
-            .collect()
-            .await
-            .expect("body")
-            .to_bytes();
-        let payload = String::from_utf8(body.to_vec()).expect("utf-8");
+        let body = response.into_body().collect().await?.to_bytes();
+        let payload = String::from_utf8(body.to_vec())?;
         assert!(payload.contains("\"code\":\"not_found\""));
         assert!(!payload.contains("secret"));
+        Ok(())
     }
 
     #[tokio::test]
-    async fn trace_middleware_does_not_log_request_uri() {
+    async fn trace_middleware_does_not_log_request_uri() -> Result<(), Box<dyn std::error::Error>> {
         let app = Router::new()
             .route("/v1/messages", get(|| async { "ok" }))
             .route_layer(from_fn(trace_request));
@@ -160,10 +167,9 @@ mod tests {
             .oneshot(
                 Request::builder()
                     .uri("/v1/messages?q=private&sender=%2B1555")
-                    .body(Body::empty())
-                    .expect("request"),
+                    .body(Body::empty())?,
             )
-            .await
-            .expect("response");
+            .await?;
+        Ok(())
     }
 }

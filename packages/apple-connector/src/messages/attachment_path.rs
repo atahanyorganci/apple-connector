@@ -16,6 +16,19 @@ pub enum AttachmentPathError {
     NotAFile,
 }
 
+impl std::fmt::Display for AttachmentPathError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::MissingFilename => write!(f, "attachment filename is missing"),
+            Self::UnresolvablePath => write!(f, "attachment path is unresolvable"),
+            Self::EscapesRoot => write!(f, "attachment path escapes root"),
+            Self::NotAFile => write!(f, "attachment path is not a file"),
+        }
+    }
+}
+
+impl std::error::Error for AttachmentPathError {}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ValidatedAttachmentPath {
     pub canonical_path: PathBuf,
@@ -222,13 +235,14 @@ mod tests {
         sanitize_download_filename, validate_attachment_path,
     };
 
-    fn fixture_layout() -> (tempfile::TempDir, PathBuf, PathBuf) {
-        let temp = tempfile::tempdir().expect("tempdir");
+    fn fixture_layout() -> Result<(tempfile::TempDir, PathBuf, PathBuf), Box<dyn std::error::Error>>
+    {
+        let temp = tempfile::tempdir()?;
         let root = temp.path().join("Attachments");
-        fs::create_dir_all(&root).expect("attachments dir");
+        fs::create_dir_all(&root)?;
         let outside = temp.path().join("outside");
-        fs::create_dir_all(&outside).expect("outside dir");
-        (temp, root, outside)
+        fs::create_dir_all(&outside)?;
+        Ok((temp, root, outside))
     }
 
     #[test]
@@ -250,50 +264,56 @@ mod tests {
     }
 
     #[test]
-    fn allows_regular_file_inside_root() {
-        let (_temp, root, _outside) = fixture_layout();
+    fn allows_regular_file_inside_root() -> Result<(), Box<dyn std::error::Error>> {
+        let (_temp, root, _outside) = fixture_layout()?;
         let file = root.join("photo.jpg");
-        fs::write(&file, b"hello").expect("write file");
-        let canonical_root = canonicalize_attachment_root(&root).expect("canonical root");
+        fs::write(&file, b"hello")?;
+        let canonical_root = canonicalize_attachment_root(&root)?;
 
         let validated =
-            validate_attachment_path(&canonical_root, file.to_str().unwrap()).expect("valid file");
+            validate_attachment_path(&canonical_root, file.to_str().ok_or("invalid path")?)?;
         assert!(validated.canonical_path.is_file());
+        Ok(())
     }
 
     #[test]
-    fn rejects_traversal_and_symlink_escape() {
-        let (_temp, root, outside) = fixture_layout();
+    fn rejects_traversal_and_symlink_escape() -> Result<(), Box<dyn std::error::Error>> {
+        let (_temp, root, outside) = fixture_layout()?;
         let secret = outside.join("secret.bin");
-        fs::write(&secret, b"secret").expect("write secret");
-        let canonical_root = canonicalize_attachment_root(&root).expect("canonical root");
+        fs::write(&secret, b"secret")?;
+        let canonical_root = canonicalize_attachment_root(&root)?;
 
         let traversal = root.join("../outside/secret.bin");
         assert_eq!(
-            validate_attachment_path(&canonical_root, traversal.to_str().unwrap()),
+            validate_attachment_path(&canonical_root, traversal.to_str().ok_or("invalid path")?),
             Err(AttachmentPathError::EscapesRoot)
         );
 
         let link = root.join("escape-link");
-        symlink(&secret, &link).expect("symlink");
+        symlink(&secret, &link)?;
         assert_eq!(
-            validate_attachment_path(&canonical_root, link.to_str().unwrap()),
+            validate_attachment_path(&canonical_root, link.to_str().ok_or("invalid path")?),
             Err(AttachmentPathError::EscapesRoot)
         );
+        Ok(())
     }
 
     #[test]
-    fn rejects_directories_and_missing_files() {
-        let (_temp, root, _outside) = fixture_layout();
-        let canonical_root = canonicalize_attachment_root(&root).expect("canonical root");
+    fn rejects_directories_and_missing_files() -> Result<(), Box<dyn std::error::Error>> {
+        let (_temp, root, _outside) = fixture_layout()?;
+        let canonical_root = canonicalize_attachment_root(&root)?;
 
         assert_eq!(
-            validate_attachment_path(&canonical_root, root.to_str().unwrap()),
+            validate_attachment_path(&canonical_root, root.to_str().ok_or("invalid path")?),
             Err(AttachmentPathError::NotAFile)
         );
         assert_eq!(
-            validate_attachment_path(&canonical_root, root.join("missing.bin").to_str().unwrap()),
+            validate_attachment_path(
+                &canonical_root,
+                root.join("missing.bin").to_str().ok_or("invalid path")?
+            ),
             Err(AttachmentPathError::NotAFile)
         );
+        Ok(())
     }
 }

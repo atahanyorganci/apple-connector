@@ -401,7 +401,7 @@ mod tests {
     use crate::ContactsError;
 
     #[test]
-    fn create_requires_name_or_organization() {
+    fn create_requires_name_or_organization() -> Result<(), Box<dyn std::error::Error>> {
         let input = CreateContactInput {
             given_name: None,
             family_name: None,
@@ -417,9 +417,12 @@ mod tests {
             url_addresses: Vec::new(),
         };
         assert_eq!(
-            validate_create_contact_input(&input).unwrap_err(),
+            validate_create_contact_input(&input)
+                .err()
+                .ok_or("expected create contact validation error")?,
             ContactsError::ValidationFailed("contact requires a name or organization".into())
         );
+        Ok(())
     }
 
     #[test]
@@ -442,15 +445,18 @@ mod tests {
     }
 
     #[test]
-    fn empty_labeled_value_is_invalid() {
+    fn empty_labeled_value_is_invalid() -> Result<(), Box<dyn std::error::Error>> {
         let input = LabeledStringInput {
             label: Some("mobile".into()),
             value: "   ".into(),
         };
         assert_eq!(
-            validate_labeled_value(&input, "phone number").unwrap_err(),
+            validate_labeled_value(&input, "phone number")
+                .err()
+                .ok_or("expected empty phone number error")?,
             ContactsError::ValidationFailed("phone number cannot be empty".into())
         );
+        Ok(())
     }
 
     #[test]

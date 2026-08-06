@@ -68,17 +68,18 @@ mod tests {
     use super::{CalendarEvent, from_str, to_string};
 
     #[test]
-    fn round_trip_empty_event() {
+    fn round_trip_empty_event() -> Result<(), Box<dyn std::error::Error>> {
         let event = CalendarEvent {
             uid: Some("test@example.com".to_owned()),
             summary: Some("Test Event".to_owned()),
             ..CalendarEvent::default()
         };
-        let ics = to_string(&event).expect("serialize");
+        let ics = to_string(&event)?;
         assert!(ics.contains("BEGIN:VCALENDAR"));
         assert!(ics.contains("SUMMARY:Test Event"));
-        let decoded: CalendarEvent = from_str(&ics).expect("deserialize");
+        let decoded: CalendarEvent = from_str(&ics)?;
         assert_eq!(decoded.summary, event.summary);
         assert_eq!(decoded.uid, event.uid);
+        Ok(())
     }
 }

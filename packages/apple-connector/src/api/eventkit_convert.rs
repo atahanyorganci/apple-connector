@@ -274,7 +274,8 @@ mod tests {
     };
 
     #[test]
-    fn validate_create_reminder_rejects_unsupported_section_id() {
+    fn validate_create_reminder_rejects_unsupported_section_id()
+    -> Result<(), Box<dyn std::error::Error>> {
         let request = CreateReminderRequest {
             title: "Test".into(),
             notes: None,
@@ -291,12 +292,16 @@ mod tests {
             attachments: Vec::new(),
             flagged: None,
         };
-        let error = validate_create_reminder(&request).unwrap_err();
+        let error = validate_create_reminder(&request)
+            .err()
+            .ok_or("expected create reminder validation error")?;
         assert_eq!(error.status(), axum::http::StatusCode::UNPROCESSABLE_ENTITY);
+        Ok(())
     }
 
     #[test]
-    fn validate_update_reminder_rejects_unsupported_tags() {
+    fn validate_update_reminder_rejects_unsupported_tags() -> Result<(), Box<dyn std::error::Error>>
+    {
         let request = UpdateReminderRequest {
             title: None,
             notes: None,
@@ -314,8 +319,11 @@ mod tests {
             attachments: Vec::new(),
             flagged: None,
         };
-        let error = validate_update_reminder(&request).unwrap_err();
+        let error = validate_update_reminder(&request)
+            .err()
+            .ok_or("expected update reminder validation error")?;
         assert_eq!(error.status(), axum::http::StatusCode::UNPROCESSABLE_ENTITY);
+        Ok(())
     }
 
     #[test]
