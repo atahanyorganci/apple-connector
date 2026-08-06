@@ -1,0 +1,74 @@
+{
+  "db_name": "SQLite",
+  "query": "\n        SELECT\n          s.ROWID AS \"row_id!\",\n          s.name,\n          s.type AS store_type,\n          s.disabled,\n          s.external_id\n        FROM Store s\n        ORDER BY s.display_order, s.ROWID\n        ",
+  "describe": {
+    "columns": [
+      {
+        "name": "row_id!",
+        "ordinal": 0,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "Store",
+            "name": "ROWID"
+          }
+        }
+      },
+      {
+        "name": "name",
+        "ordinal": 1,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "Store",
+            "name": "name"
+          }
+        }
+      },
+      {
+        "name": "store_type",
+        "ordinal": 2,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "Store",
+            "name": "type"
+          }
+        }
+      },
+      {
+        "name": "disabled",
+        "ordinal": 3,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "Store",
+            "name": "disabled"
+          }
+        }
+      },
+      {
+        "name": "external_id",
+        "ordinal": 4,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "Store",
+            "name": "external_id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 0
+    },
+    "nullable": [
+      false,
+      true,
+      true,
+      true,
+      true
+    ]
+  },
+  "hash": "05c1e2030bef18c66548393337a6df620f17cb3e93b6342be2cca77e683df441"
+}

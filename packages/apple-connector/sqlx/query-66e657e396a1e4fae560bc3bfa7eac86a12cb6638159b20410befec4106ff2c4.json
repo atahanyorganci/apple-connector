@@ -1,0 +1,136 @@
+{
+  "db_name": "SQLite",
+  "query": "\n        SELECT\n          l.Z_PK AS \"row_id!\",\n          lower(\n            substr(hex(l.ZIDENTIFIER), 1, 8) || '-' ||\n            substr(hex(l.ZIDENTIFIER), 9, 4) || '-' ||\n            substr(hex(l.ZIDENTIFIER), 13, 4) || '-' ||\n            substr(hex(l.ZIDENTIFIER), 17, 4) || '-' ||\n            substr(hex(l.ZIDENTIFIER), 21, 12)\n          ) AS \"id!\",\n          l.ZNAME AS name,\n          l.Z_ENT AS \"ent!\",\n          l.ZSMARTLISTTYPE AS smart_list_type,\n          l.ZSHARINGSTATUS AS sharing_status,\n          l.ZSHAREDOWNERNAME AS shared_owner_name,\n          l.ZSHAREDOWNERADDRESS AS shared_owner_address,\n          l.ZFILTERDATA AS \"filter_data: Vec<u8>\",\n          l.ZMEMBERSHIPSOFREMINDERSINSECTIONSASDATA AS \"membership_data: Vec<u8>\",\n          NULL AS last_modified_date\n        FROM ZREMCDBASELIST l\n        WHERE l.ZMARKEDFORDELETION = 0\n          AND lower(\n            substr(hex(l.ZIDENTIFIER), 1, 8) || '-' ||\n            substr(hex(l.ZIDENTIFIER), 9, 4) || '-' ||\n            substr(hex(l.ZIDENTIFIER), 13, 4) || '-' ||\n            substr(hex(l.ZIDENTIFIER), 17, 4) || '-' ||\n            substr(hex(l.ZIDENTIFIER), 21, 12)\n          ) = ?\n        ",
+  "describe": {
+    "columns": [
+      {
+        "name": "row_id!",
+        "ordinal": 0,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "ZREMCDBASELIST",
+            "name": "Z_PK"
+          }
+        }
+      },
+      {
+        "name": "id!",
+        "ordinal": 1,
+        "type_info": "Null",
+        "origin": "Expression"
+      },
+      {
+        "name": "name",
+        "ordinal": 2,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "ZREMCDBASELIST",
+            "name": "ZNAME"
+          }
+        }
+      },
+      {
+        "name": "ent!",
+        "ordinal": 3,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "ZREMCDBASELIST",
+            "name": "Z_ENT"
+          }
+        }
+      },
+      {
+        "name": "smart_list_type",
+        "ordinal": 4,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "ZREMCDBASELIST",
+            "name": "ZSMARTLISTTYPE"
+          }
+        }
+      },
+      {
+        "name": "sharing_status",
+        "ordinal": 5,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "ZREMCDBASELIST",
+            "name": "ZSHARINGSTATUS"
+          }
+        }
+      },
+      {
+        "name": "shared_owner_name",
+        "ordinal": 6,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "ZREMCDBASELIST",
+            "name": "ZSHAREDOWNERNAME"
+          }
+        }
+      },
+      {
+        "name": "shared_owner_address",
+        "ordinal": 7,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "ZREMCDBASELIST",
+            "name": "ZSHAREDOWNERADDRESS"
+          }
+        }
+      },
+      {
+        "name": "filter_data: Vec<u8>",
+        "ordinal": 8,
+        "type_info": "Blob",
+        "origin": {
+          "Table": {
+            "table": "ZREMCDBASELIST",
+            "name": "ZFILTERDATA"
+          }
+        }
+      },
+      {
+        "name": "membership_data: Vec<u8>",
+        "ordinal": 9,
+        "type_info": "Blob",
+        "origin": {
+          "Table": {
+            "table": "ZREMCDBASELIST",
+            "name": "ZMEMBERSHIPSOFREMINDERSINSECTIONSASDATA"
+          }
+        }
+      },
+      {
+        "name": "last_modified_date",
+        "ordinal": 10,
+        "type_info": "Null",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false,
+      null,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true
+    ]
+  },
+  "hash": "66e657e396a1e4fae560bc3bfa7eac86a12cb6638159b20410befec4106ff2c4"
+}

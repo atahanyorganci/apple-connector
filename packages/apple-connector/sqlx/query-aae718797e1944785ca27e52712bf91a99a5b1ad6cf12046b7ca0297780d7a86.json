@@ -1,0 +1,21 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT COUNT(*) AS \"count!\" FROM ZICCLOUDSYNCINGOBJECT WHERE ZTYPEUTI1 = 'com.apple.notes.inlinetextattachment.hashtag' AND ZNOTE1 = 6 AND ZALTTEXT = '#reading'",
+  "describe": {
+    "columns": [
+      {
+        "name": "count!",
+        "ordinal": 0,
+        "type_info": "Integer",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Right": 0
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "aae718797e1944785ca27e52712bf91a99a5b1ad6cf12046b7ca0297780d7a86"
+}

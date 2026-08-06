@@ -1,0 +1,26 @@
+{
+  "db_name": "SQLite",
+  "query": "\n        SELECT a.ZNOTE AS \"note_row_id!\"\n        FROM ZICCLOUDSYNCINGOBJECT a\n        WHERE a.Z_ENT = ?1\n          AND a.ZMARKEDFORDELETION = 0\n          AND a.ZNOTE IN (SELECT value FROM json_each(?2))\n        ",
+  "describe": {
+    "columns": [
+      {
+        "name": "note_row_id!",
+        "ordinal": 0,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "ZICCLOUDSYNCINGOBJECT",
+            "name": "ZNOTE"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 2
+    },
+    "nullable": [
+      true
+    ]
+  },
+  "hash": "fa455d33f17b2ae6952feabd6df6771003bceebb2d34fd6146a04f7905586551"
+}

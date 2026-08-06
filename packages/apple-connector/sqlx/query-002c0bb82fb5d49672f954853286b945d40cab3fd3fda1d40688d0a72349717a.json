@@ -1,0 +1,69 @@
+{
+  "db_name": "SQLite",
+  "query": "\n        SELECT\n          lower(\n            substr(hex(l.ZIDENTIFIER), 1, 8) || '-' ||\n            substr(hex(l.ZIDENTIFIER), 9, 4) || '-' ||\n            substr(hex(l.ZIDENTIFIER), 13, 4) || '-' ||\n            substr(hex(l.ZIDENTIFIER), 17, 4) || '-' ||\n            substr(hex(l.ZIDENTIFIER), 21, 12)\n          ) AS \"api_id!\",\n          l.ZEXTERNALIDENTIFIER AS external_id,\n          l.ZNAME AS \"title!\",\n          l.Z_ENT AS \"ent!\",\n          l.ZSMARTLISTTYPE AS smart_list_type\n        FROM ZREMCDBASELIST l\n        WHERE lower(\n          substr(hex(l.ZIDENTIFIER), 1, 8) || '-' ||\n          substr(hex(l.ZIDENTIFIER), 9, 4) || '-' ||\n          substr(hex(l.ZIDENTIFIER), 13, 4) || '-' ||\n          substr(hex(l.ZIDENTIFIER), 17, 4) || '-' ||\n          substr(hex(l.ZIDENTIFIER), 21, 12)\n        ) = ?\n        ",
+  "describe": {
+    "columns": [
+      {
+        "name": "api_id!",
+        "ordinal": 0,
+        "type_info": "Null",
+        "origin": "Expression"
+      },
+      {
+        "name": "external_id",
+        "ordinal": 1,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "ZREMCDBASELIST",
+            "name": "ZEXTERNALIDENTIFIER"
+          }
+        }
+      },
+      {
+        "name": "title!",
+        "ordinal": 2,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "ZREMCDBASELIST",
+            "name": "ZNAME"
+          }
+        }
+      },
+      {
+        "name": "ent!",
+        "ordinal": 3,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "ZREMCDBASELIST",
+            "name": "Z_ENT"
+          }
+        }
+      },
+      {
+        "name": "smart_list_type",
+        "ordinal": 4,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "ZREMCDBASELIST",
+            "name": "ZSMARTLISTTYPE"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      null,
+      true,
+      true,
+      true,
+      true
+    ]
+  },
+  "hash": "002c0bb82fb5d49672f954853286b945d40cab3fd3fda1d40688d0a72349717a"
+}

@@ -12,52 +12,56 @@ pub struct ReminderInventory {
 }
 
 pub async fn load_inventory(pool: &SqlitePool) -> Result<ReminderInventory, sqlx::Error> {
-    let lists: (i64,) =
-        sqlx::query_as("SELECT COUNT(*) FROM ZREMCDBASELIST WHERE ZMARKEDFORDELETION = 0")
-            .fetch_one(pool)
-            .await?;
-
-    let reminders: (i64,) =
-        sqlx::query_as("SELECT COUNT(*) FROM ZREMCDREMINDER WHERE ZMARKEDFORDELETION = 0")
-            .fetch_one(pool)
-            .await?;
-
-    let completed: (i64,) = sqlx::query_as(
-        "SELECT COUNT(*) FROM ZREMCDREMINDER WHERE ZMARKEDFORDELETION = 0 AND ZCOMPLETED = 1",
+    let lists = sqlx::query_scalar!(
+        r#"SELECT COUNT(*) AS "count!: i64" FROM ZREMCDBASELIST WHERE ZMARKEDFORDELETION = 0"#
     )
     .fetch_one(pool)
     .await?;
 
-    let with_due_date: (i64,) = sqlx::query_as(
-        "SELECT COUNT(*) FROM ZREMCDREMINDER WHERE ZMARKEDFORDELETION = 0 AND ZDUEDATE IS NOT NULL",
+    let reminders = sqlx::query_scalar!(
+        r#"SELECT COUNT(*) AS "count!: i64" FROM ZREMCDREMINDER WHERE ZMARKEDFORDELETION = 0"#
     )
     .fetch_one(pool)
     .await?;
 
-    let with_subtasks: (i64,) = sqlx::query_as(
-        "SELECT COUNT(*) FROM ZREMCDREMINDER WHERE ZMARKEDFORDELETION = 0 AND ZPARENTREMINDER IS NOT NULL",
+    let completed = sqlx::query_scalar!(
+        r#"SELECT COUNT(*) AS "count!: i64" FROM ZREMCDREMINDER WHERE ZMARKEDFORDELETION = 0 AND ZCOMPLETED = 1"#
     )
     .fetch_one(pool)
     .await?;
 
-    let with_sections: (i64,) =
-        sqlx::query_as("SELECT COUNT(*) FROM ZREMCDBASESECTION WHERE ZMARKEDFORDELETION = 0")
-            .fetch_one(pool)
-            .await?;
+    let with_due_date = sqlx::query_scalar!(
+        r#"SELECT COUNT(*) AS "count!: i64" FROM ZREMCDREMINDER WHERE ZMARKEDFORDELETION = 0 AND ZDUEDATE IS NOT NULL"#
+    )
+    .fetch_one(pool)
+    .await?;
 
-    let with_attachments: (i64,) =
-        sqlx::query_as("SELECT COUNT(*) FROM ZREMCDSAVEDATTACHMENT WHERE ZMARKEDFORDELETION = 0")
-            .fetch_one(pool)
-            .await?;
+    let with_subtasks = sqlx::query_scalar!(
+        r#"SELECT COUNT(*) AS "count!: i64" FROM ZREMCDREMINDER WHERE ZMARKEDFORDELETION = 0 AND ZPARENTREMINDER IS NOT NULL"#
+    )
+    .fetch_one(pool)
+    .await?;
+
+    let with_sections = sqlx::query_scalar!(
+        r#"SELECT COUNT(*) AS "count!: i64" FROM ZREMCDBASESECTION WHERE ZMARKEDFORDELETION = 0"#
+    )
+    .fetch_one(pool)
+    .await?;
+
+    let with_attachments = sqlx::query_scalar!(
+        r#"SELECT COUNT(*) AS "count!: i64" FROM ZREMCDSAVEDATTACHMENT WHERE ZMARKEDFORDELETION = 0"#
+    )
+    .fetch_one(pool)
+    .await?;
 
     Ok(ReminderInventory {
-        lists: lists.0 as u64,
-        reminders: reminders.0 as u64,
-        completed: completed.0 as u64,
-        with_due_date: with_due_date.0 as u64,
-        with_subtasks: with_subtasks.0 as u64,
-        with_sections: with_sections.0 as u64,
-        with_attachments: with_attachments.0 as u64,
+        lists: lists as u64,
+        reminders: reminders as u64,
+        completed: completed as u64,
+        with_due_date: with_due_date as u64,
+        with_subtasks: with_subtasks as u64,
+        with_sections: with_sections as u64,
+        with_attachments: with_attachments as u64,
     })
 }
 

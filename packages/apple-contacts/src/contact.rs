@@ -1,8 +1,6 @@
-use crate::{
-    container::ContainerResolveHint,
-    error::{ContactsError, ContactsResult},
-    store::ContactsStore,
-};
+use crate::error::{ContactsError, ContactsResult};
+#[cfg(target_os = "macos")]
+use crate::{container::ContainerResolveHint, store::ContactsStore};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct LabeledStringInput {
@@ -57,6 +55,7 @@ pub struct SavedContact {
     pub identifier: String,
 }
 
+#[cfg_attr(not(target_os = "macos"), allow(dead_code))]
 pub(crate) fn validate_create_contact_input(input: &CreateContactInput) -> ContactsResult<()> {
     let has_name = [input.given_name.as_deref(), input.family_name.as_deref()]
         .into_iter()
@@ -86,6 +85,7 @@ pub(crate) fn validate_create_contact_input(input: &CreateContactInput) -> Conta
     Ok(())
 }
 
+#[cfg_attr(not(target_os = "macos"), allow(dead_code))]
 pub(crate) fn validate_labeled_value(
     input: &LabeledStringInput,
     field: &str,
@@ -98,19 +98,13 @@ pub(crate) fn validate_labeled_value(
     Ok(())
 }
 
-#[cfg(target_os = "macos")]
-use objc2::rc::Retained;
-#[cfg(target_os = "macos")]
-use objc2::runtime::ProtocolObject;
-#[cfg(target_os = "macos")]
+use objc2::{rc::Retained, runtime::ProtocolObject};
 use objc2_contacts::{
-    CNContact, CNContactStore, CNContactVCardSerialization, CNKeyDescriptor, CNMutableContact,
-    CNMutablePostalAddress, CNPhoneNumber, CNPostalAddress, CNSaveRequest, CNLabeledValue,
+    CNContact, CNContactStore, CNContactVCardSerialization, CNKeyDescriptor, CNLabeledValue,
+    CNMutableContact, CNMutablePostalAddress, CNPhoneNumber, CNPostalAddress, CNSaveRequest,
 };
-#[cfg(target_os = "macos")]
 use objc2_foundation::{NSArray, NSMutableCopying, NSString};
 
-#[cfg(target_os = "macos")]
 impl ContactsStore {
     pub async fn create_contact(
         &self,
@@ -171,15 +165,10 @@ impl ContactsStore {
     }
 }
 
-#[cfg(target_os = "macos")]
-pub(crate) fn execute_save(
-    store: &CNContactStore,
-    request: &CNSaveRequest,
-) -> ContactsResult<()> {
+pub(crate) fn execute_save(store: &CNContactStore, request: &CNSaveRequest) -> ContactsResult<()> {
     unsafe { store.executeSaveRequest_error(request) }.map_err(crate::error::map_cn_error)
 }
 
-#[cfg(target_os = "macos")]
 pub(crate) fn lookup_contact(
     store: &CNContactStore,
     identifier: &str,
@@ -190,43 +179,49 @@ pub(crate) fn lookup_contact(
         .map_err(crate::error::map_cn_error)
 }
 
-#[cfg(target_os = "macos")]
 fn mutable_contact(contact: &CNContact) -> ContactsResult<Retained<CNMutableContact>> {
     Ok(contact.mutableCopy())
 }
 
-#[cfg(target_os = "macos")]
 fn contact_write_keys() -> Retained<NSArray<ProtocolObject<dyn CNKeyDescriptor>>> {
-    let descriptor =
-        unsafe { CNContactVCardSerialization::descriptorForRequiredKeys() };
+    let descriptor = unsafe { CNContactVCardSerialization::descriptorForRequiredKeys() };
     NSArray::from_retained_slice(&[descriptor])
 }
 
-#[cfg(target_os = "macos")]
 fn apply_create_fields(
     contact: &CNMutableContact,
     input: &CreateContactInput,
 ) -> ContactsResult<()> {
-    set_optional_string(contact, input.given_name.as_deref(), |contact, value| unsafe {
-        contact.setGivenName(value)
-    });
-    set_optional_string(contact, input.family_name.as_deref(), |contact, value| unsafe {
-        contact.setFamilyName(value)
-    });
-    set_optional_string(contact, input.middle_name.as_deref(), |contact, value| unsafe {
-        contact.setMiddleName(value)
-    });
-    set_optional_string(contact, input.nickname.as_deref(), |contact, value| unsafe {
-        contact.setNickname(value)
-    });
+    set_optional_string(
+        contact,
+        input.given_name.as_deref(),
+        |contact, value| unsafe { contact.setGivenName(value) },
+    );
+    set_optional_string(
+        contact,
+        input.family_name.as_deref(),
+        |contact, value| unsafe { contact.setFamilyName(value) },
+    );
+    set_optional_string(
+        contact,
+        input.middle_name.as_deref(),
+        |contact, value| unsafe { contact.setMiddleName(value) },
+    );
+    set_optional_string(
+        contact,
+        input.nickname.as_deref(),
+        |contact, value| unsafe { contact.setNickname(value) },
+    );
     set_optional_string(
         contact,
         input.organization_name.as_deref(),
         |contact, value| unsafe { contact.setOrganizationName(value) },
     );
-    set_optional_string(contact, input.job_title.as_deref(), |contact, value| unsafe {
-        contact.setJobTitle(value)
-    });
+    set_optional_string(
+        contact,
+        input.job_title.as_deref(),
+        |contact, value| unsafe { contact.setJobTitle(value) },
+    );
     set_optional_string(
         contact,
         input.department_name.as_deref(),
@@ -256,7 +251,6 @@ fn apply_create_fields(
     Ok(())
 }
 
-#[cfg(target_os = "macos")]
 fn apply_update_fields(
     contact: &CNMutableContact,
     input: UpdateContactInput,
@@ -318,12 +312,8 @@ fn apply_update_fields(
     Ok(())
 }
 
-#[cfg(target_os = "macos")]
-fn set_optional_string<F>(
-    contact: &CNMutableContact,
-    value: Option<&str>,
-    setter: F,
-) where
+fn set_optional_string<F>(contact: &CNMutableContact, value: Option<&str>, setter: F)
+where
     F: FnOnce(&CNMutableContact, &NSString),
 {
     if let Some(value) = value {
@@ -332,7 +322,6 @@ fn set_optional_string<F>(
     }
 }
 
-#[cfg(target_os = "macos")]
 fn build_phone_numbers(
     inputs: &[LabeledStringInput],
 ) -> ContactsResult<Retained<NSArray<CNLabeledValue<CNPhoneNumber>>>> {
@@ -340,19 +329,16 @@ fn build_phone_numbers(
     for input in inputs {
         validate_labeled_value(input, "phone number")?;
         let string = NSString::from_str(&input.value);
-        let phone = unsafe { CNPhoneNumber::phoneNumberWithStringValue(&string) }.ok_or_else(|| {
-            ContactsError::ValidationFailed("invalid phone number".into())
-        })?;
+        let phone = unsafe { CNPhoneNumber::phoneNumberWithStringValue(&string) }
+            .ok_or_else(|| ContactsError::ValidationFailed("invalid phone number".into()))?;
         let label = input.label.as_ref().map(|value| NSString::from_str(value));
-        let labeled = unsafe {
-            CNLabeledValue::labeledValueWithLabel_value(label.as_deref(), &*phone)
-        };
+        let labeled =
+            unsafe { CNLabeledValue::labeledValueWithLabel_value(label.as_deref(), &*phone) };
         values.push(labeled);
     }
     Ok(NSArray::from_retained_slice(&values))
 }
 
-#[cfg(target_os = "macos")]
 fn build_string_labeled_values(
     inputs: &[LabeledStringInput],
 ) -> ContactsResult<Retained<NSArray<CNLabeledValue<NSString>>>> {
@@ -368,7 +354,6 @@ fn build_string_labeled_values(
     Ok(NSArray::from_retained_slice(&values))
 }
 
-#[cfg(target_os = "macos")]
 fn build_postal_addresses(
     inputs: &[PostalAddressInput],
 ) -> ContactsResult<Retained<NSArray<CNLabeledValue<CNPostalAddress>>>> {
@@ -433,9 +418,7 @@ mod tests {
         };
         assert_eq!(
             validate_create_contact_input(&input).unwrap_err(),
-            ContactsError::ValidationFailed(
-                "contact requires a name or organization".into()
-            )
+            ContactsError::ValidationFailed("contact requires a name or organization".into())
         );
     }
 

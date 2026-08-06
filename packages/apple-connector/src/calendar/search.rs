@@ -1,7 +1,5 @@
 //! Event search filters for calendar listing endpoints.
 
-use sqlx::{QueryBuilder, Sqlite};
-
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct EventFilters {
     pub q: Option<String>,
@@ -29,6 +27,21 @@ pub struct EventFiltersSnapshot {
     pub include_cancelled: bool,
 }
 
+/// Bind parameters for compile-time checked event listing queries.
+#[derive(Debug, Clone)]
+pub struct EventFilterBinds {
+    pub include_hidden: i64,
+    pub include_cancelled: i64,
+    pub calendar_id: Option<String>,
+    pub account_id: Option<String>,
+    pub q_pattern: Option<String>,
+    pub start_after: Option<f64>,
+    pub start_before: Option<f64>,
+    pub cursor_at: Option<f64>,
+    pub cursor_row_id: Option<i64>,
+    pub limit: i64,
+}
+
 impl EventFilters {
     pub fn is_active(&self) -> bool {
         self.q.is_some()
@@ -51,62 +64,24 @@ impl EventFilters {
             include_cancelled: self.include_cancelled,
         }
     }
-}
 
-pub fn apply_event_filters(
-    builder: &mut QueryBuilder<Sqlite>,
-    filters: &EventFilters,
-    alias: &str,
-) {
-    if !filters.include_hidden {
-        builder.push(format!(" AND {alias}.hidden = 0"));
-    }
-    if !filters.include_cancelled {
-        builder.push(format!(" AND COALESCE({alias}.status, 0) != 2"));
-    }
-    if let Some(calendar_id) = &filters.calendar_id {
-        builder.push(" AND lower(c.UUID) = lower(");
-        builder.push_bind(calendar_id.clone());
-        builder.push(")");
-    }
-    if let Some(account_id) = &filters.account_id {
-        builder.push(" AND lower(s.external_id) = lower(");
-        builder.push_bind(account_id.clone());
-        builder.push(")");
-    }
-    if let Some(q) = &filters.q {
-        builder.push(format!(" AND {alias}.summary LIKE "));
-        builder.push_bind(format!("%{q}%"));
-    }
-}
-
-pub fn apply_occurrence_date_range(
-    builder: &mut QueryBuilder<Sqlite>,
-    start_after: Option<f64>,
-    start_before: Option<f64>,
-) {
-    if let Some(start) = start_after {
-        builder.push(" AND oc.occurrence_end_date >= ");
-        builder.push_bind(start);
-    }
-    if let Some(end) = start_before {
-        builder.push(" AND oc.occurrence_start_date <= ");
-        builder.push_bind(end);
-    }
-}
-
-pub fn apply_direct_date_range(
-    builder: &mut QueryBuilder<Sqlite>,
-    start_after: Option<f64>,
-    start_before: Option<f64>,
-    alias: &str,
-) {
-    if let Some(start) = start_after {
-        builder.push(format!(" AND {alias}.end_date >= "));
-        builder.push_bind(start);
-    }
-    if let Some(end) = start_before {
-        builder.push(format!(" AND {alias}.start_date <= "));
-        builder.push_bind(end);
+    pub fn bind_values(
+        &self,
+        cursor_at: Option<f64>,
+        cursor_row_id: Option<i64>,
+        limit: i64,
+    ) -> EventFilterBinds {
+        EventFilterBinds {
+            include_hidden: i64::from(self.include_hidden),
+            include_cancelled: i64::from(self.include_cancelled),
+            calendar_id: self.calendar_id.clone(),
+            account_id: self.account_id.clone(),
+            q_pattern: self.q.as_ref().map(|q| format!("%{q}%")),
+            start_after: self.start_after,
+            start_before: self.start_before,
+            cursor_at,
+            cursor_row_id,
+            limit,
+        }
     }
 }

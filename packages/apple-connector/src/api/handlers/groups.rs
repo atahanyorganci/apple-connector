@@ -6,7 +6,7 @@ use axum::{
 
 use crate::{
     api::{
-        contacts::{require_contacts_sources, contact_page_carddav, contact_page_vcard},
+        contacts::{contact_page_carddav, contact_page_vcard, require_contacts_sources},
         dto::{
             ContactPageDto, GroupDetailDto, GroupPageDto,
             contacts_convert::{contact_page_to_dto, group_detail_to_dto, group_page_to_dto},
@@ -46,7 +46,12 @@ pub async fn list_groups(
     let page = run_timed_query(|| async { sources.list_groups(limit, cursor).await })
         .await
         .map_err(|error| ApiError::internal(error.to_string()))?;
-    Ok(Json(group_page_to_dto(page.items, page.has_more, page.next_cursor, limit)))
+    Ok(Json(group_page_to_dto(
+        page.items,
+        page.has_more,
+        page.next_cursor,
+        limit,
+    )))
 }
 
 /// Get a contact group
@@ -166,13 +171,9 @@ async fn fetch_group_contact_page(
         .as_deref()
         .map(crate::api::cursor::decode::<crate::api::cursor::GroupContactCursor>)
         .transpose()?;
-    run_timed_query(|| async {
-        sources
-            .list_group_contacts(group_id, limit, cursor)
-            .await
-    })
-    .await
-    .map_err(|error| ApiError::internal(error.to_string()))
+    run_timed_query(|| async { sources.list_group_contacts(group_id, limit, cursor).await })
+        .await
+        .map_err(|error| ApiError::internal(error.to_string()))
 }
 
 async fn hydrate_contact_summaries(
@@ -181,12 +182,10 @@ async fn hydrate_contact_summaries(
 ) -> Result<Vec<crate::contacts::ContactDetail>, ApiError> {
     let mut details = Vec::with_capacity(summaries.len());
     for summary in summaries {
-        let contact = run_timed_query(|| async {
-            sources.get_contact(summary.id.as_str()).await
-        })
-        .await
-        .map_err(|error| ApiError::internal(error.to_string()))?
-        .ok_or_else(|| ApiError::not_found("Contact not found"))?;
+        let contact = run_timed_query(|| async { sources.get_contact(summary.id.as_str()).await })
+            .await
+            .map_err(|error| ApiError::internal(error.to_string()))?
+            .ok_or_else(|| ApiError::not_found("Contact not found"))?;
         details.push(contact);
     }
     Ok(details)

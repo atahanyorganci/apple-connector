@@ -1,0 +1,26 @@
+{
+  "db_name": "SQLite",
+  "query": "\n        SELECT external_id\n        FROM CalendarItem\n        WHERE lower(UUID) = lower(?1)\n        ",
+  "describe": {
+    "columns": [
+      {
+        "name": "external_id",
+        "ordinal": 0,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "CalendarItem",
+            "name": "external_id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      true
+    ]
+  },
+  "hash": "cc469c0d06d8ee7bd6c9fbbd659d5226902fed880dbd8a7cde6b8e764cc21ec2"
+}

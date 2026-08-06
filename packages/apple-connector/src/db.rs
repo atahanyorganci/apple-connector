@@ -94,8 +94,8 @@ pub async fn connect_pool(path: &Path) -> Result<SqlitePool, DatabaseError> {
 
 pub(crate) async fn is_pool_healthy(pool: &SqlitePool) -> bool {
     match pool.acquire().await {
-        Ok(mut connection) => sqlx::query("SELECT 1")
-            .execute(&mut *connection)
+        Ok(mut connection) => sqlx::query_scalar!("SELECT 1")
+            .fetch_one(&mut *connection)
             .await
             .is_ok(),
         Err(error) => {

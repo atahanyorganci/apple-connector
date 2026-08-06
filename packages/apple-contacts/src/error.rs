@@ -20,7 +20,6 @@ pub enum ContactsError {
 
 pub type ContactsResult<T> = Result<T, ContactsError>;
 
-#[cfg(target_os = "macos")]
 pub(crate) fn map_cn_error(err: objc2::rc::Retained<objc2_foundation::NSError>) -> ContactsError {
     use objc2_contacts::CNErrorCode;
 

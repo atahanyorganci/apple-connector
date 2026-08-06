@@ -10,8 +10,11 @@ use super::{
     attachment_path::is_present_on_disk,
     attachments::assemble_attachment,
     model::{Attachment, Chat, Message},
+    queries::{
+        fetch_attachment_by_guid, fetch_chat_message_page, fetch_filtered_messages,
+        fetch_message_by_guid,
+    },
     row::{AttachmentByGuidRow, AttachmentRow, ChatRow, MessageRow},
-    sql::{ATTACHMENT_BY_GUID, CHAT_MESSAGE_PAGE, MESSAGE_BY_GUID},
 };
 use crate::api::cursor::{
     ChatListCursor, ChatMessageCursor, GlobalMessageCursor, MessageSearchCursor, encode,
@@ -40,13 +43,6 @@ struct ChatActivityRow {
     style: Option<i64>,
     message_date: i64,
     message_id: i64,
-}
-
-#[derive(Debug, sqlx::FromRow)]
-struct ChatScopedMessageRow {
-    #[sqlx(flatten)]
-    message: MessageRow,
-    join_message_date: i64,
 }
 
 pub struct MessageRepository<'a> {
@@ -179,13 +175,14 @@ impl<'a> MessageRepository<'a> {
         }
 
         let fetch_limit = i64::from(limit) + 1;
-        let rows = sqlx::query_as::<_, ChatScopedMessageRow>(CHAT_MESSAGE_PAGE)
-            .bind(chat_id)
-            .bind(cursor.map(|value| value.message_date))
-            .bind(cursor.map(|value| value.message_id))
-            .bind(fetch_limit)
-            .fetch_all(self.pool)
-            .await?;
+        let rows = fetch_chat_message_page(
+            self.pool,
+            chat_id,
+            cursor.map(|value| value.message_date),
+            cursor.map(|value| value.message_id),
+            fetch_limit,
+        )
+        .await?;
 
         let (scoped_rows, has_more) = split_page(rows, limit);
         let next_cursor = if has_more {
@@ -232,19 +229,12 @@ impl<'a> MessageRepository<'a> {
         };
 
         let fetch_limit = i64::from(limit) + 1;
-        let mut builder = super::search::build_filtered_select(filters);
-        super::search::push_scan_cursor(
-            &mut builder,
+        let binds = filters.bind_values(
             scan_cursor.map(|(date, _)| date),
             scan_cursor.map(|(_, row_id)| row_id),
+            fetch_limit,
         );
-        builder.push(" ORDER BY message.date DESC, message.ROWID DESC LIMIT ");
-        builder.push_bind(fetch_limit);
-
-        let rows = builder
-            .build_query_as::<MessageRow>()
-            .fetch_all(self.pool)
-            .await?;
+        let rows = fetch_filtered_messages(self.pool, &binds).await?;
 
         let use_search_cursor = filters.is_active();
         self.messages_page_with_cursor(rows, limit, |last_row| {
@@ -272,9 +262,7 @@ impl<'a> MessageRepository<'a> {
         limit: u32,
         cursor: Option<MessageSearchCursor>,
     ) -> Result<Page<Message>, sqlx::Error> {
-        use super::search::{
-            CANDIDATE_CHUNK_SIZE, MESSAGE_SCAN_BUDGET, push_scan_cursor, text_matches,
-        };
+        use super::search::{CANDIDATE_CHUNK_SIZE, MESSAGE_SCAN_BUDGET, text_matches};
 
         let query = filters.q.as_deref().expect("search requires q");
         let mut matching_rows = Vec::new();
@@ -283,19 +271,12 @@ impl<'a> MessageRepository<'a> {
         let mut reached_end = false;
 
         'search: while scanned < MESSAGE_SCAN_BUDGET {
-            let mut builder = super::search::build_filtered_select(filters);
-            push_scan_cursor(
-                &mut builder,
+            let binds = filters.bind_values(
                 scan_position.map(|(date, _)| date),
                 scan_position.map(|(_, row_id)| row_id),
+                i64::from(CANDIDATE_CHUNK_SIZE),
             );
-            builder.push(" ORDER BY message.date DESC, message.ROWID DESC LIMIT ");
-            builder.push_bind(i64::from(CANDIDATE_CHUNK_SIZE));
-
-            let chunk = builder
-                .build_query_as::<MessageRow>()
-                .fetch_all(self.pool)
-                .await?;
+            let chunk = fetch_filtered_messages(self.pool, &binds).await?;
 
             if chunk.is_empty() {
                 reached_end = true;
@@ -358,11 +339,7 @@ impl<'a> MessageRepository<'a> {
     }
 
     pub async fn get_message_by_guid(&self, guid: &str) -> Result<Option<Message>, sqlx::Error> {
-        let Some(row) = sqlx::query_as::<_, MessageRow>(MESSAGE_BY_GUID)
-            .bind(guid)
-            .fetch_optional(self.pool)
-            .await?
-        else {
+        let Some(row) = fetch_message_by_guid(self.pool, guid).await? else {
             return Ok(None);
         };
 
@@ -383,11 +360,7 @@ impl<'a> MessageRepository<'a> {
         guid: &str,
         attachment_root: &Path,
     ) -> Result<Option<Attachment>, sqlx::Error> {
-        let Some(row) = sqlx::query_as::<_, AttachmentByGuidRow>(ATTACHMENT_BY_GUID)
-            .bind(guid)
-            .fetch_optional(self.pool)
-            .await?
-        else {
+        let Some(row) = fetch_attachment_by_guid(self.pool, guid).await? else {
             return Ok(None);
         };
 
@@ -491,71 +464,75 @@ mod tests {
             .await
             .expect("connect");
 
-        sqlx::query("DROP TRIGGER IF EXISTS verify_chat_insert")
+        sqlx::query!("DROP TRIGGER IF EXISTS verify_chat_insert")
             .execute(&mut connection)
             .await
             .expect("drop insert trigger");
-        sqlx::query("DROP TRIGGER IF EXISTS verify_chat_update")
+        sqlx::query!("DROP TRIGGER IF EXISTS verify_chat_update")
             .execute(&mut connection)
             .await
             .expect("drop update trigger");
 
-        sqlx::query("INSERT INTO handle (id, service) VALUES ('+15550000001', 'iMessage')")
+        sqlx::query!("INSERT INTO handle (id, service) VALUES ('+15550000001', 'iMessage')")
             .execute(&mut connection)
             .await
             .expect("handle");
-        sqlx::query("INSERT INTO handle (id, service) VALUES ('+15550000002', 'iMessage')")
+        sqlx::query!("INSERT INTO handle (id, service) VALUES ('+15550000002', 'iMessage')")
             .execute(&mut connection)
             .await
             .expect("handle");
 
         for chat_index in 0..3 {
-            sqlx::query(
+            let chat_guid = format!("chat-{chat_index}");
+            let chat_identifier = format!("+1555000000{chat_index}");
+            sqlx::query!(
                 "INSERT INTO chat (guid, style, chat_identifier, service_name) \
                  VALUES (?1, 45, ?2, 'iMessage')",
+                chat_guid,
+                chat_identifier
             )
-            .bind(format!("chat-{chat_index}"))
-            .bind(format!("+1555000000{chat_index}"))
             .execute(&mut connection)
             .await
             .expect("chat");
         }
 
         for message_index in 0..5 {
-            sqlx::query(
+            let message_guid = format!("message-{message_index}");
+            let body = format!("body-{message_index}");
+            let sent_at = 1_000_i64 + message_index;
+            sqlx::query!(
                 "INSERT INTO message (guid, text, service, is_from_me, date) \
                  VALUES (?1, ?2, 'iMessage', 1, ?3)",
+                message_guid,
+                body,
+                sent_at
             )
-            .bind(format!("message-{message_index}"))
-            .bind(format!("body-{message_index}"))
-            .bind(1_000_i64 + message_index)
             .execute(&mut connection)
             .await
             .expect("message");
         }
 
-        // Two messages share the same timestamp to exercise stable keyset ordering.
-        sqlx::query(
+        sqlx::query!(
             "INSERT INTO message (guid, text, service, is_from_me, date) \
              VALUES ('message-tie-a', 'tie-a', 'iMessage', 1, 500), \
-                    ('message-tie-b', 'tie-b', 'iMessage', 1, 500)",
+                    ('message-tie-b', 'tie-b', 'iMessage', 1, 500)"
         )
         .execute(&mut connection)
         .await
         .expect("tie messages");
 
-        sqlx::query(
+        sqlx::query!(
             "INSERT INTO chat_message_join (chat_id, message_id, message_date) \
              SELECT chat.ROWID, message.ROWID, message.date \
-             FROM chat JOIN message ON message.guid LIKE 'message-%'",
+             FROM chat JOIN message ON message.guid LIKE 'message-%'"
         )
         .execute(&mut connection)
         .await
         .expect("join all messages to all chats");
 
-        sqlx::query(
+        sqlx::query!(
             "INSERT INTO chat_handle_join (chat_id, handle_id) \
-             SELECT chat.ROWID, handle.ROWID FROM chat, handle",
+             SELECT chat.ROWID, handle.ROWID FROM chat, handle"
         )
         .execute(&mut connection)
         .await
@@ -611,7 +588,7 @@ mod tests {
         let fixture = seed_pagination_fixture().await;
         let pool = connect_pool(fixture.path()).await.expect("connect pool");
         let repository = MessageRepository::new(&pool);
-        let chat_id = sqlx::query_scalar::<_, i64>("SELECT ROWID FROM chat LIMIT 1")
+        let chat_id = sqlx::query_scalar!("SELECT ROWID AS \"row_id!\" FROM chat LIMIT 1")
             .fetch_one(&pool)
             .await
             .expect("chat id");

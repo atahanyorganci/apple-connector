@@ -1,0 +1,26 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT Z_MAX FROM Z_PRIMARYKEY WHERE Z_NAME = 'REMCDReminder'",
+  "describe": {
+    "columns": [
+      {
+        "name": "Z_MAX",
+        "ordinal": 0,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "Z_PRIMARYKEY",
+            "name": "Z_MAX"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 0
+    },
+    "nullable": [
+      true
+    ]
+  },
+  "hash": "5b8d0a0670b0214a539e459a55ce1e50af3358e68022e4bca7d05467d09db827"
+}

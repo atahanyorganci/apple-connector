@@ -1,0 +1,26 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT ROWID AS \"row_id!\" FROM chat LIMIT 1",
+  "describe": {
+    "columns": [
+      {
+        "name": "row_id!",
+        "ordinal": 0,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "chat",
+            "name": "ROWID"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 0
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "e0b8eed3f2a7f96dc62f6a9f2dc82fa9b72abb57fe2743386ad7574a911cf784"
+}

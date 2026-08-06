@@ -1,0 +1,21 @@
+{
+  "db_name": "SQLite",
+  "query": "\n        SELECT CAST(\n          lower(\n            substr(hex(r.ZIDENTIFIER), 1, 8) || '-' ||\n            substr(hex(r.ZIDENTIFIER), 9, 4) || '-' ||\n            substr(hex(r.ZIDENTIFIER), 13, 4) || '-' ||\n            substr(hex(r.ZIDENTIFIER), 17, 4) || '-' ||\n            substr(hex(r.ZIDENTIFIER), 21, 12)\n          ) AS TEXT\n        ) AS \"id!: String\"\n        FROM ZREMCDREMINDER r\n        WHERE r.Z_PK = ?\n          AND r.ZMARKEDFORDELETION = 0\n        ",
+  "describe": {
+    "columns": [
+      {
+        "name": "id!: String",
+        "ordinal": 0,
+        "type_info": "Null",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "4073115248f11f7344887efe87a2fbc345effdae1ffa0bd0f7a0b6eafa25a130"
+}

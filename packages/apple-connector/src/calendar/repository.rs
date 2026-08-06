@@ -1,4 +1,4 @@
-use sqlx::{QueryBuilder, Sqlite, SqlitePool};
+use sqlx::SqlitePool;
 
 use super::{
     assembly::{
@@ -9,18 +9,15 @@ use super::{
         CalendarAccount, CalendarDetail, CalendarSummary, EventAttachment, EventDetail,
         EventSummary,
     },
-    row::{
-        AlarmRow, AttachmentRow, CalendarRow, EventRow, ExceptionDateRow, LocationRow,
-        ParticipantRow, RecurrenceRow, StoreRow, core_data_secs_from_timestamp,
+    queries::{
+        fetch_alarms_by_event_id, fetch_attachment_by_event_and_id, fetch_attachments_by_owner_id,
+        fetch_calendar_by_id, fetch_calendar_resolve_metadata, fetch_calendars_page,
+        fetch_direct_events_page, fetch_event_by_id, fetch_event_external_id,
+        fetch_exception_dates_by_owner_id, fetch_location_by_id, fetch_occurrence_events_page,
+        fetch_participants_by_owner_id, fetch_recurrence_by_owner_id, fetch_stores_ordered,
     },
-    search::{
-        EventFilters, apply_direct_date_range, apply_event_filters, apply_occurrence_date_range,
-    },
-    sql::{
-        ALARM_SELECT, ATTACHMENT_SELECT, CALENDAR_SELECT, EVENT_SELECT, EXCEPTION_DATE_SELECT,
-        LOCATION_SELECT, OCCURRENCE_EVENT_SELECT, PARTICIPANT_SELECT, RECURRENCE_SELECT,
-        STORE_SELECT,
-    },
+    row::{EventRow, core_data_secs_from_timestamp},
+    search::EventFilters,
 };
 use crate::api::cursor::{
     CalendarEventCursor, CalendarListCursor, EventSearchCursor, GlobalEventCursor, decode, encode,
@@ -41,8 +38,6 @@ pub struct CalendarResolveMetadata {
     pub store_type: i64,
 }
 
-type CalendarResolveRow = (String, Option<String>, Option<String>, Option<i64>);
-
 pub struct CalendarRepository<'a> {
     pool: &'a SqlitePool,
 }
@@ -54,9 +49,7 @@ impl<'a> CalendarRepository<'a> {
 
     pub async fn list_accounts(&self) -> Result<Vec<CalendarAccount>, sqlx::Error> {
         crate::db::run_timed_query(|| async {
-            let mut builder = QueryBuilder::<Sqlite>::new(STORE_SELECT);
-            builder.push(" ORDER BY s.display_order, s.ROWID");
-            let rows: Vec<StoreRow> = builder.build_query_as().fetch_all(self.pool).await?;
+            let rows = fetch_stores_ordered(self.pool).await?;
             Ok(rows.into_iter().map(account_from_row).collect())
         })
         .await
@@ -76,16 +69,7 @@ impl<'a> CalendarRepository<'a> {
         cursor: Option<CalendarListCursor>,
     ) -> Result<Page<CalendarSummary>, sqlx::Error> {
         let fetch_limit = i64::from(limit) + 1;
-        let mut builder = QueryBuilder::<Sqlite>::new(CALENDAR_SELECT);
-        builder.push(" WHERE 1=1");
-        if let Some(cursor) = cursor {
-            builder.push(" AND c.ROWID < ");
-            builder.push_bind(cursor.row_id);
-        }
-        builder.push(" ORDER BY c.ROWID DESC LIMIT ");
-        builder.push_bind(fetch_limit);
-
-        let rows: Vec<CalendarRow> = builder.build_query_as().fetch_all(self.pool).await?;
+        let rows = fetch_calendars_page(self.pool, cursor.map(|c| c.row_id), fetch_limit).await?;
         let (rows, has_more) = split_page(rows, limit);
         let next_cursor = has_more
             .then(|| {
@@ -106,12 +90,7 @@ impl<'a> CalendarRepository<'a> {
         calendar_id: &str,
     ) -> Result<Option<CalendarDetail>, sqlx::Error> {
         crate::db::run_timed_query(|| async {
-            let mut builder = QueryBuilder::<Sqlite>::new(CALENDAR_SELECT);
-            builder.push(" WHERE lower(c.UUID) = lower(");
-            builder.push_bind(calendar_id.to_owned());
-            builder.push(")");
-            let row: Option<CalendarRow> =
-                builder.build_query_as().fetch_optional(self.pool).await?;
+            let row = fetch_calendar_by_id(self.pool, calendar_id).await?;
             Ok(row.map(calendar_detail_from_row))
         })
         .await
@@ -121,36 +100,21 @@ impl<'a> CalendarRepository<'a> {
         &self,
         calendar_id: &str,
     ) -> Result<Option<CalendarResolveMetadata>, sqlx::Error> {
-        let row: Option<CalendarResolveRow> = sqlx::query_as(
-            "SELECT lower(c.UUID), c.external_id, c.title, s.type \
-             FROM Calendar c \
-             JOIN Store s ON s.ROWID = c.store_id \
-             WHERE lower(c.UUID) = lower(?)",
-        )
-        .bind(calendar_id.to_owned())
-        .fetch_optional(self.pool)
-        .await?;
+        let row = fetch_calendar_resolve_metadata(self.pool, calendar_id).await?;
 
-        Ok(row.map(
-            |(api_id, external_id, title, store_type)| CalendarResolveMetadata {
-                api_id,
-                external_id,
-                title,
-                store_type: store_type.unwrap_or(0),
-            },
-        ))
+        Ok(row.map(|row| CalendarResolveMetadata {
+            api_id: row.api_id,
+            external_id: row.external_id,
+            title: row.title,
+            store_type: row.store_type.unwrap_or(0),
+        }))
     }
 
     pub async fn get_event_external_id(
         &self,
         event_id: &str,
     ) -> Result<Option<String>, sqlx::Error> {
-        let row: Option<(Option<String>,)> =
-            sqlx::query_as("SELECT external_id FROM CalendarItem WHERE lower(UUID) = lower(?)")
-                .bind(event_id.to_owned())
-                .fetch_optional(self.pool)
-                .await?;
-        Ok(row.and_then(|(external_id,)| external_id))
+        fetch_event_external_id(self.pool, event_id).await
     }
 
     pub async fn list_events(
@@ -183,28 +147,12 @@ impl<'a> CalendarRepository<'a> {
         cursor: Option<GlobalEventCursor>,
     ) -> Result<Page<EventSummary>, sqlx::Error> {
         let fetch_limit = i64::from(limit) + 1;
-        let mut builder = QueryBuilder::<Sqlite>::new(EVENT_SELECT);
-        builder.push(" JOIN Store s ON s.ROWID = c.store_id WHERE 1=1");
-        apply_event_filters(&mut builder, filters, "ci");
-        apply_direct_date_range(
-            &mut builder,
-            filters.start_after,
-            filters.start_before,
-            "ci",
+        let binds = filters.bind_values(
+            cursor.as_ref().map(|c| c.modified_at),
+            cursor.map(|c| c.row_id),
+            fetch_limit,
         );
-        if let Some(cursor) = cursor {
-            builder.push(" AND (ci.last_modified < ");
-            builder.push_bind(cursor.modified_at);
-            builder.push(" OR (ci.last_modified = ");
-            builder.push_bind(cursor.modified_at);
-            builder.push(" AND ci.ROWID < ");
-            builder.push_bind(cursor.row_id);
-            builder.push("))");
-        }
-        builder.push(" ORDER BY ci.last_modified DESC, ci.ROWID DESC LIMIT ");
-        builder.push_bind(fetch_limit);
-
-        let rows: Vec<EventRow> = builder.build_query_as().fetch_all(self.pool).await?;
+        let rows = fetch_direct_events_page(self.pool, &binds).await?;
         let (rows, has_more) = split_page(rows, limit);
         let next_cursor = has_more
             .then(|| {
@@ -232,23 +180,12 @@ impl<'a> CalendarRepository<'a> {
         cursor: Option<GlobalEventCursor>,
     ) -> Result<Page<EventSummary>, sqlx::Error> {
         let fetch_limit = i64::from(limit) + 1;
-        let mut builder = QueryBuilder::<Sqlite>::new(OCCURRENCE_EVENT_SELECT);
-        builder.push(" JOIN Store s ON s.ROWID = c.store_id WHERE 1=1");
-        apply_event_filters(&mut builder, filters, "ci");
-        apply_occurrence_date_range(&mut builder, filters.start_after, filters.start_before);
-        if let Some(cursor) = cursor {
-            builder.push(" AND (oc.occurrence_start_date < ");
-            builder.push_bind(cursor.modified_at);
-            builder.push(" OR (oc.occurrence_start_date = ");
-            builder.push_bind(cursor.modified_at);
-            builder.push(" AND ci.ROWID < ");
-            builder.push_bind(cursor.row_id);
-            builder.push("))");
-        }
-        builder.push(" ORDER BY oc.occurrence_start_date DESC, ci.ROWID DESC LIMIT ");
-        builder.push_bind(fetch_limit);
-
-        let rows: Vec<EventRow> = builder.build_query_as().fetch_all(self.pool).await?;
+        let binds = filters.bind_values(
+            cursor.as_ref().map(|c| c.modified_at),
+            cursor.map(|c| c.row_id),
+            fetch_limit,
+        );
+        let rows = fetch_occurrence_events_page(self.pool, &binds).await?;
         let (rows, has_more) = split_page(rows, limit);
         let next_cursor = has_more
             .then(|| {
@@ -310,11 +247,7 @@ impl<'a> CalendarRepository<'a> {
     }
 
     async fn get_event_inner(&self, event_id: &str) -> Result<Option<EventDetail>, sqlx::Error> {
-        let mut builder = QueryBuilder::<Sqlite>::new(EVENT_SELECT);
-        builder.push(" WHERE lower(ci.UUID) = lower(");
-        builder.push_bind(event_id.to_owned());
-        builder.push(")");
-        let row: Option<EventRow> = builder.build_query_as().fetch_optional(self.pool).await?;
+        let row = fetch_event_by_id(self.pool, event_id).await?;
         let Some(row) = row else {
             return Ok(None);
         };
@@ -324,60 +257,24 @@ impl<'a> CalendarRepository<'a> {
     async fn hydrate_event(&self, row: EventRow) -> Result<EventDetail, sqlx::Error> {
         let event_row_id = row.row_id;
         let location = if let Some(location_id) = row.location_id.filter(|id| *id > 0) {
-            let mut builder = QueryBuilder::<Sqlite>::new(LOCATION_SELECT);
-            builder.push(" WHERE ROWID = ");
-            builder.push_bind(location_id);
-            builder
-                .build_query_as::<LocationRow>()
-                .fetch_optional(self.pool)
-                .await?
+            fetch_location_by_id(self.pool, location_id).await?
         } else {
             None
         };
 
-        let mut participant_builder = QueryBuilder::<Sqlite>::new(PARTICIPANT_SELECT);
-        participant_builder.push(" WHERE owner_id = ");
-        participant_builder.push_bind(event_row_id);
-        let participants: Vec<ParticipantRow> = participant_builder
-            .build_query_as()
-            .fetch_all(self.pool)
-            .await?;
+        let participants = fetch_participants_by_owner_id(self.pool, event_row_id).await?;
         let organizer = row
             .organizer_id
             .and_then(|org_id| participants.iter().find(|p| p.row_id == org_id).cloned());
-        let attendees: Vec<ParticipantRow> = participants
+        let attendees: Vec<_> = participants
             .into_iter()
             .filter(|p| Some(p.row_id) != row.organizer_id)
             .collect();
 
-        let mut recurrence_builder = QueryBuilder::<Sqlite>::new(RECURRENCE_SELECT);
-        recurrence_builder.push(" WHERE owner_id = ");
-        recurrence_builder.push_bind(event_row_id);
-        let recurrence: Option<RecurrenceRow> = recurrence_builder
-            .build_query_as()
-            .fetch_optional(self.pool)
-            .await?;
-
-        let mut exception_builder = QueryBuilder::<Sqlite>::new(EXCEPTION_DATE_SELECT);
-        exception_builder.push(" WHERE owner_id = ");
-        exception_builder.push_bind(event_row_id);
-        let exception_rows: Vec<ExceptionDateRow> = exception_builder
-            .build_query_as()
-            .fetch_all(self.pool)
-            .await?;
-
-        let mut alarm_builder = QueryBuilder::<Sqlite>::new(ALARM_SELECT);
-        alarm_builder.push(" WHERE calendaritem_owner_id = ");
-        alarm_builder.push_bind(event_row_id);
-        let alarms: Vec<AlarmRow> = alarm_builder.build_query_as().fetch_all(self.pool).await?;
-
-        let mut attachment_builder = QueryBuilder::<Sqlite>::new(ATTACHMENT_SELECT);
-        attachment_builder.push(" WHERE a.owner_id = ");
-        attachment_builder.push_bind(event_row_id);
-        let attachments: Vec<AttachmentRow> = attachment_builder
-            .build_query_as()
-            .fetch_all(self.pool)
-            .await?;
+        let recurrence = fetch_recurrence_by_owner_id(self.pool, event_row_id).await?;
+        let exception_rows = fetch_exception_dates_by_owner_id(self.pool, event_row_id).await?;
+        let alarms = fetch_alarms_by_event_id(self.pool, event_row_id).await?;
+        let attachments = fetch_attachments_by_owner_id(self.pool, event_row_id).await?;
 
         Ok(event_detail_from_row(
             row,
@@ -397,15 +294,7 @@ impl<'a> CalendarRepository<'a> {
         attachment_id: &str,
     ) -> Result<Option<EventAttachment>, sqlx::Error> {
         crate::db::run_timed_query(|| async {
-            let mut builder = QueryBuilder::<Sqlite>::new(ATTACHMENT_SELECT);
-            builder.push(" JOIN CalendarItem ci ON ci.ROWID = a.owner_id");
-            builder.push(" WHERE lower(ci.UUID) = lower(");
-            builder.push_bind(event_id.to_owned());
-            builder.push(") AND lower(af.UUID) = lower(");
-            builder.push_bind(attachment_id.to_owned());
-            builder.push(")");
-            let row: Option<AttachmentRow> =
-                builder.build_query_as().fetch_optional(self.pool).await?;
+            let row = fetch_attachment_by_event_and_id(self.pool, event_id, attachment_id).await?;
             Ok(row.map(super::assembly::attachment_from_row))
         })
         .await

@@ -1,0 +1,21 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT COUNT(*) AS \"count!\" FROM sqlite_master WHERE name = 'ZICCLOUDSYNCINGOBJECT'",
+  "describe": {
+    "columns": [
+      {
+        "name": "count!",
+        "ordinal": 0,
+        "type_info": "Integer",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Right": 0
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "255a23eeed95ceba14175ea04a6c1c9204dad9662f45dfc74478af26ac1ade2e"
+}

@@ -80,8 +80,7 @@ fn apply_line(card: &mut VCard, line: &str) -> Result<()> {
         "PHOTO" => card.photo = Some(parse_photo(&params, value)?),
         key if key.starts_with("X-") => {
             let bag = card.extensions.get_or_insert_with(ExtensionBag::default);
-            bag.properties
-                .insert(key.to_owned(), unescape_value(value));
+            bag.properties.insert(key.to_owned(), unescape_value(value));
         }
         _ => {}
     }
@@ -152,10 +151,7 @@ fn parse_photo(params: &[String], value: &str) -> Result<Photo> {
     let data = STANDARD
         .decode(value.trim())
         .map_err(|error| Error::Parse(error.to_string()))?;
-    Ok(Photo {
-        data,
-        media_type,
-    })
+    Ok(Photo { data, media_type })
 }
 
 fn parse_params(params: &[String]) -> (Option<String>, bool, Option<String>) {
@@ -236,6 +232,9 @@ mod tests {
         let input = "BEGIN:VCARD\nFN:Test\nX-CUSTOM:hello\nEND:VCARD\n";
         let card = parse_vcard(input.as_bytes()).expect("parse");
         let extensions = card.extensions.expect("extensions");
-        assert_eq!(extensions.properties.get("X-CUSTOM").map(String::as_str), Some("hello"));
+        assert_eq!(
+            extensions.properties.get("X-CUSTOM").map(String::as_str),
+            Some("hello")
+        );
     }
 }

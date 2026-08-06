@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "INSERT INTO chat_message_join (chat_id, message_id, message_date) SELECT 2, message.ROWID, message.date FROM message WHERE message.ROWID IN (4)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 0
+    },
+    "nullable": []
+  },
+  "hash": "fcbbfd8692321277db46580d8819d9c9c070fe77b35ededb50b79e5f545b5e99"
+}

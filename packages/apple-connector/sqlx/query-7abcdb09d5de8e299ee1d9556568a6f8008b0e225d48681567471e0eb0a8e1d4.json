@@ -1,0 +1,21 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT COUNT(*) AS \"count!\" FROM ZICNOTEDATA nd JOIN ZICCLOUDSYNCINGOBJECT n ON nd.ZNOTE = n.Z_PK WHERE n.ZIDENTIFIER = ?1 AND length(nd.ZDATA) > 0",
+  "describe": {
+    "columns": [
+      {
+        "name": "count!",
+        "ordinal": 0,
+        "type_info": "Integer",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "7abcdb09d5de8e299ee1d9556568a6f8008b0e225d48681567471e0eb0a8e1d4"
+}

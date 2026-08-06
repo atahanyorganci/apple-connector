@@ -1,8 +1,6 @@
-use crate::{
-    container::ContainerResolveHint,
-    error::{ContactsError, ContactsResult},
-    store::ContactsStore,
-};
+use crate::error::{ContactsError, ContactsResult};
+#[cfg(target_os = "macos")]
+use crate::{container::ContainerResolveHint, store::ContactsStore};
 
 #[derive(Debug, Clone)]
 pub struct CreateGroupInput {
@@ -19,14 +17,10 @@ pub struct SavedGroup {
     pub identifier: String,
 }
 
-#[cfg(target_os = "macos")]
 use objc2::rc::Retained;
-#[cfg(target_os = "macos")]
 use objc2_contacts::{CNContactStore, CNGroup, CNMutableGroup, CNSaveRequest};
-#[cfg(target_os = "macos")]
 use objc2_foundation::{NSArray, NSString};
 
-#[cfg(target_os = "macos")]
 impl ContactsStore {
     pub async fn create_group(
         &self,
@@ -128,7 +122,6 @@ impl ContactsStore {
     }
 }
 
-#[cfg(target_os = "macos")]
 fn lookup_group(store: &CNContactStore, identifier: &str) -> ContactsResult<Retained<CNGroup>> {
     let ns_id = NSString::from_str(identifier);
     let ids = NSArray::from_slice(&[&*ns_id]);
@@ -138,13 +131,13 @@ fn lookup_group(store: &CNContactStore, identifier: &str) -> ContactsResult<Reta
     groups.iter().next().ok_or(ContactsError::NotFound)
 }
 
-#[cfg(target_os = "macos")]
 fn mutable_group(group: &CNGroup) -> ContactsResult<Retained<CNMutableGroup>> {
     use objc2_foundation::NSMutableCopying;
 
     Ok(group.mutableCopy())
 }
 
+#[cfg_attr(not(target_os = "macos"), allow(dead_code))]
 pub(crate) fn validate_group_name(name: &str) -> ContactsResult<()> {
     if name.trim().is_empty() {
         return Err(ContactsError::ValidationFailed(

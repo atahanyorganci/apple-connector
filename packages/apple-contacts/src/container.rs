@@ -1,3 +1,4 @@
+#[cfg(target_os = "macos")]
 use crate::error::{ContactsError, ContactsResult};
 
 #[derive(Debug, Clone)]
@@ -23,14 +24,10 @@ pub struct ContainerResolveMetadata {
     pub container_type: ContainerStoreType,
 }
 
-#[cfg(target_os = "macos")]
 use objc2::rc::Retained;
-#[cfg(target_os = "macos")]
 use objc2_contacts::{CNContactStore, CNContainer, CNContainerType};
-#[cfg(target_os = "macos")]
 use objc2_foundation::{NSArray, NSString};
 
-#[cfg(target_os = "macos")]
 pub(crate) fn resolve_container(
     store: &CNContactStore,
     hint: &ContainerResolveHint,
@@ -68,7 +65,6 @@ pub(crate) fn resolve_container(
     Err(ContactsError::NotFound)
 }
 
-#[cfg(target_os = "macos")]
 fn lookup_container(
     store: &CNContactStore,
     external_id: &Option<String>,
@@ -84,8 +80,8 @@ fn lookup_container(
         let ns_id = NSString::from_str(candidate);
         let ids = NSArray::from_slice(&[&*ns_id]);
         let predicate = unsafe { CNContainer::predicateForContainersWithIdentifiers(&ids) };
-        let containers = unsafe { store.containersMatchingPredicate_error(Some(&predicate)) }
-            .ok()?;
+        let containers =
+            unsafe { store.containersMatchingPredicate_error(Some(&predicate)) }.ok()?;
         if let Some(container) = containers.iter().next() {
             return Some(container.clone());
         }
@@ -94,7 +90,6 @@ fn lookup_container(
     None
 }
 
-#[cfg(target_os = "macos")]
 fn container_metadata(container: &CNContainer) -> ContainerResolveMetadata {
     let container_type = match unsafe { container.r#type() } {
         CNContainerType::Local => ContainerStoreType::Local,

@@ -7,8 +7,8 @@ use crate::{
             ContactSocialProfile, ContactSummary, ContactUrl, Container,
         },
         row::{
-            AddressRow, ContactRow, ContainerRow, EmailRow, GroupRow, PhoneRow, SocialRow,
-            UrlRow, api_id_from_unique_id, parse_core_data_timestamp,
+            AddressRow, ContactRow, ContainerRow, EmailRow, GroupRow, PhoneRow, SocialRow, UrlRow,
+            api_id_from_unique_id, parse_core_data_timestamp,
         },
     },
 };

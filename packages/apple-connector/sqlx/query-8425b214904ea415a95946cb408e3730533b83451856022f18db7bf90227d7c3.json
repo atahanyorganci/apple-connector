@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "INSERT INTO handle (ROWID, id, service) VALUES (1, '+15550000001', 'iMessage')",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 0
+    },
+    "nullable": []
+  },
+  "hash": "8425b214904ea415a95946cb408e3730533b83451856022f18db7bf90227d7c3"
+}

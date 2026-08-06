@@ -1,6 +1,12 @@
 use sqlx::SqlitePool;
 
-use super::schema::{CalendarSchemaVariant, detect_schema_variant};
+use super::{
+    queries::{
+        count_attachments, count_calendars, count_events, count_hidden_events, count_occurrences,
+        count_recurring_events, count_stores,
+    },
+    schema::{CalendarSchemaVariant, detect_schema_variant},
+};
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct CalendarInventory {
@@ -17,40 +23,15 @@ pub struct CalendarInventory {
 pub async fn load_inventory(pool: &SqlitePool) -> Result<CalendarInventory, sqlx::Error> {
     let variant = detect_schema_variant(pool).await?;
     let (stores, calendars, events, recurring, occurrences, attachments, hidden) = match variant {
-        CalendarSchemaVariant::CalendarItem => {
-            let stores: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM Store")
-                .fetch_one(pool)
-                .await?;
-            let calendars: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM Calendar")
-                .fetch_one(pool)
-                .await?;
-            let events: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM CalendarItem")
-                .fetch_one(pool)
-                .await?;
-            let recurring: (i64,) =
-                sqlx::query_as("SELECT COUNT(*) FROM CalendarItem WHERE has_recurrences = 1")
-                    .fetch_one(pool)
-                    .await?;
-            let occurrences: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM OccurrenceCache")
-                .fetch_one(pool)
-                .await?;
-            let attachments: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM Attachment")
-                .fetch_one(pool)
-                .await?;
-            let hidden: (i64,) =
-                sqlx::query_as("SELECT COUNT(*) FROM CalendarItem WHERE hidden = 1")
-                    .fetch_one(pool)
-                    .await?;
-            (
-                stores.0,
-                calendars.0,
-                events.0,
-                recurring.0,
-                occurrences.0,
-                attachments.0,
-                hidden.0,
-            )
-        }
+        CalendarSchemaVariant::CalendarItem => (
+            count_stores(pool).await?,
+            count_calendars(pool).await?,
+            count_events(pool).await?,
+            count_recurring_events(pool).await?,
+            count_occurrences(pool).await?,
+            count_attachments(pool).await?,
+            count_hidden_events(pool).await?,
+        ),
         CalendarSchemaVariant::ZCalendarItem => (0, 0, 0, 0, 0, 0, 0),
     };
 

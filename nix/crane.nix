@@ -32,6 +32,9 @@
         (lib.fileset.fileFilter
           (file: lib.hasInfix "/packages/apple-eventkit/" file.name)
           projectRoot)
+        (lib.fileset.fileFilter
+          (file: lib.hasInfix "/packages/apple-contacts/" file.name)
+          projectRoot)
         packageSources
         (lib.fileset.maybeMissing (packageRoot + "/build.rs"))
         (lib.fileset.maybeMissing (packageRoot + "/sqlx"))
@@ -58,7 +61,10 @@
     workspaceArgs = {
       inherit src;
       strictDeps = true;
-      buildInputs = [pkgs.libiconv pkgs.sqlite];
+      buildInputs =
+        [pkgs.sqlite pkgs.clang]
+        ++ lib.optionals pkgs.stdenv.isDarwin [pkgs.libiconv];
+      LIBCLANG_PATH = "${pkgs.llvmPackages.libclang.lib}/lib";
       cargoToml = projectRoot + "/Cargo.toml";
       pname = "apple-connector";
       version = packageManifest.package.version;
@@ -107,6 +113,11 @@
       checks = self'.checks;
       packages = [rustToolchain pkgs.cargo-watch];
       RUST_SRC_PATH = "${rustToolchain.passthru.availableComponents.rust-src}/lib/rustlib/src/rust/library";
+      SQLX_OFFLINE = "true";
+      SQLX_OFFLINE_DIR = "packages/apple-connector/sqlx";
+      shellHook = ''
+        export DYLD_LIBRARY_PATH="${rustToolchain}/lib''${DYLD_LIBRARY_PATH:+:$DYLD_LIBRARY_PATH}"
+      '';
     };
   };
 }

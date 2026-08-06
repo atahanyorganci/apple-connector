@@ -116,34 +116,98 @@ mod tests {
             .await
             .expect("connect");
 
-        for statement in [
-            "DROP TRIGGER IF EXISTS verify_chat_insert",
-            "DROP TRIGGER IF EXISTS verify_chat_update",
-            "INSERT INTO handle (ROWID, id, service) VALUES (1, '+15550000001', 'iMessage')",
-            "INSERT INTO handle (ROWID, id, service) VALUES (2, '+15550000002', 'SMS')",
-            "INSERT INTO chat (ROWID, guid, style, chat_identifier, service_name) VALUES (1, 'chat-a', 45, '+15550000001', 'iMessage')",
-            "INSERT INTO chat (ROWID, guid, style, chat_identifier, service_name) VALUES (2, 'chat-b', 45, '+15550000002', 'SMS')",
-            "INSERT INTO message (ROWID, guid, text, service, is_from_me, date, handle_id, cache_has_attachments) VALUES (1, 'msg-plain', 'Hello World filter text', 'iMessage', 0, 300, 1, 0)",
-            "INSERT INTO message (ROWID, guid, text, service, is_from_me, date, handle_id, cache_has_attachments) VALUES (2, 'msg-attributed', NULL, 'iMessage', 0, 200, 1, 0)",
-            "INSERT INTO message (ROWID, guid, text, service, is_from_me, date, handle_id, cache_has_attachments) VALUES (3, 'msg-sent', 'Sent only body', 'iMessage', 1, 100, 0, 0)",
-            "INSERT INTO message (ROWID, guid, text, service, is_from_me, date, handle_id, cache_has_attachments, item_type) VALUES (4, 'msg-group', 'Group title', 'SMS', 0, 50, 2, 0, 2)",
-            "INSERT INTO message (ROWID, guid, text, service, is_from_me, date, handle_id, cache_has_attachments) VALUES (5, 'msg-noise-1', 'noise alpha', 'iMessage', 0, 40, 1, 0)",
-            "INSERT INTO message (ROWID, guid, text, service, is_from_me, date, handle_id, cache_has_attachments) VALUES (6, 'msg-noise-2', 'noise beta', 'iMessage', 0, 30, 1, 0)",
-            "INSERT INTO message (ROWID, guid, text, service, is_from_me, date, handle_id, cache_has_attachments) VALUES (7, 'msg-noise-3', 'noise gamma', 'iMessage', 0, 20, 1, 0)",
-            "INSERT INTO chat_message_join (chat_id, message_id, message_date) SELECT 1, message.ROWID, message.date FROM message WHERE message.ROWID IN (1,2,3,5,6,7)",
-            "INSERT INTO chat_message_join (chat_id, message_id, message_date) SELECT 2, message.ROWID, message.date FROM message WHERE message.ROWID IN (4)",
-        ] {
-            sqlx::query(statement)
-                .execute(&mut connection)
-                .await
-                .expect("seed statement");
-        }
-
-        sqlx::query("UPDATE message SET attributedBody = ?1 WHERE guid = 'msg-attributed'")
-            .bind(HELLO_FIXTURE)
+        sqlx::query!("DROP TRIGGER IF EXISTS verify_chat_insert")
             .execute(&mut connection)
             .await
-            .expect("attributed body");
+            .expect("seed statement");
+        sqlx::query!("DROP TRIGGER IF EXISTS verify_chat_update")
+            .execute(&mut connection)
+            .await
+            .expect("seed statement");
+        sqlx::query!(
+            "INSERT INTO handle (ROWID, id, service) VALUES (1, '+15550000001', 'iMessage')"
+        )
+        .execute(&mut connection)
+        .await
+        .expect("seed statement");
+        sqlx::query!("INSERT INTO handle (ROWID, id, service) VALUES (2, '+15550000002', 'SMS')")
+            .execute(&mut connection)
+            .await
+            .expect("seed statement");
+        sqlx::query!(
+            "INSERT INTO chat (ROWID, guid, style, chat_identifier, service_name) VALUES (1, 'chat-a', 45, '+15550000001', 'iMessage')"
+        )
+        .execute(&mut connection)
+        .await
+        .expect("seed statement");
+        sqlx::query!(
+            "INSERT INTO chat (ROWID, guid, style, chat_identifier, service_name) VALUES (2, 'chat-b', 45, '+15550000002', 'SMS')"
+        )
+        .execute(&mut connection)
+        .await
+        .expect("seed statement");
+        sqlx::query!(
+            "INSERT INTO message (ROWID, guid, text, service, is_from_me, date, handle_id, cache_has_attachments) VALUES (1, 'msg-plain', 'Hello World filter text', 'iMessage', 0, 300, 1, 0)"
+        )
+        .execute(&mut connection)
+        .await
+        .expect("seed statement");
+        sqlx::query!(
+            "INSERT INTO message (ROWID, guid, text, service, is_from_me, date, handle_id, cache_has_attachments) VALUES (2, 'msg-attributed', NULL, 'iMessage', 0, 200, 1, 0)"
+        )
+        .execute(&mut connection)
+        .await
+        .expect("seed statement");
+        sqlx::query!(
+            "INSERT INTO message (ROWID, guid, text, service, is_from_me, date, handle_id, cache_has_attachments) VALUES (3, 'msg-sent', 'Sent only body', 'iMessage', 1, 100, 0, 0)"
+        )
+        .execute(&mut connection)
+        .await
+        .expect("seed statement");
+        sqlx::query!(
+            "INSERT INTO message (ROWID, guid, text, service, is_from_me, date, handle_id, cache_has_attachments, item_type) VALUES (4, 'msg-group', 'Group title', 'SMS', 0, 50, 2, 0, 2)"
+        )
+        .execute(&mut connection)
+        .await
+        .expect("seed statement");
+        sqlx::query!(
+            "INSERT INTO message (ROWID, guid, text, service, is_from_me, date, handle_id, cache_has_attachments) VALUES (5, 'msg-noise-1', 'noise alpha', 'iMessage', 0, 40, 1, 0)"
+        )
+        .execute(&mut connection)
+        .await
+        .expect("seed statement");
+        sqlx::query!(
+            "INSERT INTO message (ROWID, guid, text, service, is_from_me, date, handle_id, cache_has_attachments) VALUES (6, 'msg-noise-2', 'noise beta', 'iMessage', 0, 30, 1, 0)"
+        )
+        .execute(&mut connection)
+        .await
+        .expect("seed statement");
+        sqlx::query!(
+            "INSERT INTO message (ROWID, guid, text, service, is_from_me, date, handle_id, cache_has_attachments) VALUES (7, 'msg-noise-3', 'noise gamma', 'iMessage', 0, 20, 1, 0)"
+        )
+        .execute(&mut connection)
+        .await
+        .expect("seed statement");
+        sqlx::query!(
+            "INSERT INTO chat_message_join (chat_id, message_id, message_date) SELECT 1, message.ROWID, message.date FROM message WHERE message.ROWID IN (1,2,3,5,6,7)"
+        )
+        .execute(&mut connection)
+        .await
+        .expect("seed statement");
+        sqlx::query!(
+            "INSERT INTO chat_message_join (chat_id, message_id, message_date) SELECT 2, message.ROWID, message.date FROM message WHERE message.ROWID IN (4)"
+        )
+        .execute(&mut connection)
+        .await
+        .expect("seed statement");
+
+        sqlx::query!(
+            "UPDATE message SET attributedBody = ?1 WHERE guid = 'msg-attributed'",
+            HELLO_FIXTURE
+        )
+        .execute(&mut connection)
+        .await
+        .expect("attributed body");
 
         connection.close().await.ok();
         fixture
@@ -333,8 +397,8 @@ mod tests {
         let mut connection = sqlx::SqliteConnection::connect(fixture.path().to_str().unwrap())
             .await
             .expect("write");
-        sqlx::query(
-            "INSERT INTO message (guid, text, service, is_from_me, date) VALUES ('msg-live', 'brand-new-term appears', 'iMessage', 1, 400)",
+        sqlx::query!(
+            "INSERT INTO message (guid, text, service, is_from_me, date) VALUES ('msg-live', 'brand-new-term appears', 'iMessage', 1, 400)"
         )
         .execute(&mut connection)
         .await

@@ -1,0 +1,184 @@
+{
+  "db_name": "SQLite",
+  "query": "\n        SELECT\n            n.Z_PK AS \"row_id!\",\n            n.ZIDENTIFIER AS \"id!\",\n            n.ZTITLE1 AS title,\n            n.ZSNIPPET AS snippet,\n            CAST(n.ZCREATIONDATE1 AS REAL) AS \"created_at?: f64\",\n            CAST(n.ZMODIFICATIONDATE1 AS REAL) AS \"modified_at?: f64\",\n            n.ZFOLDER AS folder_row_id,\n            f.ZIDENTIFIER AS folder_id,\n            f.ZTITLE2 AS folder_name,\n            f.ZFOLDERTYPE AS folder_type,\n            n.ZISPINNED AS \"is_pinned!: bool\",\n            n.ZHASCHECKLIST AS \"has_checklist!: bool\",\n            n.ZISPASSWORDPROTECTED AS \"is_locked!: bool\",\n            n.ZMARKEDFORDELETION AS \"marked_for_deletion!: bool\",\n            nd.ZDATA AS \"note_data?: Vec<u8>\"\n        FROM ZICCLOUDSYNCINGOBJECT n\n        LEFT JOIN ZICCLOUDSYNCINGOBJECT f ON n.ZFOLDER = f.Z_PK\n        LEFT JOIN ZICNOTEDATA nd ON n.ZNOTEDATA = nd.Z_PK\n        WHERE n.Z_ENT = ?1\n          AND (?2 = 1 OR n.ZMARKEDFORDELETION = 0)\n          AND (\n            ?2 = 1\n            OR f.Z_PK IS NULL\n            OR (f.ZMARKEDFORDELETION = 0 AND f.ZFOLDERTYPE != 1)\n          )\n          AND (?3 IS NULL OR n.ZISPINNED = ?3)\n          AND (?4 IS NULL OR n.ZISPASSWORDPROTECTED = ?4)\n          AND (?5 IS NULL OR n.ZHASCHECKLIST = ?5)\n          AND (?6 IS NULL OR n.ZFOLDER = ?6)\n          AND (?7 IS NULL OR lower(f.ZIDENTIFIER) = ?7)\n          AND (?8 IS NULL OR n.ZMODIFICATIONDATE1 <= ?8)\n          AND (?9 IS NULL OR n.ZMODIFICATIONDATE1 >= ?9)\n          AND (\n            ?10 IS NULL\n            OR (\n              ?10 = 1\n              AND EXISTS (\n                SELECT 1 FROM ZICCLOUDSYNCINGOBJECT a\n                WHERE a.ZNOTE = n.Z_PK AND a.Z_ENT = ?11 AND a.ZMARKEDFORDELETION = 0\n              )\n            )\n            OR (\n              ?10 = 0\n              AND NOT EXISTS (\n                SELECT 1 FROM ZICCLOUDSYNCINGOBJECT a\n                WHERE a.ZNOTE = n.Z_PK AND a.Z_ENT = ?11 AND a.ZMARKEDFORDELETION = 0\n              )\n            )\n          )\n          AND (\n            ?12 IS NULL\n            OR lower(coalesce(n.ZTITLE1, '')) LIKE '%' || lower(?12) || '%'\n            OR lower(coalesce(n.ZSNIPPET, '')) LIKE '%' || lower(?12) || '%'\n          )\n          AND (\n            ?13 IS NULL\n            OR n.ZMODIFICATIONDATE1 < ?13\n            OR (n.ZMODIFICATIONDATE1 = ?13 AND n.Z_PK < ?14)\n          )\n        ORDER BY n.ZMODIFICATIONDATE1 DESC, n.Z_PK DESC\n        LIMIT ?15\n        ",
+  "describe": {
+    "columns": [
+      {
+        "name": "row_id!",
+        "ordinal": 0,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "ZICCLOUDSYNCINGOBJECT",
+            "name": "Z_PK"
+          }
+        }
+      },
+      {
+        "name": "id!",
+        "ordinal": 1,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "ZICCLOUDSYNCINGOBJECT",
+            "name": "ZIDENTIFIER"
+          }
+        }
+      },
+      {
+        "name": "title",
+        "ordinal": 2,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "ZICCLOUDSYNCINGOBJECT",
+            "name": "ZTITLE1"
+          }
+        }
+      },
+      {
+        "name": "snippet",
+        "ordinal": 3,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "ZICCLOUDSYNCINGOBJECT",
+            "name": "ZSNIPPET"
+          }
+        }
+      },
+      {
+        "name": "created_at?: f64",
+        "ordinal": 4,
+        "type_info": "Float",
+        "origin": "Expression"
+      },
+      {
+        "name": "modified_at?: f64",
+        "ordinal": 5,
+        "type_info": "Float",
+        "origin": "Expression"
+      },
+      {
+        "name": "folder_row_id",
+        "ordinal": 6,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "ZICCLOUDSYNCINGOBJECT",
+            "name": "ZFOLDER"
+          }
+        }
+      },
+      {
+        "name": "folder_id",
+        "ordinal": 7,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "ZICCLOUDSYNCINGOBJECT",
+            "name": "ZIDENTIFIER"
+          }
+        }
+      },
+      {
+        "name": "folder_name",
+        "ordinal": 8,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "ZICCLOUDSYNCINGOBJECT",
+            "name": "ZTITLE2"
+          }
+        }
+      },
+      {
+        "name": "folder_type",
+        "ordinal": 9,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "ZICCLOUDSYNCINGOBJECT",
+            "name": "ZFOLDERTYPE"
+          }
+        }
+      },
+      {
+        "name": "is_pinned!: bool",
+        "ordinal": 10,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "ZICCLOUDSYNCINGOBJECT",
+            "name": "ZISPINNED"
+          }
+        }
+      },
+      {
+        "name": "has_checklist!: bool",
+        "ordinal": 11,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "ZICCLOUDSYNCINGOBJECT",
+            "name": "ZHASCHECKLIST"
+          }
+        }
+      },
+      {
+        "name": "is_locked!: bool",
+        "ordinal": 12,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "ZICCLOUDSYNCINGOBJECT",
+            "name": "ZISPASSWORDPROTECTED"
+          }
+        }
+      },
+      {
+        "name": "marked_for_deletion!: bool",
+        "ordinal": 13,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "ZICCLOUDSYNCINGOBJECT",
+            "name": "ZMARKEDFORDELETION"
+          }
+        }
+      },
+      {
+        "name": "note_data?: Vec<u8>",
+        "ordinal": 14,
+        "type_info": "Blob",
+        "origin": {
+          "Table": {
+            "table": "ZICNOTEDATA",
+            "name": "ZDATA"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 15
+    },
+    "nullable": [
+      false,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true
+    ]
+  },
+  "hash": "7ea021a89056ce282a49cda11c478a7c3d959b92376075d521c1faef99685c01"
+}

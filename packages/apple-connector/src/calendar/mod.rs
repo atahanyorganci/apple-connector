@@ -4,11 +4,11 @@ mod discovery;
 pub mod enums;
 mod inventory;
 pub mod model;
+mod queries;
 mod repository;
 mod row;
 mod schema;
 mod search;
-mod sql;
 
 pub use discovery::{
     calendar_attachment_root_for_database, default_calendar_attachment_root,

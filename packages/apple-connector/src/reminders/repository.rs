@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use sqlx::{QueryBuilder, Sqlite, SqlitePool};
+use sqlx::SqlitePool;
 
 use super::{
     assembly::{
@@ -10,16 +10,23 @@ use super::{
     },
     entities::{EntityIds, load_entity_ids},
     model::{Reminder, ReminderAttachment, ReminderList, ReminderSummary, Section},
-    row::{AttachmentRow, ListRow, ObjectRow, ReminderRow, SectionRow},
-    search::{ReminderFilters, apply_filters},
-    sections::section_from_row,
-    sql::{
-        ATTACHMENT_SELECT_CORE, LIST_FROM, LIST_SELECT_CORE, REMINDER_FROM_JOIN,
-        REMINDER_SELECT_CORE, SECTION_SELECT_CORE,
+    queries::{
+        fetch_attachment_by_uuid, fetch_attachments_for_reminder, fetch_filtered_reminders,
+        fetch_list_by_row_id, fetch_list_by_uuid, fetch_list_membership_data,
+        fetch_list_resolve_metadata, fetch_lists_page, fetch_objects_for_reminder,
+        fetch_recurrence_objects_for_reminder, fetch_reminder_by_uuid, fetch_reminder_external_id,
+        fetch_reminder_uuid_for_row, fetch_sections_for_list, fetch_subtasks_for_parent,
+        fetch_tags_for_reminder_ids,
     },
+    row::{ListRow, ReminderRow},
+    search::ReminderFilters,
+    sections::section_from_row,
 };
-use crate::api::cursor::{
-    GlobalReminderCursor, ListCursor, ListReminderCursor, ReminderSearchCursor, encode,
+use crate::{
+    api::cursor::{
+        GlobalReminderCursor, ListCursor, ListReminderCursor, ReminderSearchCursor, encode,
+    },
+    sqlx_util::json_ids,
 };
 
 #[derive(Debug, Clone)]
@@ -36,8 +43,6 @@ pub struct ReminderListResolveMetadata {
     pub title: String,
     pub is_smart_list: bool,
 }
-
-type ReminderListResolveRow = (String, Option<String>, String, i64, Option<String>);
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ListLookupError {
@@ -69,16 +74,8 @@ impl<'a> ReminderRepository<'a> {
         let entity_ids = load_entity_ids(self.pool).await?;
         let fetch_limit = i64::from(limit) + 1;
 
-        let mut builder = QueryBuilder::<Sqlite>::new(LIST_SELECT_CORE);
-        builder.push(LIST_FROM);
-        if let Some(cursor) = cursor {
-            builder.push(" AND l.Z_PK < ");
-            builder.push_bind(cursor.row_id);
-        }
-        builder.push(" ORDER BY l.Z_PK DESC LIMIT ");
-        builder.push_bind(fetch_limit);
-
-        let rows: Vec<ListRow> = builder.build_query_as().fetch_all(self.pool).await?;
+        let rows =
+            fetch_lists_page(self.pool, cursor.map(|value| value.row_id), fetch_limit).await?;
         let (rows, has_more) = split_page(rows, limit);
         let next_cursor = has_more
             .then(|| {
@@ -102,12 +99,7 @@ impl<'a> ReminderRepository<'a> {
 
     pub async fn get_list(&self, list_row_id: i64) -> Result<Option<ReminderList>, sqlx::Error> {
         let entity_ids = load_entity_ids(self.pool).await?;
-        let mut builder = QueryBuilder::<Sqlite>::new(LIST_SELECT_CORE);
-        builder.push(LIST_FROM);
-        builder.push(" AND l.Z_PK = ");
-        builder.push_bind(list_row_id);
-
-        let row: Option<ListRow> = builder.build_query_as().fetch_optional(self.pool).await?;
+        let row: Option<ListRow> = fetch_list_by_row_id(self.pool, list_row_id).await?;
         let Some(row) = row else {
             return Ok(None);
         };
@@ -128,12 +120,7 @@ impl<'a> ReminderRepository<'a> {
 
     pub async fn get_list_by_uuid(&self, id: &str) -> Result<Option<ReminderList>, sqlx::Error> {
         let entity_ids = load_entity_ids(self.pool).await?;
-        let mut builder = QueryBuilder::<Sqlite>::new(LIST_SELECT_CORE);
-        builder.push(LIST_FROM);
-        builder.push(" AND lower(substr(hex(l.ZIDENTIFIER), 1, 8) || '-' || substr(hex(l.ZIDENTIFIER), 9, 4) || '-' || substr(hex(l.ZIDENTIFIER), 13, 4) || '-' || substr(hex(l.ZIDENTIFIER), 17, 4) || '-' || substr(hex(l.ZIDENTIFIER), 21, 12)) = ");
-        builder.push_bind(id.to_lowercase());
-
-        let row: Option<ListRow> = builder.build_query_as().fetch_optional(self.pool).await?;
+        let row: Option<ListRow> = fetch_list_by_uuid(self.pool, &id.to_lowercase()).await?;
         let Some(row) = row else {
             return Ok(None);
         };
@@ -180,22 +167,12 @@ impl<'a> ReminderRepository<'a> {
             effective_filters.top_level_only = Some(true);
         }
 
-        let mut builder = QueryBuilder::<Sqlite>::new(REMINDER_SELECT_CORE);
-        builder.push(REMINDER_FROM_JOIN);
-        apply_filters(&mut builder, &effective_filters);
-        if let Some(cursor) = cursor {
-            builder.push(" AND (r.ZLASTMODIFIEDDATE < ");
-            builder.push_bind(cursor.modified_at);
-            builder.push(" OR (r.ZLASTMODIFIEDDATE = ");
-            builder.push_bind(cursor.modified_at);
-            builder.push(" AND r.Z_PK < ");
-            builder.push_bind(cursor.row_id);
-            builder.push("))");
-        }
-        builder.push(" ORDER BY r.ZLASTMODIFIEDDATE DESC, r.Z_PK DESC LIMIT ");
-        builder.push_bind(fetch_limit);
-
-        let rows: Vec<ReminderRow> = builder.build_query_as().fetch_all(self.pool).await?;
+        let binds = effective_filters.bind_values(
+            cursor.as_ref().map(|value| value.modified_at),
+            cursor.map(|value| value.row_id),
+            fetch_limit,
+        );
+        let rows = fetch_filtered_reminders(self.pool, &binds).await?;
         let (rows, has_more) = split_page(rows, limit);
         let use_search_cursor = effective_filters.is_active();
         let next_cursor = has_more
@@ -306,12 +283,8 @@ impl<'a> ReminderRepository<'a> {
 
     pub async fn get_reminder(&self, id: &str) -> Result<Option<Reminder>, sqlx::Error> {
         let entity_ids = load_entity_ids(self.pool).await?;
-        let mut builder = QueryBuilder::<Sqlite>::new(REMINDER_SELECT_CORE);
-        builder.push(REMINDER_FROM_JOIN);
-        builder.push(" AND lower(substr(hex(r.ZIDENTIFIER), 1, 8) || '-' || substr(hex(r.ZIDENTIFIER), 9, 4) || '-' || substr(hex(r.ZIDENTIFIER), 13, 4) || '-' || substr(hex(r.ZIDENTIFIER), 17, 4) || '-' || substr(hex(r.ZIDENTIFIER), 21, 12)) = ");
-        builder.push_bind(id.to_lowercase());
-
-        let row: Option<ReminderRow> = builder.build_query_as().fetch_optional(self.pool).await?;
+        let row: Option<ReminderRow> =
+            fetch_reminder_by_uuid(self.pool, &id.to_lowercase()).await?;
         let Some(row) = row else {
             return Ok(None);
         };
@@ -325,11 +298,7 @@ impl<'a> ReminderRepository<'a> {
         &self,
         id: &str,
     ) -> Result<Option<ReminderAttachment>, sqlx::Error> {
-        let mut builder = QueryBuilder::<Sqlite>::new(ATTACHMENT_SELECT_CORE);
-        builder.push(" FROM ZREMCDSAVEDATTACHMENT sa WHERE sa.ZMARKEDFORDELETION = 0 AND lower(substr(hex(sa.ZIDENTIFIER), 1, 8) || '-' || substr(hex(sa.ZIDENTIFIER), 9, 4) || '-' || substr(hex(sa.ZIDENTIFIER), 13, 4) || '-' || substr(hex(sa.ZIDENTIFIER), 17, 4) || '-' || substr(hex(sa.ZIDENTIFIER), 21, 12)) = ");
-        builder.push_bind(id.to_lowercase());
-
-        let row: Option<AttachmentRow> = builder.build_query_as().fetch_optional(self.pool).await?;
+        let row = fetch_attachment_by_uuid(self.pool, &id.to_lowercase()).await?;
         Ok(row.map(attachment_from_row))
     }
 
@@ -337,59 +306,28 @@ impl<'a> ReminderRepository<'a> {
         &self,
         row_id: i64,
     ) -> Result<Option<String>, sqlx::Error> {
-        let id: Option<(String,)> = sqlx::query_as(
-            "SELECT lower(substr(hex(r.ZIDENTIFIER), 1, 8) || '-' || substr(hex(r.ZIDENTIFIER), 9, 4) || '-' || substr(hex(r.ZIDENTIFIER), 13, 4) || '-' || substr(hex(r.ZIDENTIFIER), 17, 4) || '-' || substr(hex(r.ZIDENTIFIER), 21, 12)) \
-             FROM ZREMCDREMINDER r WHERE r.Z_PK = ?1 AND r.ZMARKEDFORDELETION = 0",
-        )
-        .bind(row_id)
-        .fetch_optional(self.pool)
-        .await?;
-        Ok(id.map(|row| row.0))
+        fetch_reminder_uuid_for_row(self.pool, row_id).await
     }
 
     pub async fn get_list_resolve_metadata(
         &self,
         list_id: &str,
     ) -> Result<Option<ReminderListResolveMetadata>, sqlx::Error> {
-        let row: Option<ReminderListResolveRow> = sqlx::query_as(
-            "SELECT \
-                lower(substr(hex(l.ZIDENTIFIER), 1, 8) || '-' || substr(hex(l.ZIDENTIFIER), 9, 4) || '-' || substr(hex(l.ZIDENTIFIER), 13, 4) || '-' || substr(hex(l.ZIDENTIFIER), 17, 4) || '-' || substr(hex(l.ZIDENTIFIER), 21, 12)), \
-                l.ZEXTERNALIDENTIFIER, \
-                l.ZNAME, \
-                l.Z_ENT, \
-                l.ZSMARTLISTTYPE \
-             FROM ZREMCDBASELIST l \
-             WHERE lower(substr(hex(l.ZIDENTIFIER), 1, 8) || '-' || substr(hex(l.ZIDENTIFIER), 9, 4) || '-' || substr(hex(l.ZIDENTIFIER), 13, 4) || '-' || substr(hex(l.ZIDENTIFIER), 17, 4) || '-' || substr(hex(l.ZIDENTIFIER), 21, 12)) = ?",
-        )
-        .bind(list_id.to_lowercase())
-        .fetch_optional(self.pool)
-        .await?;
+        let row = fetch_list_resolve_metadata(self.pool, &list_id.to_lowercase()).await?;
 
-        Ok(
-            row.map(|(api_id, external_id, title, ent, smart_list_type)| {
-                ReminderListResolveMetadata {
-                    api_id,
-                    external_id,
-                    title,
-                    is_smart_list: ent == 4 || smart_list_type.is_some(),
-                }
-            }),
-        )
+        Ok(row.map(|row| ReminderListResolveMetadata {
+            api_id: row.api_id,
+            external_id: row.external_id,
+            title: row.title,
+            is_smart_list: row.ent == 4 || row.smart_list_type.is_some(),
+        }))
     }
 
     pub async fn get_reminder_external_id(
         &self,
         reminder_id: &str,
     ) -> Result<Option<String>, sqlx::Error> {
-        let row: Option<(Option<String>,)> = sqlx::query_as(
-            "SELECT r.ZEXTERNALIDENTIFIER \
-             FROM ZREMCDREMINDER r \
-             WHERE lower(substr(hex(r.ZIDENTIFIER), 1, 8) || '-' || substr(hex(r.ZIDENTIFIER), 9, 4) || '-' || substr(hex(r.ZIDENTIFIER), 13, 4) || '-' || substr(hex(r.ZIDENTIFIER), 17, 4) || '-' || substr(hex(r.ZIDENTIFIER), 21, 12)) = ?",
-        )
-        .bind(reminder_id.to_lowercase())
-        .fetch_optional(self.pool)
-        .await?;
-        Ok(row.and_then(|(external_id,)| external_id))
+        fetch_reminder_external_id(self.pool, &reminder_id.to_lowercase()).await
     }
 
     pub async fn search_reminders(
@@ -454,12 +392,7 @@ impl<'a> ReminderRepository<'a> {
     }
 
     async fn fetch_sections_for_list(&self, list_row_id: i64) -> Result<Vec<Section>, sqlx::Error> {
-        let mut builder = QueryBuilder::<Sqlite>::new(SECTION_SELECT_CORE);
-        builder.push(" FROM ZREMCDBASESECTION s WHERE s.ZMARKEDFORDELETION = 0 AND s.ZLIST = ");
-        builder.push_bind(list_row_id);
-        builder.push(" ORDER BY s.Z_PK ASC");
-
-        let rows: Vec<SectionRow> = builder.build_query_as().fetch_all(self.pool).await?;
+        let rows = fetch_sections_for_list(self.pool, list_row_id).await?;
         Ok(rows.into_iter().map(section_from_row).collect())
     }
 
@@ -469,13 +402,7 @@ impl<'a> ReminderRepository<'a> {
     ) -> Result<HashMap<i64, HashMap<String, String>>, sqlx::Error> {
         let mut maps = HashMap::new();
         for list_row_id in list_row_ids {
-            let data: Option<(Option<Vec<u8>>,) > = sqlx::query_as(
-                "SELECT ZMEMBERSHIPSOFREMINDERSINSECTIONSASDATA FROM ZREMCDBASELIST WHERE Z_PK = ?1 AND ZMARKEDFORDELETION = 0",
-            )
-            .bind(list_row_id)
-            .fetch_optional(self.pool)
-            .await?;
-            let membership = data.and_then(|row| row.0);
+            let membership = fetch_list_membership_data(self.pool, *list_row_id).await?;
             maps.insert(*list_row_id, build_section_map(membership.as_deref()));
         }
         Ok(maps)
@@ -486,13 +413,7 @@ impl<'a> ReminderRepository<'a> {
         parent_row_id: i64,
         entity_ids: &EntityIds,
     ) -> Result<Vec<ReminderSummary>, sqlx::Error> {
-        let mut builder = QueryBuilder::<Sqlite>::new(REMINDER_SELECT_CORE);
-        builder.push(REMINDER_FROM_JOIN);
-        builder.push(" AND r.ZPARENTREMINDER = ");
-        builder.push_bind(parent_row_id);
-        builder.push(" ORDER BY r.ZICSDISPLAYORDER ASC, r.Z_PK ASC");
-
-        let rows: Vec<ReminderRow> = builder.build_query_as().fetch_all(self.pool).await?;
+        let rows = fetch_subtasks_for_parent(self.pool, parent_row_id).await?;
         let tags = self
             .fetch_tags_for_reminders(rows.iter().map(|row| row.row_id).collect(), entity_ids)
             .await?;
@@ -515,26 +436,17 @@ impl<'a> ReminderRepository<'a> {
             return Ok(HashMap::new());
         }
 
-        let mut builder = QueryBuilder::<Sqlite>::new(
-            "SELECT o.ZREMINDER AS reminder_row_id, label.ZNAME AS tag_name \
-             FROM ZREMCDOBJECT o \
-             JOIN ZREMCDHASHTAGLABEL label ON o.ZHASHTAGLABEL = label.Z_PK \
-             WHERE o.ZMARKEDFORDELETION = 0 AND o.Z_ENT = ",
-        );
-        builder.push_bind(entity_ids.hashtag);
-        builder.push(" AND o.ZREMINDER IN (");
-        {
-            let mut separated = builder.separated(", ");
-            for id in &reminder_row_ids {
-                separated.push_bind(id);
-            }
-        }
-        builder.push(")");
-
-        let rows: Vec<(i64, String)> = builder.build_query_as().fetch_all(self.pool).await?;
+        let rows = fetch_tags_for_reminder_ids(
+            self.pool,
+            entity_ids.hashtag,
+            &json_ids(&reminder_row_ids),
+        )
+        .await?;
         let mut map: HashMap<i64, Vec<String>> = HashMap::new();
-        for (reminder_row_id, tag_name) in rows {
-            map.entry(reminder_row_id).or_default().push(tag_name);
+        for row in rows {
+            map.entry(row.reminder_row_id)
+                .or_default()
+                .push(row.tag_name);
         }
         Ok(map)
     }
@@ -544,18 +456,7 @@ impl<'a> ReminderRepository<'a> {
         reminder_row_id: i64,
         entity_ids: &EntityIds,
     ) -> Result<Vec<super::model::Alarm>, sqlx::Error> {
-        let rows: Vec<ObjectRow> = sqlx::query_as(
-            "SELECT o.Z_PK AS row_id, o.Z_ENT AS ent, o.ZREMINDER AS reminder_row_id, o.ZTYPE AS object_type, \
-             o.ZTITLE AS title, o.ZLATITUDE AS latitude, o.ZLONGITUDE AS longitude, o.ZRADIUS AS radius, \
-             o.ZTIMEINTERVAL AS time_interval, o.ZDATECOMPONENTSDATA AS date_components_data, \
-             o.Z16_TRIGGER AS trigger_row_id, o.ZFREQUENCY AS frequency, o.ZINTERVAL AS recurrence_interval, \
-             o.ZOCCURRENCECOUNT AS occurrence_count, o.ZHASHTAGLABEL AS hashtag_label_row_id, NULL AS tag_name \
-             FROM ZREMCDOBJECT o \
-             WHERE o.ZMARKEDFORDELETION = 0 AND o.ZREMINDER = ?1",
-        )
-        .bind(reminder_row_id)
-        .fetch_all(self.pool)
-        .await?;
+        let rows = fetch_objects_for_reminder(self.pool, reminder_row_id).await?;
 
         Ok(rows
             .iter()
@@ -568,18 +469,11 @@ impl<'a> ReminderRepository<'a> {
         reminder_row_id: i64,
         entity_ids: &EntityIds,
     ) -> Result<Option<super::model::RecurrenceRule>, sqlx::Error> {
-        let rows: Vec<ObjectRow> = sqlx::query_as(
-            "SELECT o.Z_PK AS row_id, o.Z_ENT AS ent, o.ZREMINDER AS reminder_row_id, o.ZTYPE AS object_type, \
-             o.ZTITLE AS title, o.ZLATITUDE AS latitude, o.ZLONGITUDE AS longitude, o.ZRADIUS AS radius, \
-             o.ZTIMEINTERVAL AS time_interval, o.ZDATECOMPONENTSDATA AS date_components_data, \
-             o.Z16_TRIGGER AS trigger_row_id, o.ZFREQUENCY AS frequency, o.ZINTERVAL AS recurrence_interval, \
-             o.ZOCCURRENCECOUNT AS occurrence_count, o.ZHASHTAGLABEL AS hashtag_label_row_id, NULL AS tag_name \
-             FROM ZREMCDOBJECT o \
-             WHERE o.ZMARKEDFORDELETION = 0 AND o.ZREMINDER = ?1 AND o.Z_ENT = ?2",
+        let rows = fetch_recurrence_objects_for_reminder(
+            self.pool,
+            reminder_row_id,
+            entity_ids.recurrence_rule,
         )
-        .bind(reminder_row_id)
-        .bind(entity_ids.recurrence_rule)
-        .fetch_all(self.pool)
         .await?;
 
         Ok(rows
@@ -591,13 +485,7 @@ impl<'a> ReminderRepository<'a> {
         &self,
         reminder_row_id: i64,
     ) -> Result<Vec<ReminderAttachment>, sqlx::Error> {
-        let mut builder = QueryBuilder::<Sqlite>::new(ATTACHMENT_SELECT_CORE);
-        builder.push(
-            " FROM ZREMCDSAVEDATTACHMENT sa WHERE sa.ZMARKEDFORDELETION = 0 AND sa.ZREMINDER = ",
-        );
-        builder.push_bind(reminder_row_id);
-
-        let rows: Vec<AttachmentRow> = builder.build_query_as().fetch_all(self.pool).await?;
+        let rows = fetch_attachments_for_reminder(self.pool, reminder_row_id).await?;
         Ok(rows.into_iter().map(attachment_from_row).collect())
     }
 }

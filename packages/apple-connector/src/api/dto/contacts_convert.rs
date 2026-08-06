@@ -110,7 +110,11 @@ pub fn contact_detail_to_dto(contact: &ContactDetail) -> ContactDetailDto {
         creation_date: contact.creation_date,
         phones: contact.phones.iter().map(contact_phone_to_dto).collect(),
         emails: contact.emails.iter().map(contact_email_to_dto).collect(),
-        addresses: contact.addresses.iter().map(contact_address_to_dto).collect(),
+        addresses: contact
+            .addresses
+            .iter()
+            .map(contact_address_to_dto)
+            .collect(),
         urls: contact.urls.iter().map(contact_url_to_dto).collect(),
         social_profiles: contact
             .social_profiles

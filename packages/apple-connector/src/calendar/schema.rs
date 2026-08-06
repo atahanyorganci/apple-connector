@@ -1,5 +1,7 @@
 use sqlx::SqlitePool;
 
+use super::queries::{count_calendar_item_table, count_zcalendaritem_table};
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum CalendarSchemaVariant {
     /// Modern schema using `CalendarItem`, `Calendar`, etc.
@@ -20,23 +22,11 @@ impl CalendarSchemaVariant {
 pub async fn detect_schema_variant(
     pool: &SqlitePool,
 ) -> Result<CalendarSchemaVariant, sqlx::Error> {
-    let modern: (i64,) = sqlx::query_as(
-        "SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = 'CalendarItem'",
-    )
-    .fetch_one(pool)
-    .await?;
-
-    if modern.0 > 0 {
+    if count_calendar_item_table(pool).await? > 0 {
         return Ok(CalendarSchemaVariant::CalendarItem);
     }
 
-    let legacy: (i64,) = sqlx::query_as(
-        "SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = 'ZCALENDARITEM'",
-    )
-    .fetch_one(pool)
-    .await?;
-
-    if legacy.0 > 0 {
+    if count_zcalendaritem_table(pool).await? > 0 {
         return Ok(CalendarSchemaVariant::ZCalendarItem);
     }
 

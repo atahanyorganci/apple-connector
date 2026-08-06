@@ -1,0 +1,98 @@
+{
+  "db_name": "SQLite",
+  "query": "\n        SELECT\n            ZUNIQUEID AS \"unique_id!\",\n            ZSERVICENAME AS service,\n            ZUSERNAME AS username,\n            ZURLSTRING AS url,\n            ZLABEL AS label,\n            ZISPRIMARY AS is_primary,\n            ZORDERINGINDEX AS ordering_index\n        FROM ZABCDSOCIALPROFILE\n        WHERE ZOWNER = ?1\n        ORDER BY ZORDERINGINDEX\n        ",
+  "describe": {
+    "columns": [
+      {
+        "name": "unique_id!",
+        "ordinal": 0,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "ZABCDSOCIALPROFILE",
+            "name": "ZUNIQUEID"
+          }
+        }
+      },
+      {
+        "name": "service",
+        "ordinal": 1,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "ZABCDSOCIALPROFILE",
+            "name": "ZSERVICENAME"
+          }
+        }
+      },
+      {
+        "name": "username",
+        "ordinal": 2,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "ZABCDSOCIALPROFILE",
+            "name": "ZUSERNAME"
+          }
+        }
+      },
+      {
+        "name": "url",
+        "ordinal": 3,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "ZABCDSOCIALPROFILE",
+            "name": "ZURLSTRING"
+          }
+        }
+      },
+      {
+        "name": "label",
+        "ordinal": 4,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "ZABCDSOCIALPROFILE",
+            "name": "ZLABEL"
+          }
+        }
+      },
+      {
+        "name": "is_primary",
+        "ordinal": 5,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "ZABCDSOCIALPROFILE",
+            "name": "ZISPRIMARY"
+          }
+        }
+      },
+      {
+        "name": "ordering_index",
+        "ordinal": 6,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "ZABCDSOCIALPROFILE",
+            "name": "ZORDERINGINDEX"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true
+    ]
+  },
+  "hash": "5f1be74a493fadc0a419db60b27d9b2331f8ce4985af15fa5990ec6709c2ce28"
+}

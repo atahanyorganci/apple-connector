@@ -1,0 +1,38 @@
+{
+  "db_name": "SQLite",
+  "query": "\n        SELECT\n            Z_ENT AS \"ent!\",\n            Z_NAME AS \"name!\"\n        FROM Z_PRIMARYKEY\n        WHERE Z_NAME IN (\n            'ICNote', 'ICFolder', 'ICAttachment', 'ICAccount', 'ICHashtag'\n        )\n        ",
+  "describe": {
+    "columns": [
+      {
+        "name": "ent!",
+        "ordinal": 0,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "Z_PRIMARYKEY",
+            "name": "Z_ENT"
+          }
+        }
+      },
+      {
+        "name": "name!",
+        "ordinal": 1,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "Z_PRIMARYKEY",
+            "name": "Z_NAME"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 0
+    },
+    "nullable": [
+      false,
+      true
+    ]
+  },
+  "hash": "5fbab1ec59d93109bb05ae56b84e193a5cef4012f2434ab93e388c61ed2c9fc5"
+}

@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "INSERT INTO chat_handle_join (chat_id, handle_id) SELECT chat.ROWID, handle.ROWID FROM chat, handle",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 0
+    },
+    "nullable": []
+  },
+  "hash": "f54c091f20d109166f9b568f2ee35bf5c0884f2c3a11ffdbcdc196ce72a16705"
+}

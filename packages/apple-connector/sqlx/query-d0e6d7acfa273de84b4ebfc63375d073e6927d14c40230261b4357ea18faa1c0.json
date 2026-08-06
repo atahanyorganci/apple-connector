@@ -1,0 +1,198 @@
+{
+  "db_name": "SQLite",
+  "query": "\n        SELECT\n            r.Z_PK AS \"row_id!\",\n            r.ZUNIQUEID AS \"unique_id!\",\n            r.ZFIRSTNAME AS first_name,\n            r.ZLASTNAME AS last_name,\n            r.ZMIDDLENAME AS middle_name,\n            r.ZNICKNAME AS nickname,\n            r.ZORGANIZATION AS organization,\n            r.ZJOBTITLE AS job_title,\n            r.ZDEPARTMENT AS department,\n            r.ZNAME AS display_name,\n            r.ZCONTAINER AS container_row_id,\n            c.ZUNIQUEID AS container_unique_id,\n            CAST(r.ZCREATIONDATE AS REAL) AS creation_date,\n            CAST(r.ZMODIFICATIONDATE AS REAL) AS modification_date,\n            CAST(r.ZBIRTHDAY AS REAL) AS birthday,\n            n.ZTEXT AS note_text,\n            CASE WHEN l.ZDATA IS NOT NULL OR r.ZIMAGEDATA IS NOT NULL THEN 1 ELSE 0 END AS has_photo\n        FROM ZABCDRECORD r\n        LEFT JOIN ZABCDRECORD c ON c.Z_PK = r.ZCONTAINER\n        LEFT JOIN ZABCDNOTE n ON n.ZCONTACT = r.Z_PK\n        LEFT JOIN ZABCDLIKENESS l ON l.ZOWNER = r.Z_PK AND l.ZISPRIMARY = 1\n        WHERE r.Z_ENT = 22\n          AND lower(substr(r.ZUNIQUEID, 1, instr(r.ZUNIQUEID, ':') - 1)) = lower(?1)\n        ",
+  "describe": {
+    "columns": [
+      {
+        "name": "row_id!",
+        "ordinal": 0,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "ZABCDRECORD",
+            "name": "Z_PK"
+          }
+        }
+      },
+      {
+        "name": "unique_id!",
+        "ordinal": 1,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "ZABCDRECORD",
+            "name": "ZUNIQUEID"
+          }
+        }
+      },
+      {
+        "name": "first_name",
+        "ordinal": 2,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "ZABCDRECORD",
+            "name": "ZFIRSTNAME"
+          }
+        }
+      },
+      {
+        "name": "last_name",
+        "ordinal": 3,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "ZABCDRECORD",
+            "name": "ZLASTNAME"
+          }
+        }
+      },
+      {
+        "name": "middle_name",
+        "ordinal": 4,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "ZABCDRECORD",
+            "name": "ZMIDDLENAME"
+          }
+        }
+      },
+      {
+        "name": "nickname",
+        "ordinal": 5,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "ZABCDRECORD",
+            "name": "ZNICKNAME"
+          }
+        }
+      },
+      {
+        "name": "organization",
+        "ordinal": 6,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "ZABCDRECORD",
+            "name": "ZORGANIZATION"
+          }
+        }
+      },
+      {
+        "name": "job_title",
+        "ordinal": 7,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "ZABCDRECORD",
+            "name": "ZJOBTITLE"
+          }
+        }
+      },
+      {
+        "name": "department",
+        "ordinal": 8,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "ZABCDRECORD",
+            "name": "ZDEPARTMENT"
+          }
+        }
+      },
+      {
+        "name": "display_name",
+        "ordinal": 9,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "ZABCDRECORD",
+            "name": "ZNAME"
+          }
+        }
+      },
+      {
+        "name": "container_row_id",
+        "ordinal": 10,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "ZABCDRECORD",
+            "name": "ZCONTAINER"
+          }
+        }
+      },
+      {
+        "name": "container_unique_id",
+        "ordinal": 11,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "ZABCDRECORD",
+            "name": "ZUNIQUEID"
+          }
+        }
+      },
+      {
+        "name": "creation_date",
+        "ordinal": 12,
+        "type_info": "Float",
+        "origin": "Expression"
+      },
+      {
+        "name": "modification_date",
+        "ordinal": 13,
+        "type_info": "Float",
+        "origin": "Expression"
+      },
+      {
+        "name": "birthday",
+        "ordinal": 14,
+        "type_info": "Float",
+        "origin": "Expression"
+      },
+      {
+        "name": "note_text",
+        "ordinal": 15,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "ZABCDNOTE",
+            "name": "ZTEXT"
+          }
+        }
+      },
+      {
+        "name": "has_photo",
+        "ordinal": 16,
+        "type_info": "Integer",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      false
+    ]
+  },
+  "hash": "d0e6d7acfa273de84b4ebfc63375d073e6927d14c40230261b4357ea18faa1c0"
+}

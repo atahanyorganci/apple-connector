@@ -1,0 +1,26 @@
+{
+  "db_name": "SQLite",
+  "query": "\n        SELECT date AS \"date!\"\n        FROM ExceptionDate\n        WHERE owner_id = ?1\n        ",
+  "describe": {
+    "columns": [
+      {
+        "name": "date!",
+        "ordinal": 0,
+        "type_info": "Float",
+        "origin": {
+          "Table": {
+            "table": "ExceptionDate",
+            "name": "date"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      true
+    ]
+  },
+  "hash": "282af82c3f451c743e877058d35fa0aa979820f724e3fddec43356be2e9d6d4b"
+}

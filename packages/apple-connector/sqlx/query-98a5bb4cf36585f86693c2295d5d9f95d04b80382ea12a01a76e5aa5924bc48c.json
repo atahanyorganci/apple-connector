@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "INSERT INTO chat (guid, style, chat_identifier, service_name) VALUES (?1, 45, ?2, 'iMessage')",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 2
+    },
+    "nullable": []
+  },
+  "hash": "98a5bb4cf36585f86693c2295d5d9f95d04b80382ea12a01a76e5aa5924bc48c"
+}

@@ -1,0 +1,69 @@
+{
+  "db_name": "SQLite",
+  "query": "\n        SELECT\n          s.Z_PK AS \"row_id!\",\n          CAST(\n            lower(\n              substr(hex(s.ZIDENTIFIER), 1, 8) || '-' ||\n              substr(hex(s.ZIDENTIFIER), 9, 4) || '-' ||\n              substr(hex(s.ZIDENTIFIER), 13, 4) || '-' ||\n              substr(hex(s.ZIDENTIFIER), 17, 4) || '-' ||\n              substr(hex(s.ZIDENTIFIER), 21, 12)\n            ) AS TEXT\n          ) AS \"id!: String\",\n          s.ZDISPLAYNAME AS display_name,\n          s.ZCANONICALNAME AS canonical_name,\n          s.ZLIST AS \"list_row_id!\"\n        FROM ZREMCDBASESECTION s\n        WHERE s.ZMARKEDFORDELETION = 0\n          AND s.ZLIST = ?\n        ORDER BY s.Z_PK ASC\n        ",
+  "describe": {
+    "columns": [
+      {
+        "name": "row_id!",
+        "ordinal": 0,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "ZREMCDBASESECTION",
+            "name": "Z_PK"
+          }
+        }
+      },
+      {
+        "name": "id!: String",
+        "ordinal": 1,
+        "type_info": "Null",
+        "origin": "Expression"
+      },
+      {
+        "name": "display_name",
+        "ordinal": 2,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "ZREMCDBASESECTION",
+            "name": "ZDISPLAYNAME"
+          }
+        }
+      },
+      {
+        "name": "canonical_name",
+        "ordinal": 3,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "ZREMCDBASESECTION",
+            "name": "ZCANONICALNAME"
+          }
+        }
+      },
+      {
+        "name": "list_row_id!",
+        "ordinal": 4,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "ZREMCDBASESECTION",
+            "name": "ZLIST"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false,
+      null,
+      true,
+      true,
+      true
+    ]
+  },
+  "hash": "76ffb8316dd7205efa0a2b73aa41a3165efce57ba8e94420518f8dba78c161a9"
+}

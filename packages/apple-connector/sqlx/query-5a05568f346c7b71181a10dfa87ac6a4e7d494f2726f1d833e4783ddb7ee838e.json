@@ -1,0 +1,21 @@
+{
+  "db_name": "SQLite",
+  "query": "\n        SELECT COUNT(*) AS \"count!: i64\"\n        FROM ZICCLOUDSYNCINGOBJECT\n        WHERE Z_ENT = ?1 AND ZMARKEDFORDELETION = 0 AND ZFOLDERTYPE != 1\n        ",
+  "describe": {
+    "columns": [
+      {
+        "name": "count!: i64",
+        "ordinal": 0,
+        "type_info": "Integer",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "5a05568f346c7b71181a10dfa87ac6a4e7d494f2726f1d833e4783ddb7ee838e"
+}

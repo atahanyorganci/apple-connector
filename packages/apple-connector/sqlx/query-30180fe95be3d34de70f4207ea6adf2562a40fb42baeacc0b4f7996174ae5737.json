@@ -1,0 +1,21 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT COUNT(*) AS \"count!\" FROM handle WHERE id = ?1",
+  "describe": {
+    "columns": [
+      {
+        "name": "count!",
+        "ordinal": 0,
+        "type_info": "Integer",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "30180fe95be3d34de70f4207ea6adf2562a40fb42baeacc0b4f7996174ae5737"
+}

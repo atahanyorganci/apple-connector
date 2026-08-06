@@ -169,11 +169,7 @@ fn fold_lines(lines: &[String]) -> String {
         let mut remaining = line.as_str();
         let mut first = true;
         while !remaining.is_empty() {
-            let chunk_len = if first {
-                LINE_LIMIT
-            } else {
-                LINE_LIMIT - 1
-            };
+            let chunk_len = if first { LINE_LIMIT } else { LINE_LIMIT - 1 };
             // Split on character *ends* so each chunk advances. Using start
             // indices left a 1-char remainder with split_at=0 (infinite loop).
             let split_at = remaining

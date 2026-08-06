@@ -1,0 +1,26 @@
+{
+  "db_name": "SQLite",
+  "query": "\n        SELECT r.ZUNIQUEID\n        FROM ZABCDRECORD r\n        WHERE r.Z_ENT = 19\n          AND lower(substr(r.ZUNIQUEID, 1, instr(r.ZUNIQUEID, ':') - 1)) = lower(?1)\n        ",
+  "describe": {
+    "columns": [
+      {
+        "name": "ZUNIQUEID",
+        "ordinal": 0,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "ZABCDRECORD",
+            "name": "ZUNIQUEID"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      true
+    ]
+  },
+  "hash": "01cc085f50d80af353a837b6d2a127ab6175f867ea97276920e572f14cf95561"
+}

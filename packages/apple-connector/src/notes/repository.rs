@@ -1,20 +1,24 @@
 use std::collections::{HashMap, HashSet};
 
-use sqlx::{QueryBuilder, Sqlite, SqlitePool};
+use sqlx::SqlitePool;
 
 use super::{
     assembly::{attachment_from_row, folder_from_row, note_detail_from_row, note_summary_from_row},
     entities::{EntityIds, load_entity_ids},
     model::{NoteAttachment, NoteDetail, NoteFolder, NoteSummary},
-    row::{AttachmentRow, FolderRow, NoteDetailRow, NoteRow},
-    search::{FolderIdFilter, NoteFilters, apply_filters},
-    sql::{
-        ATTACHMENT_FROM_JOIN, ATTACHMENT_SELECT_CORE, FOLDER_FROM, FOLDER_SELECT_CORE,
-        NOTE_DETAIL_FROM_JOIN, NOTE_DETAIL_SELECT, NOTE_FROM_JOIN, NOTE_SELECT_CORE,
+    queries::{
+        fetch_filtered_note_details, fetch_filtered_notes, fetch_note_row_ids_with_attachments,
+        fetch_tags_for_note, get_attachment_by_identifier, get_folder_by_identifier,
+        get_folder_by_row_id, get_note_by_identifier, list_attachments_for_note, list_folders,
     },
+    row::{NoteDetailRow, NoteRow},
+    search::{FolderIdFilter, NoteFilters},
 };
-use crate::api::cursor::{
-    FolderListCursor, FolderNoteCursor, GlobalNoteCursor, NoteSearchCursor, decode, encode,
+use crate::{
+    api::cursor::{
+        FolderListCursor, FolderNoteCursor, GlobalNoteCursor, NoteSearchCursor, decode, encode,
+    },
+    sqlx_util::json_ids,
 };
 
 #[derive(Debug, Clone)]
@@ -56,22 +60,15 @@ impl<'a> NoteRepository<'a> {
         let entity_ids = load_entity_ids(self.pool).await?;
         let fetch_limit = i64::from(limit) + 1;
 
-        let mut builder = QueryBuilder::<Sqlite>::new(FOLDER_SELECT_CORE);
-        builder.push(FOLDER_FROM);
-        builder.push(" WHERE f.Z_ENT = ");
-        builder.push_bind(entity_ids.folder);
-        builder.push(" AND f.ZMARKEDFORDELETION = 0");
-        if !include_deleted {
-            builder.push(" AND f.ZFOLDERTYPE != 1");
-        }
-        if let Some(cursor) = cursor {
-            builder.push(" AND f.Z_PK < ");
-            builder.push_bind(cursor.row_id);
-        }
-        builder.push(" ORDER BY f.Z_PK DESC LIMIT ");
-        builder.push_bind(fetch_limit);
+        let rows = list_folders(
+            self.pool,
+            entity_ids.folder,
+            i64::from(include_deleted),
+            cursor.map(|value| value.row_id),
+            fetch_limit,
+        )
+        .await?;
 
-        let rows: Vec<FolderRow> = builder.build_query_as().fetch_all(self.pool).await?;
         let (rows, has_more) = split_page(rows, limit);
         let next_cursor = has_more
             .then(|| {
@@ -91,29 +88,14 @@ impl<'a> NoteRepository<'a> {
 
     pub async fn get_folder(&self, folder_row_id: i64) -> Result<Option<NoteFolder>, sqlx::Error> {
         let entity_ids = load_entity_ids(self.pool).await?;
-        let mut builder = QueryBuilder::<Sqlite>::new(FOLDER_SELECT_CORE);
-        builder.push(FOLDER_FROM);
-        builder.push(" WHERE f.Z_ENT = ");
-        builder.push_bind(entity_ids.folder);
-        builder.push(" AND f.ZMARKEDFORDELETION = 0 AND f.ZFOLDERTYPE != 1 AND f.Z_PK = ");
-        builder.push_bind(folder_row_id);
-
-        let row: Option<FolderRow> = builder.build_query_as().fetch_optional(self.pool).await?;
+        let row = get_folder_by_row_id(self.pool, entity_ids.folder, folder_row_id).await?;
         Ok(row.map(folder_from_row))
     }
 
     pub async fn get_folder_by_id(&self, id: &str) -> Result<Option<NoteFolder>, sqlx::Error> {
         let entity_ids = load_entity_ids(self.pool).await?;
-        let mut builder = QueryBuilder::<Sqlite>::new(FOLDER_SELECT_CORE);
-        builder.push(FOLDER_FROM);
-        builder.push(" WHERE f.Z_ENT = ");
-        builder.push_bind(entity_ids.folder);
-        builder.push(
-            " AND f.ZMARKEDFORDELETION = 0 AND f.ZFOLDERTYPE != 1 AND lower(f.ZIDENTIFIER) = ",
-        );
-        builder.push_bind(id.to_lowercase());
-
-        let row: Option<FolderRow> = builder.build_query_as().fetch_optional(self.pool).await?;
+        let row =
+            get_folder_by_identifier(self.pool, entity_ids.folder, &id.to_lowercase()).await?;
         Ok(row.map(folder_from_row))
     }
 
@@ -178,25 +160,15 @@ impl<'a> NoteRepository<'a> {
     ) -> Result<Page<NoteSummary>, sqlx::Error> {
         let entity_ids = load_entity_ids(self.pool).await?;
         let fetch_limit = i64::from(limit) + 1;
+        let binds = filters.bind_values(
+            &entity_ids,
+            cursor.as_ref().map(|value| value.modified_at),
+            cursor.as_ref().map(|value| value.row_id),
+            fetch_limit,
+            true,
+        );
 
-        let mut builder = QueryBuilder::<Sqlite>::new(NOTE_SELECT_CORE);
-        builder.push(NOTE_FROM_JOIN);
-        builder.push(" WHERE n.Z_ENT = ");
-        builder.push_bind(entity_ids.note);
-        apply_filters(&mut builder, filters, &entity_ids);
-        if let Some(cursor) = cursor {
-            builder.push(" AND (n.ZMODIFICATIONDATE1 < ");
-            builder.push_bind(cursor.modified_at);
-            builder.push(" OR (n.ZMODIFICATIONDATE1 = ");
-            builder.push_bind(cursor.modified_at);
-            builder.push(" AND n.Z_PK < ");
-            builder.push_bind(cursor.row_id);
-            builder.push("))");
-        }
-        builder.push(" ORDER BY n.ZMODIFICATIONDATE1 DESC, n.Z_PK DESC LIMIT ");
-        builder.push_bind(fetch_limit);
-
-        let rows: Vec<NoteRow> = builder.build_query_as().fetch_all(self.pool).await?;
+        let rows = fetch_filtered_notes(self.pool, &binds).await?;
         let (rows, has_more) = split_page(rows, limit);
         let attachment_flags = self
             .attachment_flags_for_notes(rows.iter().map(|row| row.row_id).collect(), &entity_ids)
@@ -243,16 +215,7 @@ impl<'a> NoteRepository<'a> {
 
     pub async fn get_note(&self, id: &str) -> Result<Option<NoteDetail>, sqlx::Error> {
         let entity_ids = load_entity_ids(self.pool).await?;
-        let mut builder = QueryBuilder::<Sqlite>::new(NOTE_DETAIL_SELECT);
-        builder.push(NOTE_DETAIL_FROM_JOIN);
-        builder.push(" WHERE n.Z_ENT = ");
-        builder.push_bind(entity_ids.note);
-        builder.push(" AND n.ZMARKEDFORDELETION = 0");
-        builder.push(" AND (f.Z_PK IS NULL OR (f.ZMARKEDFORDELETION = 0 AND f.ZFOLDERTYPE != 1))");
-        builder.push(" AND lower(n.ZIDENTIFIER) = ");
-        builder.push_bind(id.to_lowercase());
-
-        let row: Option<NoteDetailRow> = builder.build_query_as().fetch_optional(self.pool).await?;
+        let row = get_note_by_identifier(self.pool, entity_ids.note, &id.to_lowercase()).await?;
         let Some(row) = row else {
             return Ok(None);
         };
@@ -286,24 +249,15 @@ impl<'a> NoteRepository<'a> {
         let mut reached_end = false;
 
         'search: while scanned < NOTE_SCAN_BUDGET {
-            let mut builder = QueryBuilder::<Sqlite>::new(NOTE_DETAIL_SELECT);
-            builder.push(NOTE_DETAIL_FROM_JOIN);
-            builder.push(" WHERE n.Z_ENT = ");
-            builder.push_bind(entity_ids.note);
-            apply_filters(&mut builder, &sql_filters, &entity_ids);
-            if let Some((modified_at, row_id)) = scan_position {
-                builder.push(" AND (n.ZMODIFICATIONDATE1 < ");
-                builder.push_bind(modified_at);
-                builder.push(" OR (n.ZMODIFICATIONDATE1 = ");
-                builder.push_bind(modified_at);
-                builder.push(" AND n.Z_PK < ");
-                builder.push_bind(row_id);
-                builder.push("))");
-            }
-            builder.push(" ORDER BY n.ZMODIFICATIONDATE1 DESC, n.Z_PK DESC LIMIT ");
-            builder.push_bind(i64::from(CANDIDATE_CHUNK_SIZE));
+            let binds = sql_filters.bind_values(
+                &entity_ids,
+                scan_position.map(|value| value.0),
+                scan_position.map(|value| value.1),
+                i64::from(CANDIDATE_CHUNK_SIZE),
+                false,
+            );
 
-            let chunk: Vec<NoteDetailRow> = builder.build_query_as().fetch_all(self.pool).await?;
+            let chunk: Vec<NoteDetailRow> = fetch_filtered_note_details(self.pool, &binds).await?;
             if chunk.is_empty() {
                 reached_end = true;
                 break;
@@ -408,17 +362,7 @@ impl<'a> NoteRepository<'a> {
     }
 
     pub async fn fetch_tags_for_note(&self, note_row_id: i64) -> Result<Vec<String>, sqlx::Error> {
-        let rows: Vec<(Option<String>,)> = sqlx::query_as(
-            "SELECT o.ZALTTEXT AS tag_name \
-             FROM ZICCLOUDSYNCINGOBJECT o \
-             WHERE o.ZMARKEDFORDELETION = 0 \
-               AND o.ZTYPEUTI1 = 'com.apple.notes.inlinetextattachment.hashtag' \
-               AND o.ZNOTE1 = ?1 \
-             ORDER BY o.Z_PK",
-        )
-        .bind(note_row_id)
-        .fetch_all(self.pool)
-        .await?;
+        let rows = fetch_tags_for_note(self.pool, note_row_id).await?;
 
         let mut tags = Vec::new();
         let mut seen = HashSet::new();
@@ -442,15 +386,7 @@ impl<'a> NoteRepository<'a> {
         note_row_id: i64,
     ) -> Result<Vec<NoteAttachment>, sqlx::Error> {
         let entity_ids = load_entity_ids(self.pool).await?;
-        let mut builder = QueryBuilder::<Sqlite>::new(ATTACHMENT_SELECT_CORE);
-        builder.push(ATTACHMENT_FROM_JOIN);
-        builder.push(" WHERE a.Z_ENT = ");
-        builder.push_bind(entity_ids.attachment);
-        builder.push(" AND a.ZMARKEDFORDELETION = 0 AND a.ZNOTE = ");
-        builder.push_bind(note_row_id);
-        builder.push(" ORDER BY a.Z_PK ASC");
-
-        let rows: Vec<AttachmentRow> = builder.build_query_as().fetch_all(self.pool).await?;
+        let rows = list_attachments_for_note(self.pool, entity_ids.attachment, note_row_id).await?;
         Ok(rows.into_iter().map(attachment_from_row).collect())
     }
 
@@ -459,14 +395,9 @@ impl<'a> NoteRepository<'a> {
         id: &str,
     ) -> Result<Option<NoteAttachment>, sqlx::Error> {
         let entity_ids = load_entity_ids(self.pool).await?;
-        let mut builder = QueryBuilder::<Sqlite>::new(ATTACHMENT_SELECT_CORE);
-        builder.push(ATTACHMENT_FROM_JOIN);
-        builder.push(" WHERE a.Z_ENT = ");
-        builder.push_bind(entity_ids.attachment);
-        builder.push(" AND a.ZMARKEDFORDELETION = 0 AND lower(a.ZIDENTIFIER) = ");
-        builder.push_bind(id.to_lowercase());
-
-        let row: Option<AttachmentRow> = builder.build_query_as().fetch_optional(self.pool).await?;
+        let row =
+            get_attachment_by_identifier(self.pool, entity_ids.attachment, &id.to_lowercase())
+                .await?;
         Ok(row.map(attachment_from_row))
     }
 
@@ -479,22 +410,13 @@ impl<'a> NoteRepository<'a> {
             return Ok(HashMap::new());
         }
 
-        let mut builder = QueryBuilder::<Sqlite>::new(
-            "SELECT a.ZNOTE AS note_row_id FROM ZICCLOUDSYNCINGOBJECT a \
-             WHERE a.Z_ENT = ",
-        );
-        builder.push_bind(entity_ids.attachment);
-        builder.push(" AND a.ZMARKEDFORDELETION = 0 AND a.ZNOTE IN (");
-        {
-            let mut separated = builder.separated(", ");
-            for id in &note_row_ids {
-                separated.push_bind(id);
-            }
-        }
-        builder.push(")");
-
-        let rows: Vec<(i64,)> = builder.build_query_as().fetch_all(self.pool).await?;
-        let attached: HashSet<i64> = rows.into_iter().map(|row| row.0).collect();
+        let rows = fetch_note_row_ids_with_attachments(
+            self.pool,
+            entity_ids.attachment,
+            &json_ids(&note_row_ids),
+        )
+        .await?;
+        let attached: HashSet<i64> = rows.into_iter().map(|row| row.note_row_id).collect();
         Ok(note_row_ids
             .into_iter()
             .map(|row_id| (row_id, attached.contains(&row_id)))

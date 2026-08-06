@@ -1,8 +1,7 @@
 //! Metadata filters and bounded text search for reminder listing.
 
-use sqlx::{QueryBuilder, Sqlite};
-
 use super::row::ReminderRow;
+use crate::sqlx_util::optional_bool_filter;
 
 #[allow(dead_code)]
 pub const REMINDER_SCAN_BUDGET: u32 = 500;
@@ -20,6 +19,25 @@ pub struct ReminderFilters {
     pub priority_min: Option<i32>,
     pub has_notes: Option<bool>,
     pub top_level_only: Option<bool>,
+}
+
+/// Bind parameters for the compile-time filtered reminder listing query.
+#[derive(Debug, Clone)]
+pub struct ReminderFilterBinds {
+    pub completed: Option<i64>,
+    pub flagged: Option<i64>,
+    pub list_row_id: Option<i64>,
+    pub list_uuid: Option<String>,
+    pub has_due_date: Option<i64>,
+    pub due_before: Option<f64>,
+    pub due_after: Option<f64>,
+    pub priority_min: Option<i64>,
+    pub has_notes: Option<i64>,
+    pub top_level_only: Option<i64>,
+    pub q: Option<String>,
+    pub cursor_modified_at: Option<f64>,
+    pub cursor_row_id: Option<i64>,
+    pub limit: i64,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -88,71 +106,42 @@ impl ReminderFilters {
             top_level_only: self.top_level_only,
         }
     }
+
+    pub fn bind_values(
+        &self,
+        cursor_modified_at: Option<f64>,
+        cursor_row_id: Option<i64>,
+        limit: i64,
+    ) -> ReminderFilterBinds {
+        let (list_row_id, list_uuid) = match &self.list_id {
+            Some(ListIdFilter::RowId(id)) => (Some(*id), None),
+            Some(ListIdFilter::Uuid(id)) => (None, Some(id.to_lowercase())),
+            None => (None, None),
+        };
+
+        ReminderFilterBinds {
+            completed: optional_bool_filter(self.completed),
+            flagged: optional_bool_filter(self.flagged),
+            list_row_id,
+            list_uuid,
+            has_due_date: optional_bool_filter(self.has_due_date),
+            due_before: self.due_before.map(|value| value as f64),
+            due_after: self.due_after.map(|value| value as f64),
+            priority_min: self.priority_min.map(i64::from),
+            has_notes: optional_bool_filter(self.has_notes),
+            top_level_only: self.top_level_only.filter(|&value| value).map(|_| 1),
+            q: self.q.clone(),
+            cursor_modified_at,
+            cursor_row_id,
+            limit,
+        }
+    }
 }
 
 fn list_id_filter_key(filter: &ListIdFilter) -> String {
     match filter {
         ListIdFilter::RowId(id) => format!("row:{id}"),
         ListIdFilter::Uuid(id) => format!("uuid:{id}"),
-    }
-}
-
-pub fn apply_filters(builder: &mut QueryBuilder<Sqlite>, filters: &ReminderFilters) {
-    if let Some(completed) = filters.completed {
-        builder.push(" AND r.ZCOMPLETED = ");
-        builder.push_bind(completed as i64);
-    }
-    if let Some(flagged) = filters.flagged {
-        builder.push(" AND r.ZFLAGGED = ");
-        builder.push_bind(flagged as i64);
-    }
-    if let Some(list_id) = &filters.list_id {
-        match list_id {
-            ListIdFilter::RowId(id) => {
-                builder.push(" AND r.ZLIST = ");
-                builder.push_bind(*id);
-            }
-            ListIdFilter::Uuid(id) => {
-                builder.push(" AND lower(substr(hex(l.ZIDENTIFIER), 1, 8) || '-' || substr(hex(l.ZIDENTIFIER), 9, 4) || '-' || substr(hex(l.ZIDENTIFIER), 13, 4) || '-' || substr(hex(l.ZIDENTIFIER), 17, 4) || '-' || substr(hex(l.ZIDENTIFIER), 21, 12)) = ");
-                builder.push_bind(id.to_lowercase());
-            }
-        }
-    }
-    if let Some(has_due_date) = filters.has_due_date {
-        if has_due_date {
-            builder.push(" AND r.ZDUEDATE IS NOT NULL");
-        } else {
-            builder.push(" AND r.ZDUEDATE IS NULL");
-        }
-    }
-    if let Some(due_before) = filters.due_before {
-        builder.push(" AND r.ZDUEDATE <= ");
-        builder.push_bind(due_before);
-    }
-    if let Some(due_after) = filters.due_after {
-        builder.push(" AND r.ZDUEDATE >= ");
-        builder.push_bind(due_after);
-    }
-    if let Some(priority_min) = filters.priority_min {
-        builder.push(" AND r.ZPRIORITY >= ");
-        builder.push_bind(i64::from(priority_min));
-    }
-    if let Some(has_notes) = filters.has_notes {
-        if has_notes {
-            builder.push(" AND r.ZNOTES IS NOT NULL AND trim(r.ZNOTES) != ''");
-        } else {
-            builder.push(" AND (r.ZNOTES IS NULL OR trim(r.ZNOTES) = '')");
-        }
-    }
-    if filters.top_level_only.unwrap_or(false) {
-        builder.push(" AND r.ZPARENTREMINDER IS NULL");
-    }
-    if let Some(q) = &filters.q {
-        builder.push(" AND (lower(r.ZTITLE) LIKE '%' || lower(");
-        builder.push_bind(q);
-        builder.push(") || '%' OR lower(coalesce(r.ZNOTES, '')) LIKE '%' || lower(");
-        builder.push_bind(q);
-        builder.push(") || '%')");
     }
 }
 

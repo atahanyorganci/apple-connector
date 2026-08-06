@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "INSERT INTO message (ROWID, guid, text, service, is_from_me, date, handle_id, cache_has_attachments) VALUES (7, 'msg-noise-3', 'noise gamma', 'iMessage', 0, 20, 1, 0)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 0
+    },
+    "nullable": []
+  },
+  "hash": "02e328ab94d60fabd70369bae6a2db3b726877077d643e3be5df7efc40e78d27"
+}

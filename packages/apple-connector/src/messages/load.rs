@@ -6,7 +6,6 @@ use super::{
     assembly::{assemble_message, chat_from_row},
     model::{Chat, Handle, Message},
     row::{AttachmentRow, ChatHandleJoinRow, ChatMessageJoinRow, ChatRow, MessageRow},
-    sql::{ATTACHMENT_SELECT_ORDERED, CHAT_SELECT_ORDERED, MESSAGE_SELECT_ORDERED_ASC},
 };
 
 /// Load every message as a flat list. Each envelope includes `chat_ids` from
@@ -25,17 +24,92 @@ pub async fn load_chats(connection: &mut SqliteConnection) -> Result<Vec<Chat>, 
 async fn load_library(
     connection: &mut SqliteConnection,
 ) -> Result<(Vec<Message>, Vec<Chat>), sqlx::Error> {
-    let message_rows = sqlx::query_as::<_, MessageRow>(MESSAGE_SELECT_ORDERED_ASC)
-        .fetch_all(&mut *connection)
-        .await?;
+    let message_rows = sqlx::query_as!(
+        MessageRow,
+        r#"
+        SELECT
+            message.ROWID AS "row_id!",
+            message.guid AS "guid!",
+            message.text,
+            message.attributedBody AS "attributed_body: Vec<u8>",
+            message.service,
+            message.date AS "sent_at!",
+            message.date_read AS "read_at!",
+            message.date_edited AS "edited_at!",
+            message.date_retracted AS "retracted_at!",
+            message.is_from_me AS "is_from_me!: bool",
+            sender.id AS sender_id,
+            sender.service AS sender_service,
+            message.item_type AS "item_type!",
+            message.associated_message_guid,
+            message.associated_message_type AS "associated_message_type!",
+            message.group_action_type AS "group_action_type!",
+            message.group_title,
+            message.handle_id AS "handle_id!",
+            message.other_handle AS "other_handle!",
+            actor.id AS other_handle_id,
+            message.share_status AS "share_status!: bool",
+            message.balloon_bundle_id,
+            message.payload_data AS "payload_data: Vec<u8>",
+            message.is_audio_message AS "is_audio_message!: bool",
+            message.cache_has_attachments AS "cache_has_attachments!: bool",
+            message.is_forward AS "is_forward!: bool",
+            message.is_auto_reply AS "is_auto_reply!: bool",
+            message.is_system_message AS "is_system_message!: bool",
+            message.is_service_message AS "is_service_message!: bool",
+            message.reply_to_guid,
+            message.thread_originator_guid,
+            message.expressive_send_style_id
+        FROM message
+        LEFT JOIN handle AS sender ON message.handle_id = sender.ROWID
+        LEFT JOIN handle AS actor ON message.other_handle = actor.ROWID
+        ORDER BY message.date ASC, message.ROWID ASC
+        "#,
+    )
+    .fetch_all(&mut *connection)
+    .await?;
 
-    let attachment_rows = sqlx::query_as::<_, AttachmentRow>(ATTACHMENT_SELECT_ORDERED)
-        .fetch_all(&mut *connection)
-        .await?;
+    let attachment_rows = sqlx::query_as!(
+        AttachmentRow,
+        r#"
+        SELECT
+            message_attachment_join.message_id AS "message_id!",
+            attachment.guid AS "guid!",
+            attachment.original_guid AS "original_guid!",
+            attachment.filename,
+            attachment.uti,
+            attachment.mime_type,
+            attachment.transfer_name,
+            attachment.total_bytes AS "total_bytes!",
+            attachment.is_sticker AS "is_sticker!: bool",
+            attachment.transfer_state AS "transfer_state!",
+            attachment.hide_attachment AS "hide_attachment!: bool",
+            attachment.emoji_image_short_description AS emoji_description
+        FROM message_attachment_join
+        JOIN attachment ON message_attachment_join.attachment_id = attachment.ROWID
+        ORDER BY message_attachment_join.message_id ASC, attachment.ROWID ASC
+        "#,
+    )
+    .fetch_all(&mut *connection)
+    .await?;
 
-    let chat_rows = sqlx::query_as::<_, ChatRow>(CHAT_SELECT_ORDERED)
-        .fetch_all(&mut *connection)
-        .await?;
+    let chat_rows = sqlx::query_as!(
+        ChatRow,
+        r#"
+        SELECT
+            chat.ROWID AS "row_id!",
+            chat.guid AS "guid!",
+            chat.chat_identifier,
+            chat.display_name,
+            chat.room_name,
+            chat.service_name,
+            chat.style
+        FROM chat
+        ORDER BY chat.ROWID ASC
+        "#,
+    )
+    .fetch_all(&mut *connection)
+    .await?;
 
     let chat_message_joins = sqlx::query_as!(
         ChatMessageJoinRow,

@@ -1,0 +1,117 @@
+{
+  "db_name": "SQLite",
+  "query": "\n        SELECT\n            a.Z_PK AS \"row_id!\",\n            a.ZIDENTIFIER AS \"id!\",\n            a.ZFILENAME AS filename,\n            a.ZTYPEUTI AS uti,\n            a.ZNOTE AS \"note_row_id!\",\n            n.ZIDENTIFIER AS \"note_id!\",\n            a.ZFILESIZE AS file_size,\n            CAST(a.ZMODIFICATIONDATE1 AS REAL) AS \"modified_at: Option<f64>\",\n            acc.ZIDENTIFIER AS account_id\n        FROM ZICCLOUDSYNCINGOBJECT a\n        JOIN ZICCLOUDSYNCINGOBJECT n ON a.ZNOTE = n.Z_PK\n        LEFT JOIN ZICCLOUDSYNCINGOBJECT acc ON a.ZACCOUNT6 = acc.Z_PK\n        WHERE a.Z_ENT = ?1\n          AND a.ZMARKEDFORDELETION = 0\n          AND a.ZNOTE = ?2\n        ORDER BY a.Z_PK ASC\n        ",
+  "describe": {
+    "columns": [
+      {
+        "name": "row_id!",
+        "ordinal": 0,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "ZICCLOUDSYNCINGOBJECT",
+            "name": "Z_PK"
+          }
+        }
+      },
+      {
+        "name": "id!",
+        "ordinal": 1,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "ZICCLOUDSYNCINGOBJECT",
+            "name": "ZIDENTIFIER"
+          }
+        }
+      },
+      {
+        "name": "filename",
+        "ordinal": 2,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "ZICCLOUDSYNCINGOBJECT",
+            "name": "ZFILENAME"
+          }
+        }
+      },
+      {
+        "name": "uti",
+        "ordinal": 3,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "ZICCLOUDSYNCINGOBJECT",
+            "name": "ZTYPEUTI"
+          }
+        }
+      },
+      {
+        "name": "note_row_id!",
+        "ordinal": 4,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "ZICCLOUDSYNCINGOBJECT",
+            "name": "ZNOTE"
+          }
+        }
+      },
+      {
+        "name": "note_id!",
+        "ordinal": 5,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "ZICCLOUDSYNCINGOBJECT",
+            "name": "ZIDENTIFIER"
+          }
+        }
+      },
+      {
+        "name": "file_size",
+        "ordinal": 6,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "ZICCLOUDSYNCINGOBJECT",
+            "name": "ZFILESIZE"
+          }
+        }
+      },
+      {
+        "name": "modified_at: Option<f64>",
+        "ordinal": 7,
+        "type_info": "Float",
+        "origin": "Expression"
+      },
+      {
+        "name": "account_id",
+        "ordinal": 8,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "ZICCLOUDSYNCINGOBJECT",
+            "name": "ZIDENTIFIER"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 2
+    },
+    "nullable": [
+      false,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true
+    ]
+  },
+  "hash": "e3dfbf5eeb24d3bae79bfe5511cb39f5bd4ec1598c1088549c56aad36c20a0de"
+}

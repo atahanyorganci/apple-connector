@@ -1,0 +1,100 @@
+{
+  "db_name": "SQLite",
+  "query": "\n        SELECT\n          sa.Z_PK AS \"row_id!\",\n          lower(\n            substr(hex(sa.ZIDENTIFIER), 1, 8) || '-' ||\n            substr(hex(sa.ZIDENTIFIER), 9, 4) || '-' ||\n            substr(hex(sa.ZIDENTIFIER), 13, 4) || '-' ||\n            substr(hex(sa.ZIDENTIFIER), 17, 4) || '-' ||\n            substr(hex(sa.ZIDENTIFIER), 21, 12)\n          ) AS \"id!\",\n          sa.ZFILENAME AS filename,\n          sa.ZUTI AS uti,\n          sa.ZSHA512SUM AS sha512,\n          sa.ZATTACHMENTTYPERAWVALUE AS kind_raw,\n          sa.ZREMINDER AS \"reminder_row_id!\",\n          CAST(sa.ZLASTMODIFIEDDATE AS REAL) AS modified_at\n        FROM ZREMCDSAVEDATTACHMENT sa\n        WHERE sa.ZMARKEDFORDELETION = 0\n          AND lower(\n            substr(hex(sa.ZIDENTIFIER), 1, 8) || '-' ||\n            substr(hex(sa.ZIDENTIFIER), 9, 4) || '-' ||\n            substr(hex(sa.ZIDENTIFIER), 13, 4) || '-' ||\n            substr(hex(sa.ZIDENTIFIER), 17, 4) || '-' ||\n            substr(hex(sa.ZIDENTIFIER), 21, 12)\n          ) = ?\n        ",
+  "describe": {
+    "columns": [
+      {
+        "name": "row_id!",
+        "ordinal": 0,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "ZREMCDSAVEDATTACHMENT",
+            "name": "Z_PK"
+          }
+        }
+      },
+      {
+        "name": "id!",
+        "ordinal": 1,
+        "type_info": "Null",
+        "origin": "Expression"
+      },
+      {
+        "name": "filename",
+        "ordinal": 2,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "ZREMCDSAVEDATTACHMENT",
+            "name": "ZFILENAME"
+          }
+        }
+      },
+      {
+        "name": "uti",
+        "ordinal": 3,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "ZREMCDSAVEDATTACHMENT",
+            "name": "ZUTI"
+          }
+        }
+      },
+      {
+        "name": "sha512",
+        "ordinal": 4,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "ZREMCDSAVEDATTACHMENT",
+            "name": "ZSHA512SUM"
+          }
+        }
+      },
+      {
+        "name": "kind_raw",
+        "ordinal": 5,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "ZREMCDSAVEDATTACHMENT",
+            "name": "ZATTACHMENTTYPERAWVALUE"
+          }
+        }
+      },
+      {
+        "name": "reminder_row_id!",
+        "ordinal": 6,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "ZREMCDSAVEDATTACHMENT",
+            "name": "ZREMINDER"
+          }
+        }
+      },
+      {
+        "name": "modified_at",
+        "ordinal": 7,
+        "type_info": "Float",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false,
+      null,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true
+    ]
+  },
+  "hash": "38a6eae96c313783b2071ec1cc8bba39ee01d031d7344257fd25fe24b18b59eb"
+}

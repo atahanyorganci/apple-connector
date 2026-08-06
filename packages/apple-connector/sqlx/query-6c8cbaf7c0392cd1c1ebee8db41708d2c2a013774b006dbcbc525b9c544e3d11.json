@@ -1,0 +1,21 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT COUNT(*) AS \"count!: i64\" FROM Calendar",
+  "describe": {
+    "columns": [
+      {
+        "name": "count!: i64",
+        "ordinal": 0,
+        "type_info": "Integer",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Right": 0
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "6c8cbaf7c0392cd1c1ebee8db41708d2c2a013774b006dbcbc525b9c544e3d11"
+}

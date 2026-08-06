@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "INSERT INTO message (guid, text, service, is_from_me) VALUES (?1, 'fixture seed message', 'iMessage', 1)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": []
+  },
+  "hash": "d8ee7607441626245c7e87b104b0f15a33cd2552b0accaae157c134906e14234"
+}

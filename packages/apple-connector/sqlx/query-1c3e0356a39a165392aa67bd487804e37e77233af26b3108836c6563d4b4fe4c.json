@@ -1,0 +1,57 @@
+{
+  "db_name": "SQLite",
+  "query": "\n        SELECT\n          lower(c.UUID) AS \"api_id!: String\",\n          c.external_id,\n          c.title,\n          s.type AS store_type\n        FROM Calendar c\n        JOIN Store s ON s.ROWID = c.store_id\n        WHERE lower(c.UUID) = lower(?1)\n        ",
+  "describe": {
+    "columns": [
+      {
+        "name": "api_id!: String",
+        "ordinal": 0,
+        "type_info": "Null",
+        "origin": "Expression"
+      },
+      {
+        "name": "external_id",
+        "ordinal": 1,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "Calendar",
+            "name": "external_id"
+          }
+        }
+      },
+      {
+        "name": "title",
+        "ordinal": 2,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "Calendar",
+            "name": "title"
+          }
+        }
+      },
+      {
+        "name": "store_type",
+        "ordinal": 3,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "Store",
+            "name": "type"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      null,
+      true,
+      true,
+      true
+    ]
+  },
+  "hash": "1c3e0356a39a165392aa67bd487804e37e77233af26b3108836c6563d4b4fe4c"
+}

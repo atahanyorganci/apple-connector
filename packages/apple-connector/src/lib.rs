@@ -8,8 +8,12 @@ pub mod fixtures;
 mod messages;
 mod notes;
 mod reminders;
+mod sqlx_util;
 
-use std::{collections::HashMap, error::Error, io::Error as IoError, net::SocketAddr, path::PathBuf, sync::Arc};
+use std::{
+    collections::HashMap, error::Error, io::Error as IoError, net::SocketAddr, path::PathBuf,
+    sync::Arc,
+};
 
 pub use api::{AppState, build_openapi_spec, router};
 pub use calendar::{CalendarInventory, load_inventory as load_calendar_inventory};
@@ -337,7 +341,9 @@ async fn resolve_contacts_sources(cli: &Cli) -> contacts::ContactsSources {
                 }
             }
             if pools.is_empty() {
-                warn!("No AddressBook sources could be opened; Contacts API will report unavailable");
+                warn!(
+                    "No AddressBook sources could be opened; Contacts API will report unavailable"
+                );
             }
             contacts::ContactsSources::new(pools)
         }
