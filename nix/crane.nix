@@ -107,6 +107,11 @@
       checks = self'.checks;
       packages = [rustToolchain pkgs.cargo-watch];
       RUST_SRC_PATH = "${rustToolchain.passthru.availableComponents.rust-src}/lib/rustlib/src/rust/library";
+      SQLX_OFFLINE = "true";
+      SQLX_OFFLINE_DIR = "packages/apple-connector/sqlx";
+      shellHook = ''
+        export DYLD_LIBRARY_PATH="${rustToolchain}/lib''${DYLD_LIBRARY_PATH:+:$DYLD_LIBRARY_PATH}"
+      '';
     };
   };
 }
