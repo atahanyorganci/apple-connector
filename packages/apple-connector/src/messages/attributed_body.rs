@@ -78,7 +78,7 @@ fn parse_runs(fields: &[TypedValues], text: &str) -> Vec<AttributedRun> {
         };
 
         let start = utf16_idx(text, utf16_pos, &utf16_to_byte);
-        utf16_pos = utf16_pos.saturating_add(length as usize);
+        utf16_pos = utf16_pos.saturating_add(usize::try_from(length).unwrap_or(usize::MAX));
         let end = utf16_idx(text, utf16_pos, &utf16_to_byte);
 
         runs.push(AttributedRun {

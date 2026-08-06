@@ -407,7 +407,7 @@ mod tests {
             .bind(stored_filename)
             .bind(mime_type)
             .bind(transfer_name)
-            .bind(bytes.len() as i64)
+            .bind(i64::try_from(bytes.len()).expect("test attachment size fits in i64"))
             .bind(transfer_state)
             .execute(&mut connection)
             .await

@@ -1,3 +1,6 @@
+[advisories]
+ignore = []
+
 [licenses]
 allow = [
   "MIT",
@@ -14,3 +17,12 @@ allow = [
   "CDLA-Permissive-2.0",
   "AGPL-3.0-or-later",
 ]
+
+[bans]
+wildcards = "warn"
+multiple-versions = "warn"
+
+[sources]
+unknown-registry = "deny"
+unknown-git = "warn"
+allow-registry = ["https://github.com/rust-lang/crates.io-index"]

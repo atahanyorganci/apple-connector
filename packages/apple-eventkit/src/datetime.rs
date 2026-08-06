@@ -6,6 +6,30 @@ use objc2_foundation::{
 
 use crate::error::{EventKitError, EventKitResult};
 
+fn f64_to_i64_secs(value: f64) -> i64 {
+    if !value.is_finite() {
+        return 0;
+    }
+    if value >= i64::MAX as f64 {
+        return i64::MAX;
+    }
+    if value <= i64::MIN as f64 {
+        return i64::MIN;
+    }
+    #[expect(clippy::cast_possible_truncation)]
+    {
+        value.trunc() as i64
+    }
+}
+
+fn i32_to_isize(value: i32) -> isize {
+    isize::try_from(value).expect("i32 fits in isize")
+}
+
+fn u32_to_isize(value: u32) -> isize {
+    isize::try_from(value).expect("u32 fits in isize")
+}
+
 pub fn unix_to_ns_date(secs: i64) -> EventKitResult<objc2::rc::Retained<NSDate>> {
     let dt = Utc
         .timestamp_opt(secs, 0)
@@ -16,7 +40,7 @@ pub fn unix_to_ns_date(secs: i64) -> EventKitResult<objc2::rc::Retained<NSDate>>
 }
 
 pub fn ns_date_to_unix(date: &NSDate) -> i64 {
-    date.timeIntervalSince1970() as i64
+    f64_to_i64_secs(date.timeIntervalSince1970())
 }
 
 pub fn retained_date_to_unix(date: &objc2::rc::Retained<NSDate>) -> i64 {
@@ -32,17 +56,17 @@ pub fn unix_to_date_components(
         .single()
         .ok_or_else(|| EventKitError::ValidationFailed("invalid unix timestamp".into()))?;
     let components = NSDateComponents::new();
-    components.setYear(dt.year() as isize);
-    components.setMonth(dt.month() as isize);
-    components.setDay(dt.day() as isize);
+    components.setYear(i32_to_isize(dt.year()));
+    components.setMonth(u32_to_isize(dt.month()));
+    components.setDay(u32_to_isize(dt.day()));
     if all_day {
         components.setHour(NSDateComponentUndefined);
         components.setMinute(NSDateComponentUndefined);
         components.setSecond(NSDateComponentUndefined);
     } else {
-        components.setHour(dt.hour() as isize);
-        components.setMinute(dt.minute() as isize);
-        components.setSecond(dt.second() as isize);
+        components.setHour(u32_to_isize(dt.hour()));
+        components.setMinute(u32_to_isize(dt.minute()));
+        components.setSecond(u32_to_isize(dt.second()));
     }
     Ok(components)
 }

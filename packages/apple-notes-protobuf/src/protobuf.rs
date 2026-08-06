@@ -85,7 +85,8 @@ pub fn read_tag(data: &[u8], index: usize) -> Result<(u32, WireType, usize), Str
         5 => WireType::Fixed32,
         other => return Err(format!("unsupported wire type {other}")),
     };
-    let field_number = (tag >> 3) as u32;
+    let field_number =
+        u32::try_from(tag >> 3).map_err(|_| "field number exceeds u32 range".to_owned())?;
     if field_number == 0 {
         return Err("invalid field number 0".to_owned());
     }

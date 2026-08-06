@@ -5,6 +5,9 @@ edition = "2024"
 license = "MIT"
 description = "Serde Serializer and Deserializer for RFC 5545 iCalendar text"
 
+[lints]
+workspace = true
+
 [dependencies]
 chrono = { version = "0.4", default-features = false, features = [
   "clock",

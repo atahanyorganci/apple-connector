@@ -428,7 +428,7 @@ impl<'a> Reader<'a> {
         self.bytes
             .get(self.offset)
             .copied()
-            .map(|value| value as i8)
+            .map(|byte| byte.cast_signed())
             .ok_or(Error::UnexpectedEof {
                 offset: self.offset,
                 needed: 1,
@@ -436,7 +436,7 @@ impl<'a> Reader<'a> {
     }
 
     fn read_i8(&mut self) -> Result<i8> {
-        self.read_u8().map(|value| value as i8)
+        self.read_u8().map(|byte| byte.cast_signed())
     }
 
     fn read_u8(&mut self) -> Result<u8> {

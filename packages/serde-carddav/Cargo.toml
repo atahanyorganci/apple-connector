@@ -5,6 +5,9 @@ edition = "2024"
 license = "MIT"
 description = "Serde Serializer and Deserializer for RFC 6352 CardDAV XML"
 
+[lints]
+workspace = true
+
 [dependencies]
 quick-xml = { version = "0.37", features = ["serialize"] }
 serde = { version = "1", features = ["derive"] }

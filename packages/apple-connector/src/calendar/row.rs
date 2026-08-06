@@ -1,6 +1,4 @@
-use chrono::{DateTime, Utc};
-
-pub const CORE_DATA_EPOCH_UNIX_SECS: i64 = 978_307_200;
+pub use crate::apple_types::{core_data_secs_from_timestamp, parse_core_data_timestamp};
 
 #[derive(Debug, sqlx::FromRow, Clone)]
 pub struct CalendarResolveRow {
@@ -124,19 +122,4 @@ pub struct AttachmentRow {
 #[derive(Debug, sqlx::FromRow, Clone)]
 pub struct ExceptionDateRow {
     pub date: f64,
-}
-
-pub fn parse_core_data_timestamp(secs: Option<f64>) -> Option<DateTime<Utc>> {
-    let secs = secs?;
-    if secs <= 0.0 {
-        return None;
-    }
-    let whole_secs = secs.trunc() as i64 + CORE_DATA_EPOCH_UNIX_SECS;
-    let nanos = ((secs.fract()) * 1_000_000_000.0).round() as u32;
-    DateTime::from_timestamp(whole_secs, nanos)
-}
-
-pub fn core_data_secs_from_timestamp(dt: DateTime<Utc>) -> f64 {
-    (dt.timestamp() - CORE_DATA_EPOCH_UNIX_SECS) as f64
-        + f64::from(dt.timestamp_subsec_nanos()) / 1_000_000_000.0
 }

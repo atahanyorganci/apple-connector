@@ -21,6 +21,15 @@ const TAG_NIL: u8 = 0x85;
 const TAG_END_OF_OBJECT: u8 = 0x86;
 const FIRST_REFERENCE: i64 = -110;
 
+fn collection_len(len: usize) -> Result<i64> {
+    i64::try_from(len)
+        .map_err(|_| Error::custom("collection length exceeds typedstream integer range"))
+}
+
+fn reference_index(index: usize) -> Result<i64> {
+    collection_len(index).map(|index| FIRST_REFERENCE + index)
+}
+
 pub struct Serializer<W> {
     writer: W,
 }
@@ -382,7 +391,7 @@ impl<W: Write> Encoder<W> {
             }
             Value::Bytes(value) => {
                 self.write_class_chain(&[("NSData", 0), ("NSObject", 0)])?;
-                self.write_typed_integer(b"i", value.len() as i64, true)?;
+                self.write_typed_integer(b"i", collection_len(value.len())?, true)?;
                 let encoding = format!("[{}c]", value.len());
                 self.write_shared_string(encoding.as_bytes())?;
                 self.writer.write_all(value)?;
@@ -410,14 +419,14 @@ impl<W: Write> Encoder<W> {
             }
             Value::Array(values) => {
                 self.write_class_chain(&[("NSArray", 0), ("NSObject", 0)])?;
-                self.write_typed_integer(b"i", values.len() as i64, true)?;
+                self.write_typed_integer(b"i", collection_len(values.len())?, true)?;
                 for value in values {
                     self.write_typed_object(value)?;
                 }
             }
             Value::Map(values) => {
                 self.write_class_chain(&[("NSDictionary", 0), ("NSObject", 0)])?;
-                self.write_typed_integer(b"i", values.len() as i64, true)?;
+                self.write_typed_integer(b"i", collection_len(values.len())?, true)?;
                 for (key, value) in values {
                     self.write_typed_object(&Value::String(key.clone()))?;
                     self.write_typed_object(value)?;
@@ -450,7 +459,7 @@ impl<W: Write> Encoder<W> {
             .map(|(name, version)| ((*name).to_owned(), *version))
             .collect();
         if let Some(&index) = self.class_references.get(&key) {
-            return self.write_integer(FIRST_REFERENCE + index as i64, true);
+            return self.write_integer(reference_index(index)?, true);
         }
 
         for (position, (name, version)) in classes.iter().enumerate() {
@@ -473,7 +482,7 @@ impl<W: Write> Encoder<W> {
 
     fn write_c_string(&mut self, value: &[u8]) -> Result<()> {
         if let Some(&index) = self.c_string_references.get(value) {
-            return self.write_integer(FIRST_REFERENCE + index as i64, true);
+            return self.write_integer(reference_index(index)?, true);
         }
         let index = self.object_count;
         self.object_count += 1;
@@ -489,7 +498,7 @@ impl<W: Write> Encoder<W> {
 
     fn write_shared_string(&mut self, value: &[u8]) -> Result<()> {
         if let Some(&index) = self.shared_strings.get(value) {
-            return self.write_integer(FIRST_REFERENCE + index as i64, true);
+            return self.write_integer(reference_index(index)?, true);
         }
         let index = self.shared_strings.len();
         self.shared_strings.insert(value.to_vec(), index);
@@ -498,32 +507,36 @@ impl<W: Write> Encoder<W> {
     }
 
     fn write_unshared_string(&mut self, value: &[u8]) -> Result<()> {
-        self.write_integer(value.len() as i64, false)?;
+        self.write_integer(collection_len(value.len())?, false)?;
         self.writer.write_all(value)?;
         Ok(())
     }
 
     fn write_integer(&mut self, value: i64, signed: bool) -> Result<()> {
         if signed && (-128..=127).contains(&value) && !(-128..=-111).contains(&value) {
-            self.writer.write_all(&[value as i8 as u8])?;
+            let byte = i8::try_from(value).expect("single-byte signed integer range");
+            self.writer.write_all(&[byte.cast_unsigned()])?;
         } else if !signed && (0..=255).contains(&value) && !(128..=145).contains(&value) {
-            self.writer.write_all(&[value as u8])?;
-        } else if signed && i16::try_from(value).is_ok() {
+            let byte = u8::try_from(value).expect("single-byte unsigned integer range");
+            self.writer.write_all(&[byte])?;
+        } else if signed {
+            if let Ok(narrowed) = i16::try_from(value) {
+                self.writer.write_all(&[TAG_INTEGER_2])?;
+                self.writer.write_all(&narrowed.to_le_bytes())?;
+            } else {
+                let narrowed = i32::try_from(value)
+                    .map_err(|_| Error::custom("signed integer exceeds typedstream i32 range"))?;
+                self.writer.write_all(&[TAG_INTEGER_4])?;
+                self.writer.write_all(&narrowed.to_le_bytes())?;
+            }
+        } else if let Ok(narrowed) = u16::try_from(value) {
             self.writer.write_all(&[TAG_INTEGER_2])?;
-            self.writer.write_all(&(value as i16).to_le_bytes())?;
-        } else if !signed && u16::try_from(value).is_ok() {
-            self.writer.write_all(&[TAG_INTEGER_2])?;
-            self.writer.write_all(&(value as u16).to_le_bytes())?;
-        } else if signed && i32::try_from(value).is_ok() {
-            self.writer.write_all(&[TAG_INTEGER_4])?;
-            self.writer.write_all(&(value as i32).to_le_bytes())?;
-        } else if !signed && u32::try_from(value).is_ok() {
-            self.writer.write_all(&[TAG_INTEGER_4])?;
-            self.writer.write_all(&(value as u32).to_le_bytes())?;
+            self.writer.write_all(&narrowed.to_le_bytes())?;
         } else {
-            return Err(Error::custom(format!(
-                "integer {value} exceeds typedstream's 32-bit low-level encoding"
-            )));
+            let narrowed = u32::try_from(value)
+                .map_err(|_| Error::custom("unsigned integer exceeds typedstream u32 range"))?;
+            self.writer.write_all(&[TAG_INTEGER_4])?;
+            self.writer.write_all(&narrowed.to_le_bytes())?;
         }
         Ok(())
     }

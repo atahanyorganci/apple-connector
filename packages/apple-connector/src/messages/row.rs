@@ -196,7 +196,8 @@ pub fn parse_apple_timestamp(nanos_since_apple_epoch: i64) -> Option<DateTime<Ut
     }
 
     let secs = nanos_since_apple_epoch.div_euclid(1_000_000_000) + APPLE_EPOCH_UNIX_SECS;
-    let nsecs = nanos_since_apple_epoch.rem_euclid(1_000_000_000) as u32;
+    let nsecs = u32::try_from(nanos_since_apple_epoch.rem_euclid(1_000_000_000))
+        .expect("nanoseconds fit in u32");
     DateTime::from_timestamp(secs, nsecs)
 }
 

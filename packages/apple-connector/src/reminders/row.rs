@@ -1,7 +1,6 @@
 use chrono::{DateTime, Utc};
 
-/// Seconds between the Unix epoch (1970-01-01) and the Core Data epoch (2001-01-01).
-pub const CORE_DATA_EPOCH_UNIX_SECS: i64 = 978_307_200;
+pub use crate::apple_types::{core_data_secs_from_timestamp, parse_core_data_timestamp};
 
 #[allow(dead_code)]
 #[derive(Debug, sqlx::FromRow, Clone)]
@@ -90,24 +89,9 @@ pub struct AttachmentRow {
     pub modified_at: Option<f64>,
 }
 
-pub fn parse_core_data_timestamp(secs: Option<f64>) -> Option<DateTime<Utc>> {
-    parse_core_data_timestamp_f64(secs)
-}
-
-pub fn parse_core_data_timestamp_f64(secs: Option<f64>) -> Option<DateTime<Utc>> {
-    let secs = secs?;
-    if secs <= 0.0 {
-        return None;
-    }
-    let whole_secs = secs.trunc() as i64 + CORE_DATA_EPOCH_UNIX_SECS;
-    let nanos = ((secs.fract()) * 1_000_000_000.0).round() as u32;
-    DateTime::from_timestamp(whole_secs, nanos)
-}
-
 #[allow(dead_code)]
 pub fn core_data_secs_from_datetime(dt: DateTime<Utc>) -> f64 {
-    (dt.timestamp() - CORE_DATA_EPOCH_UNIX_SECS) as f64
-        + f64::from(dt.timestamp_subsec_nanos()) / 1_000_000_000.0
+    core_data_secs_from_timestamp(dt)
 }
 
 #[allow(dead_code)]
@@ -141,6 +125,7 @@ mod tests {
     use chrono::{TimeZone, Utc};
 
     use super::{core_data_secs_from_datetime, format_uuid_blob, parse_core_data_timestamp};
+    use crate::apple_types::CORE_DATA_EPOCH_UNIX_SECS;
 
     #[test]
     fn unset_zero_is_none() {
@@ -154,7 +139,7 @@ mod tests {
             .with_ymd_and_hms(2026, 1, 15, 12, 0, 0)
             .unwrap()
             .timestamp();
-        let core_data_secs = (unix_secs - 978_307_200) as f64;
+        let core_data_secs = (unix_secs - CORE_DATA_EPOCH_UNIX_SECS) as f64;
         let parsed = parse_core_data_timestamp(Some(core_data_secs)).unwrap();
         assert_eq!(parsed.to_rfc3339(), "2026-01-15T12:00:00+00:00");
     }

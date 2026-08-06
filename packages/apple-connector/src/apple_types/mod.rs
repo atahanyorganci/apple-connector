@@ -13,4 +13,7 @@ pub use ids::{
     ContainerId, EventId, GroupId, MessageId, NoteAttachmentId, NoteFolderId, NoteId,
     ReminderAttachmentId, ReminderId, ReminderListId, SectionId, SourceId,
 };
-pub use timestamp::UnixTimestamp;
+pub use timestamp::{
+    CORE_DATA_EPOCH_UNIX_SECS, UnixTimestamp, core_data_secs_from_timestamp,
+    parse_core_data_timestamp,
+};

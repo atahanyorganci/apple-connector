@@ -5,6 +5,9 @@ edition = "2024"
 license = "MIT"
 build = "build.rs"
 
+[lints]
+workspace = true
+
 [dependencies]
 apple-contacts = { path = "../apple-contacts" }
 apple-eventkit = { path = "../apple-eventkit" }

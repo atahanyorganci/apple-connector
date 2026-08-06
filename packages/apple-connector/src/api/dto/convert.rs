@@ -29,7 +29,7 @@ pub fn chat_summary_to_dto(chat: &Chat) -> ChatSummaryDto {
         display_name: chat.display_name.clone(),
         is_group: chat.is_group,
         transport: transport_to_dto(&chat.transport),
-        participant_count: chat.participants.len() as u32,
+        participant_count: u32::try_from(chat.participants.len()).unwrap_or(u32::MAX),
     }
 }
 

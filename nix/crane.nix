@@ -100,6 +100,23 @@
           inherit cargoArtifacts;
           cargoTestExtraArgs = "--all-targets";
         });
+
+      workspace-runtime-sql =
+        pkgs.runCommand "apple-connector-runtime-sql-check" {
+          inherit src;
+          nativeBuildInputs = [pkgs.ripgrep pkgs.bash];
+        } ''
+          cd $src
+          mapfile -t matches < <(rg 'sqlx::query(_as)?\(' packages/apple-connector/src -n | rg -v '!' || true)
+          for entry in "''${matches[@]}"; do
+            file="''${entry%%:*}"
+            case "$file" in
+              *fixtures.rs|*attachments.rs) continue ;;
+              *) echo "runtime SQL API not allowed: $entry" >&2; exit 1 ;;
+            esac
+          done
+          touch $out
+        '';
     };
     packages = {
       "apple-connector" = apple-connector;

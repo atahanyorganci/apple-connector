@@ -12,10 +12,14 @@ fn typed(encoding: &[u8], payload: &[u8]) -> Vec<u8> {
     let mut bytes = header();
     bytes.push(NEW);
     if encoding.len() <= 127 {
-        bytes.push(encoding.len() as u8);
+        bytes.push(u8::try_from(encoding.len()).expect("test encoding length fits in u8"));
     } else {
         bytes.push(0x81);
-        bytes.extend_from_slice(&(encoding.len() as u16).to_le_bytes());
+        bytes.extend_from_slice(
+            &u16::try_from(encoding.len())
+                .expect("test encoding length fits in u16")
+                .to_le_bytes(),
+        );
     }
     bytes.extend_from_slice(encoding);
     bytes.extend_from_slice(payload);

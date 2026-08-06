@@ -50,7 +50,10 @@ fn build_rule(input: &RecurrenceInput) -> EventKitResult<objc2::rc::Retained<EKR
     };
     let end = match (input.count, input.end_date) {
         (Some(count), _) => {
-            Some(unsafe { EKRecurrenceEnd::recurrenceEndWithOccurrenceCount(count as usize) })
+            let count = usize::try_from(count).map_err(|_| {
+                EventKitError::ValidationFailed("recurrence count out of range".into())
+            })?;
+            Some(unsafe { EKRecurrenceEnd::recurrenceEndWithOccurrenceCount(count) })
         }
         (_, Some(end_date)) => {
             let date = unix_to_ns_date(end_date)?;
@@ -58,11 +61,13 @@ fn build_rule(input: &RecurrenceInput) -> EventKitResult<objc2::rc::Retained<EKR
         }
         _ => None,
     };
+    let interval = isize::try_from(input.interval)
+        .map_err(|_| EventKitError::ValidationFailed("recurrence interval out of range".into()))?;
     Ok(unsafe {
         EKRecurrenceRule::initRecurrenceWithFrequency_interval_end(
             EKRecurrenceRule::alloc(),
             frequency,
-            input.interval as isize,
+            interval,
             end.as_deref(),
         )
     })

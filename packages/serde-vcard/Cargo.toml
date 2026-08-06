@@ -5,6 +5,9 @@ edition = "2024"
 license = "MIT"
 description = "Serde Serializer and Deserializer for RFC 6350 vCard text"
 
+[lints]
+workspace = true
+
 [dependencies]
 base64 = "0.22"
 chrono = { version = "0.4", default-features = false, features = [

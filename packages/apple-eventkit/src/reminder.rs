@@ -149,7 +149,7 @@ fn apply_create_fields(reminder: &EKReminder, input: &CreateReminderInput) -> Ev
         unsafe { reminder.setCompleted(completed) };
     }
     if let Some(priority) = input.priority {
-        unsafe { reminder.setPriority(priority as usize) };
+        unsafe { reminder.setPriority(priority_as_usize(priority)?) };
     }
     if let Some(url) = &input.url {
         let ns = NSURL::URLWithString(&NSString::from_str(url))
@@ -196,7 +196,7 @@ fn apply_update_fields(
     }
     if let Some(priority) = input.priority {
         validate_priority(Some(priority))?;
-        unsafe { reminder.setPriority(priority as usize) };
+        unsafe { reminder.setPriority(priority_as_usize(priority)?) };
     }
     if let Some(url) = input.url {
         match url {
@@ -249,4 +249,10 @@ fn validate_priority(priority: Option<i64>) -> EventKitResult<()> {
         ));
     }
     Ok(())
+}
+
+fn priority_as_usize(priority: i64) -> EventKitResult<usize> {
+    validate_priority(Some(priority))?;
+    usize::try_from(priority)
+        .map_err(|_| EventKitError::ValidationFailed("priority must be between 0 and 9".into()))
 }

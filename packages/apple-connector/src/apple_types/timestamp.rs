@@ -1,5 +1,58 @@
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
+
+/// Seconds between the Unix epoch and Apple's Core Data reference date (2001-01-01 UTC).
+pub const CORE_DATA_EPOCH_UNIX_SECS: i64 = 978_307_200;
+
+fn f64_to_i64_secs(value: f64) -> i64 {
+    if !value.is_finite() {
+        return 0;
+    }
+    if value >= i64::MAX as f64 {
+        return i64::MAX;
+    }
+    if value <= i64::MIN as f64 {
+        return i64::MIN;
+    }
+    #[expect(clippy::cast_possible_truncation)]
+    {
+        value.trunc() as i64
+    }
+}
+
+fn f64_fraction_to_subsec_nanos(fraction: f64) -> u32 {
+    let nanos = (fraction * 1_000_000_000.0).round();
+    if nanos <= 0.0 {
+        return 0;
+    }
+    if nanos >= f64::from(u32::MAX) {
+        return u32::MAX;
+    }
+    #[expect(clippy::cast_possible_truncation)]
+    {
+        nanos as u32
+    }
+}
+
+/// Parse a Core Data timestamp (seconds since 2001-01-01 UTC). Zero means unset.
+#[must_use]
+pub fn parse_core_data_timestamp(secs: Option<f64>) -> Option<DateTime<Utc>> {
+    let secs = secs?;
+    if secs <= 0.0 {
+        return None;
+    }
+    let whole_secs = f64_to_i64_secs(secs) + CORE_DATA_EPOCH_UNIX_SECS;
+    let nanos = f64_fraction_to_subsec_nanos(secs.fract());
+    DateTime::from_timestamp(whole_secs, nanos)
+}
+
+/// Encode a UTC datetime as Core Data seconds since 2001-01-01.
+#[must_use]
+pub fn core_data_secs_from_timestamp(dt: DateTime<Utc>) -> f64 {
+    (dt.timestamp() - CORE_DATA_EPOCH_UNIX_SECS) as f64
+        + f64::from(dt.timestamp_subsec_nanos()) / 1_000_000_000.0
+}
 
 /// Whole seconds since the Unix epoch (`1970-01-01T00:00:00Z`), in UTC.
 ///

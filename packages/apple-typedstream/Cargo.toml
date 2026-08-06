@@ -5,6 +5,9 @@ edition = "2024"
 license = "MIT"
 description = "Serde Serializer and Deserializer for Apple typedstream (NSArchiver) blobs"
 
+[lints]
+workspace = true
+
 [dependencies]
 serde = { version = "1.0.228", features = ["derive"] }
 
