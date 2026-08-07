@@ -13,7 +13,7 @@ use super::{
 use crate::{
     api::{
         dto::{EventDetailDto, EventPageDto, calendar_convert::event_detail_to_dto},
-        error::{ApiError, ErrorResponse},
+        error::{ApiError, ErrorCode, ErrorResponse},
         params::{EventIdPath, EventListParams},
         router::AppState,
     },
@@ -223,7 +223,7 @@ async fn fetch_event_detail(
     })
     .await
     .map_err(ApiError::from_sqlx)?
-    .ok_or_else(|| ApiError::not_found("Event not found"))
+    .ok_or_else(|| ApiError::new(ErrorCode::EventNotFound))
 }
 
 fn event_detail_json(event: &EventDetail) -> Json<EventDetailDto> {

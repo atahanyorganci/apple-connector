@@ -277,20 +277,20 @@ fn alarm_input(alarm: AlarmInputDto) -> Result<AlarmInput, ApiError> {
         AlarmKindDto::Absolute => AlarmKind::Absolute,
         AlarmKindDto::Relative => AlarmKind::Relative,
         AlarmKindDto::Location => {
-            return Err(ApiError::unprocessable_with_details(
+            return Err(ApiError::with_details(
+                ErrorCode::UnsupportedAlarmKind,
                 "unsupported alarm kind",
                 serde_json::json!({
-                    "code": "unsupported_alarm_kind",
                     "field": "alarms.kind",
                     "kind": "location",
                 }),
             ));
         }
         AlarmKindDto::Unknown => {
-            return Err(ApiError::unprocessable_with_details(
+            return Err(ApiError::with_details(
+                ErrorCode::UnsupportedAlarmKind,
                 "unsupported alarm kind",
                 serde_json::json!({
-                    "code": "unsupported_alarm_kind",
                     "field": "alarms.kind",
                     "kind": "unknown",
                 }),
@@ -411,7 +411,7 @@ mod tests {
             .ok_or("expected unsupported alarm kind")?;
             assert_eq!(error.status(), axum::http::StatusCode::UNPROCESSABLE_ENTITY);
             let body = serde_json::to_value(error.body())?;
-            assert_eq!(body["details"]["code"], "unsupported_alarm_kind");
+            assert_eq!(body["code"], "unsupported_alarm_kind");
             assert_eq!(body["details"]["field"], "alarms.kind");
         }
         Ok(())

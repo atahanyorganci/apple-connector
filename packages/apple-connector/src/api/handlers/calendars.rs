@@ -16,7 +16,7 @@ use crate::{
                 event_page_to_dto,
             },
         },
-        error::{ApiError, ErrorResponse},
+        error::{ApiError, ErrorCode, ErrorResponse},
         params::{CalendarIdPath, EventListParams, PageParams},
         router::AppState,
     },
@@ -118,7 +118,7 @@ pub async fn get_calendar(
     })
     .await
     .map_err(ApiError::from_sqlx)?
-    .ok_or_else(|| ApiError::not_found("Calendar not found"))?;
+    .ok_or_else(|| ApiError::new(ErrorCode::CalendarNotFound))?;
     Ok(Json(calendar_detail_to_dto(&calendar)))
 }
 
@@ -238,7 +238,7 @@ pub(crate) fn event_page_ics(items: Vec<EventSummary>) -> Result<Response, ApiEr
         let event: Event = (&detail).into();
         body.push_str(
             &serde_icalendar::to_string(&event.to_ics_event())
-                .map_err(|e| ApiError::internal(e.to_string()))?,
+                .map_err(|_| ApiError::internal("serialization failed"))?,
         );
         body.push('\n');
     }
@@ -261,8 +261,10 @@ pub(crate) fn event_page_caldav(items: Vec<EventSummary>) -> Result<Response, Ap
             content_type: Some("text/calendar; charset=utf-8".to_owned()),
             event: event.to_ics_event(),
         };
-        xml_parts
-            .push(serde_caldav::to_string(&object).map_err(|e| ApiError::internal(e.to_string()))?);
+        xml_parts.push(
+            serde_caldav::to_string(&object)
+                .map_err(|_| ApiError::internal("serialization failed"))?,
+        );
     }
     Ok((
         StatusCode::OK,

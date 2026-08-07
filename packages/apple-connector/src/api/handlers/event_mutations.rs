@@ -10,7 +10,7 @@ use crate::{
         dto::calendar::{
             CreateEventRequest, DeleteEventParams, UpdateEventParams, UpdateEventRequest,
         },
-        error::{ApiError, ErrorResponse},
+        error::{ApiError, ErrorCode, ErrorResponse},
         eventkit::require_eventkit_events,
         eventkit_convert::{
             calendar_hint, create_event_input, delete_event_input, map_eventkit_error,
@@ -45,9 +45,7 @@ pub async fn create_event(
     Json(request): Json<CreateEventRequest>,
 ) -> Result<(StatusCode, Json<SyncPendingEventDetailDto>), ApiError> {
     if request.end.seconds() < request.start.seconds() {
-        return Err(ApiError::unprocessable(
-            "end must be greater than or equal to start",
-        ));
+        return Err(ApiError::new(ErrorCode::EventEndBeforeStart));
     }
 
     let pool = require_calendar_db(&state.calendar_db)?;
@@ -61,7 +59,7 @@ pub async fn create_event(
     })
     .await
     .map_err(ApiError::from_sqlx)?
-    .ok_or_else(|| ApiError::not_found("calendar not found"))?;
+    .ok_or_else(|| ApiError::new(ErrorCode::CalendarNotFound))?;
 
     let saved = eventkit
         .create_event(calendar_hint(metadata), create_event_input(request)?)
@@ -107,7 +105,7 @@ pub async fn update_event(
         })
         .await
         .map_err(ApiError::from_sqlx)?
-        .ok_or_else(|| ApiError::not_found("calendar not found"))?;
+        .ok_or_else(|| ApiError::new(ErrorCode::CalendarNotFound))?;
         Some(calendar_hint(metadata))
     } else {
         None

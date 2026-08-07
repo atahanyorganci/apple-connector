@@ -9,7 +9,7 @@ use tokio_util::io::ReaderStream;
 use super::health::require_calendar_db;
 use crate::{
     api::{
-        error::{ApiError, ErrorResponse},
+        error::{ApiError, ErrorCode, ErrorResponse},
         params::{ConditionalRequestHeaders, EventAttachmentIdPath, RangeRequestHeader},
         router::AppState,
     },
@@ -43,16 +43,18 @@ pub async fn get_event_attachment_content(
     })
     .await
     .map_err(ApiError::from_sqlx)?
-    .ok_or_else(|| ApiError::not_found("Attachment not found"))?;
+    .ok_or_else(|| ApiError::new(ErrorCode::EventAttachmentNotFound))?;
     let local_path = attachment
         .local_path
         .as_deref()
-        .ok_or_else(|| ApiError::not_found("Attachment file not available"))?;
+        .ok_or_else(|| ApiError::new(ErrorCode::EventAttachmentUnavailable))?;
     let resolved = resolve_attachment_path(state.calendar_attachment_root.as_ref(), local_path)
-        .map_err(|error| ApiError::not_found(error.message()))?;
+        .map_err(|error| {
+            ApiError::with_message(ErrorCode::EventAttachmentUnavailable, error.message())
+        })?;
     let file = tokio::fs::File::open(resolved)
         .await
-        .map_err(|_| ApiError::not_found("Attachment file not found"))?;
+        .map_err(|_| ApiError::new(ErrorCode::EventAttachmentUnavailable))?;
     let stream = ReaderStream::new(file);
     let body = Body::from_stream(stream);
     let content_type = attachment
