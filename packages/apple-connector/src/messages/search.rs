@@ -167,7 +167,17 @@ fn content_type_code(filter: ContentTypeFilter) -> i64 {
     }
 }
 
-pub fn searchable_text(row: &MessageRow) -> Option<String> {
+pub fn has_searchable_plain_text(row: &MessageRow) -> bool {
+    row.text
+        .as_deref()
+        .map(str::trim)
+        .is_some_and(|text| !text.is_empty())
+}
+
+pub fn searchable_text(
+    row: &MessageRow,
+    decoded_body: Option<&super::model::MessageBody>,
+) -> Option<String> {
     if let Some(text) = row
         .text
         .as_deref()
@@ -177,15 +187,36 @@ pub fn searchable_text(row: &MessageRow) -> Option<String> {
         return Some(text.to_owned());
     }
 
-    row.attributed_body
-        .as_deref()
-        .and_then(|data| super::attributed_body::decode(data).ok())
-        .and_then(|body| body.text)
+    if let Some(body) = decoded_body {
+        return body.text.clone();
+    }
+
+    row.attributed_body.as_deref().and_then(|data| {
+        if data.len() > super::attributed_body::MAX_DECODE_BYTES {
+            return None;
+        }
+        super::attributed_body::decode(data)
+            .ok()
+            .and_then(|body| body.text)
+    })
 }
 
-pub fn text_matches(row: &MessageRow, query: &str) -> bool {
+#[cfg(test)]
+pub fn text_matches(
+    row: &MessageRow,
+    query: &str,
+    decoded_body: Option<&super::model::MessageBody>,
+) -> bool {
     let needle = query.to_lowercase();
-    searchable_text(row).is_some_and(|text| text.to_lowercase().contains(&needle))
+    text_matches_needle(row, &needle, decoded_body)
+}
+
+pub fn text_matches_needle(
+    row: &MessageRow,
+    needle: &str,
+    decoded_body: Option<&super::model::MessageBody>,
+) -> bool {
+    searchable_text(row, decoded_body).is_some_and(|text| text.to_lowercase().contains(needle))
 }
 
 #[cfg(test)]
@@ -238,10 +269,10 @@ mod tests {
         let mut row = empty_row();
         row.attributed_body = Some(HELLO_FIXTURE.to_vec());
 
-        assert_eq!(searchable_text(&row).as_deref(), Some("Noter test"));
-        assert!(text_matches(&row, "noter"));
-        assert!(text_matches(&row, "TEST"));
-        assert!(!text_matches(&row, "missing"));
+        assert_eq!(searchable_text(&row, None).as_deref(), Some("Noter test"));
+        assert!(text_matches(&row, "noter", None));
+        assert!(text_matches(&row, "TEST", None));
+        assert!(!text_matches(&row, "missing", None));
     }
 
     #[test]
@@ -250,7 +281,7 @@ mod tests {
         row.text = Some("plain hello".to_owned());
         row.attributed_body = Some(HELLO_FIXTURE.to_vec());
 
-        assert_eq!(searchable_text(&row).as_deref(), Some("plain hello"));
+        assert_eq!(searchable_text(&row, None).as_deref(), Some("plain hello"));
     }
 
     #[test]

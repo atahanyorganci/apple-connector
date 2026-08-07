@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, sync::Arc};
 
 use sqlx::sqlite::SqliteConnection;
 
@@ -7,12 +7,16 @@ use super::{
     model::{Chat, Handle, Message},
     row::{AttachmentRow, ChatHandleJoinRow, ChatMessageJoinRow, ChatRow, MessageRow},
 };
+use crate::apple_types::HandleId;
 
 /// Load every message as a flat list. Each envelope includes `chat_ids` from
 /// `chat_message_join`.
 pub async fn load_all(connection: &mut SqliteConnection) -> Result<Vec<Message>, sqlx::Error> {
     let (messages, _) = load_library(connection).await?;
-    Ok(messages)
+    Ok(messages
+        .into_iter()
+        .map(|message| (*message).clone())
+        .collect())
 }
 
 /// Load chats with participants, member messages, and reply threads.
@@ -23,7 +27,7 @@ pub async fn load_chats(connection: &mut SqliteConnection) -> Result<Vec<Chat>, 
 
 async fn load_library(
     connection: &mut SqliteConnection,
-) -> Result<(Vec<Message>, Vec<Chat>), sqlx::Error> {
+) -> Result<(Vec<Arc<Message>>, Vec<Chat>), sqlx::Error> {
     let message_rows = sqlx::query_as!(
         MessageRow,
         r#"
@@ -169,12 +173,12 @@ async fn load_library(
             .entry(join.chat_id)
             .or_default()
             .push(Handle {
-                id: join.handle_id,
+                id: HandleId::new(join.handle_id),
                 service: join.handle_service,
             });
     }
 
-    let messages: Vec<Message> = message_rows
+    let messages: Vec<Arc<Message>> = message_rows
         .into_iter()
         .map(|row| {
             let message_id = row.row_id;
@@ -182,23 +186,23 @@ async fn load_library(
                 .remove(&message_id)
                 .unwrap_or_default();
             let chat_ids = chat_ids_by_message.remove(&message_id).unwrap_or_default();
-            assemble_message(row, message_attachments, chat_ids)
+            Arc::new(assemble_message(row, message_attachments, chat_ids))
         })
         .collect();
 
-    let messages_by_id: HashMap<i64, &Message> = messages
+    let messages_by_id: HashMap<i64, Arc<Message>> = messages
         .iter()
-        .map(|message| (message.envelope.row_id, message))
+        .map(|message| (message.envelope.row_id.get(), Arc::clone(message)))
         .collect();
 
     let chats = chat_rows
         .into_iter()
         .map(|chat| {
-            let chat_messages: Vec<Message> = message_ids_by_chat
+            let chat_messages: Vec<Arc<Message>> = message_ids_by_chat
                 .remove(&chat.row_id)
                 .unwrap_or_default()
                 .into_iter()
-                .filter_map(|message_id| messages_by_id.get(&message_id).copied().cloned())
+                .filter_map(|message_id| messages_by_id.get(&message_id).cloned())
                 .collect();
             let participants = participants_by_chat
                 .remove(&chat.row_id)
@@ -208,4 +212,58 @@ async fn load_library(
         .collect();
 
     Ok((messages, chats))
+}
+
+#[cfg(test)]
+mod tests {
+    use std::sync::Arc;
+
+    use super::assemble_message;
+    use crate::messages::row::{AttachmentRow, MessageRow};
+
+    #[test]
+    fn shared_message_membership_uses_single_allocation() {
+        let row = MessageRow {
+            row_id: 1,
+            guid: "shared-guid".to_owned(),
+            text: Some("hello".to_owned()),
+            attributed_body: None,
+            service: Some("iMessage".to_owned()),
+            sent_at: 1,
+            read_at: 0,
+            edited_at: 0,
+            retracted_at: 0,
+            is_from_me: true,
+            sender_id: None,
+            sender_service: None,
+            item_type: 0,
+            associated_message_guid: None,
+            associated_message_type: 0,
+            group_action_type: 0,
+            group_title: None,
+            handle_id: 0,
+            other_handle: 0,
+            other_handle_id: None,
+            share_status: false,
+            balloon_bundle_id: None,
+            payload_data: None,
+            is_audio_message: false,
+            cache_has_attachments: false,
+            is_forward: false,
+            is_auto_reply: false,
+            is_system_message: false,
+            is_service_message: false,
+            reply_to_guid: None,
+            thread_originator_guid: None,
+            expressive_send_style_id: None,
+        };
+        let message = Arc::new(assemble_message(
+            row,
+            Vec::<AttachmentRow>::new(),
+            vec![1, 2],
+        ));
+        let first = Arc::clone(&message);
+        let second = Arc::clone(&message);
+        assert!(Arc::ptr_eq(&first, &second));
+    }
 }

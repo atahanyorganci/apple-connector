@@ -3,6 +3,10 @@ use std::collections::HashMap;
 use apple_typedstream::{ArchivedObject, TypedValues, Value};
 
 use super::model::{AttributedBodyDecodeError, AttributedRun, BodyAttribute, MessageBody};
+use crate::apple_types::AttachmentId;
+
+/// Upper bound on attributed-body bytes passed to the typedstream decoder.
+pub const MAX_DECODE_BYTES: usize = 1024 * 1024;
 
 pub fn decode(data: &[u8]) -> Result<MessageBody, AttributedBodyDecodeError> {
     let value = apple_typedstream::from_slice(data)
@@ -144,7 +148,7 @@ fn attributes_from_map(
             "__kIMFileTransferGUIDAttributeName" => {
                 if let Some(guid) = value.as_str() {
                     attributes.push(BodyAttribute::FileTransfer {
-                        guid: guid.to_owned(),
+                        guid: AttachmentId::new(guid.to_owned()),
                         inline_sticker,
                     });
                     handled_file_transfer = true;
@@ -237,7 +241,7 @@ fn utf16_idx(text: &str, idx: usize, map: &[usize]) -> usize {
 #[cfg(test)]
 mod tests {
     use super::decode;
-    use crate::messages::model::BodyAttribute;
+    use crate::{apple_types::AttachmentId, messages::model::BodyAttribute};
 
     const HELLO_FIXTURE: &[u8] =
         include_bytes!("../../fixtures/messages/attributed-body-hello.bin");
@@ -305,7 +309,7 @@ mod tests {
         assert_eq!(
             body.runs[0].attributes,
             vec![BodyAttribute::FileTransfer {
-                guid: "714A7477-1CA9-4EA8-8D65-C3FB7DEB0C39".to_owned(),
+                guid: AttachmentId::new("714A7477-1CA9-4EA8-8D65-C3FB7DEB0C39"),
                 inline_sticker: false,
             }]
         );
@@ -328,7 +332,7 @@ mod tests {
         assert_eq!(
             body.runs[0].attributes,
             vec![BodyAttribute::FileTransfer {
-                guid: "D400984E-62E5-45A9-AE69-BADBA5E69A5C".to_owned(),
+                guid: AttachmentId::new("D400984E-62E5-45A9-AE69-BADBA5E69A5C"),
                 inline_sticker: true,
             }]
         );

@@ -1,5 +1,3 @@
-use std::path::Path;
-
 use sqlx::SqlitePool;
 
 use super::{
@@ -7,7 +5,6 @@ use super::{
         assemble_messages, chat_summary_from_row, fetch_attachments_for_messages,
         fetch_chat_ids_for_messages, fetch_chat_row_by_id, fetch_participants_for_chats,
     },
-    attachment_path::is_present_on_disk,
     attachments::assemble_attachment,
     model::{Attachment, Chat, Message},
     queries::{
@@ -83,23 +80,19 @@ impl<'a> MessageRepository<'a> {
                 latest.message_id AS "message_id!"
             FROM chat
             INNER JOIN (
-                SELECT
-                    cmj1.chat_id AS chat_id,
-                    cmj1.message_date AS message_date,
-                    cmj1.message_id AS message_id
-                FROM chat_message_join cmj1
-                WHERE NOT EXISTS (
-                    SELECT 1
-                    FROM chat_message_join cmj2
-                    WHERE cmj2.chat_id = cmj1.chat_id
-                      AND (
-                        cmj2.message_date > cmj1.message_date
-                        OR (
-                            cmj2.message_date = cmj1.message_date
-                            AND cmj2.message_id > cmj1.message_id
-                        )
-                      )
+                SELECT chat_id, message_date, message_id
+                FROM (
+                    SELECT
+                        chat_id,
+                        message_date,
+                        message_id,
+                        ROW_NUMBER() OVER (
+                            PARTITION BY chat_id
+                            ORDER BY message_date DESC, message_id DESC
+                        ) AS rn
+                    FROM chat_message_join
                 )
+                WHERE rn = 1
             ) latest ON chat.ROWID = latest.chat_id
             WHERE (
                 ?1 IS NULL
@@ -262,7 +255,14 @@ impl<'a> MessageRepository<'a> {
         limit: u32,
         cursor: Option<MessageSearchCursor>,
     ) -> Result<Page<Message>, sqlx::Error> {
-        use super::search::{CANDIDATE_CHUNK_SIZE, MESSAGE_SCAN_BUDGET, text_matches};
+        use std::collections::HashMap;
+
+        use super::{
+            assembly::assemble_messages_with_bodies,
+            classify::message_body,
+            model::MessageBody,
+            search::{CANDIDATE_CHUNK_SIZE, MESSAGE_SCAN_BUDGET, text_matches_needle},
+        };
 
         let Some(query) = filters.q.as_deref() else {
             return Ok(Page {
@@ -271,7 +271,9 @@ impl<'a> MessageRepository<'a> {
                 next_cursor: None,
             });
         };
+        let needle = query.to_lowercase();
         let mut matching_rows = Vec::new();
+        let mut bodies_by_message: HashMap<i64, MessageBody> = HashMap::new();
         let mut scanned = 0_u32;
         let mut scan_position = cursor.map(|value| (value.date, value.row_id));
         let mut reached_end = false;
@@ -294,7 +296,16 @@ impl<'a> MessageRepository<'a> {
                 scanned += 1;
                 scan_position = Some((row.sent_at, row.row_id));
 
-                if text_matches(&row, query) {
+                let cached_body = if !super::search::has_searchable_plain_text(&row)
+                    && row.attributed_body.is_some()
+                {
+                    Some(message_body(&row))
+                } else {
+                    None
+                };
+                if text_matches_needle(&row, &needle, cached_body.as_ref()) {
+                    let body = cached_body.unwrap_or_else(|| message_body(&row));
+                    bodies_by_message.insert(row.row_id, body);
                     matching_rows.push(row);
                     if matching_rows.len() > limit as usize {
                         break 'search;
@@ -335,7 +346,12 @@ impl<'a> MessageRepository<'a> {
         let attachments_by_message =
             fetch_attachments_for_messages(self.pool, &message_ids).await?;
         let chat_ids_by_message = fetch_chat_ids_for_messages(self.pool, &message_ids).await?;
-        let items = assemble_messages(matching_rows, attachments_by_message, chat_ids_by_message);
+        let items = assemble_messages_with_bodies(
+            matching_rows,
+            attachments_by_message,
+            chat_ids_by_message,
+            Some(bodies_by_message),
+        );
 
         Ok(Page {
             items,
@@ -364,13 +380,12 @@ impl<'a> MessageRepository<'a> {
     pub async fn get_attachment_by_guid(
         &self,
         guid: &str,
-        attachment_root: &Path,
     ) -> Result<Option<Attachment>, sqlx::Error> {
         let Some(row) = fetch_attachment_by_guid(self.pool, guid).await? else {
             return Ok(None);
         };
 
-        Ok(Some(assemble_attachment_by_guid(&row, attachment_root)))
+        Ok(Some(assemble_attachment_by_guid(&row)))
     }
 
     async fn messages_page_with_cursor<F>(
@@ -441,7 +456,7 @@ fn chat_list_cursor_from_row(row: &ChatActivityRow) -> ChatListCursor {
     }
 }
 
-fn assemble_attachment_by_guid(row: &AttachmentByGuidRow, attachment_root: &Path) -> Attachment {
+fn assemble_attachment_by_guid(row: &AttachmentByGuidRow) -> Attachment {
     let attachment_row = AttachmentRow {
         message_id: 0,
         guid: row.guid.clone(),
@@ -457,9 +472,7 @@ fn assemble_attachment_by_guid(row: &AttachmentByGuidRow, attachment_root: &Path
         emoji_description: row.emoji_description.clone(),
     };
     let body_refs = std::collections::HashMap::new();
-    let mut attachment = assemble_attachment(&attachment_row, &body_refs);
-    attachment.present_on_disk = is_present_on_disk(attachment_root, row.filename.as_deref());
-    attachment
+    assemble_attachment(&attachment_row, &body_refs)
 }
 
 #[cfg(test)]
@@ -469,6 +482,7 @@ mod tests {
     use super::{MessageListCursor, MessageRepository};
     use crate::{
         api::cursor::{ChatMessageCursor, GlobalMessageCursor, decode},
+        apple_types::MessageId,
         db::connect_pool,
         fixtures::FixtureDb,
         messages::search::MessageFilters,
@@ -648,8 +662,59 @@ mod tests {
             .await?
             .ok_or("fixture message not found")?;
 
-        assert_eq!(message.envelope.guid, "fixture-message-guid");
+        assert_eq!(
+            message.envelope.guid,
+            MessageId::new("fixture-message-guid")
+        );
         assert!(!message.envelope.chat_ids.is_empty());
+        Ok(())
+    }
+    const LIST_CHATS_LATEST_ACTIVITY_SQL: &str = r"
+            SELECT
+                chat.ROWID AS row_id,
+                chat.guid AS guid,
+                chat.chat_identifier,
+                chat.display_name,
+                chat.room_name,
+                chat.service_name,
+                chat.style,
+                latest.message_date AS message_date,
+                latest.message_id AS message_id
+            FROM chat
+            INNER JOIN (
+                SELECT chat_id, message_date, message_id
+                FROM (
+                    SELECT
+                        chat_id,
+                        message_date,
+                        message_id,
+                        ROW_NUMBER() OVER (
+                            PARTITION BY chat_id
+                            ORDER BY message_date DESC, message_id DESC
+                        ) AS rn
+                    FROM chat_message_join
+                )
+                WHERE rn = 1
+            ) latest ON chat.ROWID = latest.chat_id
+            ORDER BY latest.message_date DESC, latest.message_id DESC, chat.ROWID DESC
+            LIMIT 10
+    ";
+
+    #[tokio::test]
+    async fn list_chats_latest_activity_query_plan_uses_window_function()
+    -> Result<(), Box<dyn std::error::Error>> {
+        let fixture = seed_pagination_fixture().await?;
+        let pool = connect_pool(fixture.path()).await?;
+
+        let plan = crate::fixtures::explain_query_plan(&pool, LIST_CHATS_LATEST_ACTIVITY_SQL)
+            .await?
+            .join("\n");
+        eprintln!("list_chats latest-activity EXPLAIN QUERY PLAN:\n{plan}");
+
+        assert!(
+            !plan.contains("NOT EXISTS"),
+            "expected window-function plan without correlated NOT EXISTS, plan:\n{plan}"
+        );
         Ok(())
     }
 }

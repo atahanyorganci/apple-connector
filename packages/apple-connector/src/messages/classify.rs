@@ -1,14 +1,25 @@
 use super::{
     attachments, attributed_body, balloon,
     model::{
-        AttachmentMessage, AudioMessage, GroupActionKind, GroupEvent, MessageBody, MessageContent,
-        Reaction, ReactionAction, ReactionKind, ShareMyLocationMessage, ShareMyLocationStatus,
-        SharePlayMessage, SystemMessage, Tapback, TextMessage, UnknownMessage,
+        AttachmentMessage, AttributedBodyDecodeError, AudioMessage, GroupActionKind, GroupEvent,
+        MessageBody, MessageContent, Reaction, ReactionAction, ReactionKind,
+        ShareMyLocationMessage, ShareMyLocationStatus, SharePlayMessage, SystemMessage, Tapback,
+        TextMessage, UnknownMessage,
     },
     row::{AttachmentRow, MessageRow},
 };
+use crate::apple_types::MessageId;
 
 pub fn classify(row: &MessageRow, attachments: &[AttachmentRow]) -> MessageContent {
+    let body = message_body(row);
+    classify_with_body(row, attachments, &body)
+}
+
+pub fn classify_with_body(
+    row: &MessageRow,
+    attachments: &[AttachmentRow],
+    body: &MessageBody,
+) -> MessageContent {
     if let Some(reaction) = parse_reaction(row) {
         return MessageContent::Reaction(reaction);
     }
@@ -17,12 +28,12 @@ pub fn classify(row: &MessageRow, attachments: &[AttachmentRow]) -> MessageConte
         return MessageContent::System(SystemMessage {
             is_system: row.is_system_message,
             is_service: row.is_service_message,
-            text: message_body(row).text,
+            text: body.text.clone(),
         });
     }
 
     match row.item_type {
-        0 => classify_normal(row, attachments),
+        0 => classify_normal(row, attachments, body),
         1..=3 => MessageContent::GroupEvent(GroupEvent {
             action: map_group_action(row),
             title: row.group_title.clone(),
@@ -39,9 +50,9 @@ pub fn classify(row: &MessageRow, attachments: &[AttachmentRow]) -> MessageConte
         6 => MessageContent::SharePlay(SharePlayMessage {
             balloon_bundle_id: row.balloon_bundle_id.clone(),
             payload_data: row.payload_data.clone(),
-            text: message_body(row).text,
+            text: body.text.clone(),
         }),
-        _ => unknown(row, attachments),
+        _ => unknown(row, attachments, body),
     }
 }
 
@@ -68,7 +79,11 @@ fn map_group_action(row: &MessageRow) -> GroupActionKind {
     }
 }
 
-fn classify_normal(row: &MessageRow, attachments: &[AttachmentRow]) -> MessageContent {
+fn classify_normal(
+    row: &MessageRow,
+    attachments: &[AttachmentRow],
+    body: &MessageBody,
+) -> MessageContent {
     if let Some(bundle_id) = row
         .balloon_bundle_id
         .clone()
@@ -77,40 +92,44 @@ fn classify_normal(row: &MessageRow, attachments: &[AttachmentRow]) -> MessageCo
         return MessageContent::AppBalloon(balloon::decode(
             bundle_id,
             row.payload_data.as_deref(),
-            message_body(row).text,
+            body.text.clone(),
         ));
     }
 
-    let body = message_body(row);
-    let attachments = attachments::assemble_attachments(attachments, &body);
+    let attachments = attachments::assemble_attachments(attachments, body);
 
     if row.is_audio_message {
-        return MessageContent::Audio(AudioMessage { body, attachments });
+        return MessageContent::Audio(AudioMessage {
+            body: body.clone(),
+            attachments,
+        });
     }
 
     if !attachments.is_empty() || row.cache_has_attachments {
-        return MessageContent::Attachment(AttachmentMessage { body, attachments });
+        return MessageContent::Attachment(AttachmentMessage {
+            body: body.clone(),
+            attachments,
+        });
     }
 
     MessageContent::Text(TextMessage {
-        body,
+        body: body.clone(),
         is_forward: row.is_forward,
         is_auto_reply: row.is_auto_reply,
         expressive_send_style_id: row.expressive_send_style_id.clone(),
     })
 }
 
-fn unknown(row: &MessageRow, attachments: &[AttachmentRow]) -> MessageContent {
-    let body = message_body(row);
+fn unknown(row: &MessageRow, attachments: &[AttachmentRow], body: &MessageBody) -> MessageContent {
     MessageContent::Unknown(UnknownMessage {
         item_type: row.item_type,
         associated_message_type: row.associated_message_type,
         text: body.text.clone(),
-        attachments: attachments::assemble_attachments(attachments, &body),
+        attachments: attachments::assemble_attachments(attachments, body),
     })
 }
 
-fn message_body(row: &MessageRow) -> MessageBody {
+pub fn message_body(row: &MessageRow) -> MessageBody {
     let plain_text = row
         .text
         .as_deref()
@@ -119,6 +138,11 @@ fn message_body(row: &MessageRow) -> MessageBody {
         .map(str::to_owned);
 
     match row.attributed_body.as_deref() {
+        Some(data) if data.len() > attributed_body::MAX_DECODE_BYTES => MessageBody {
+            text: plain_text,
+            runs: Vec::new(),
+            attributed_body_error: Some(AttributedBodyDecodeError::PayloadTooLarge),
+        },
         Some(data) => match attributed_body::decode(data) {
             Ok(body) => body,
             Err(error) => MessageBody {
@@ -141,7 +165,7 @@ fn parse_reaction(row: &MessageRow) -> Option<Reaction> {
         return None;
     }
 
-    let target_guid = row.associated_message_guid.clone();
+    let target_guid = row.associated_message_guid.clone().map(MessageId::new);
 
     if reaction_type == 3 {
         return Some(Reaction {

@@ -1,0 +1,122 @@
+{
+  "db_name": "SQLite",
+  "query": "\n            SELECT\n                chat.ROWID AS \"row_id!\",\n                chat.guid AS \"guid!\",\n                chat.chat_identifier,\n                chat.display_name,\n                chat.room_name,\n                chat.service_name,\n                chat.style,\n                latest.message_date AS \"message_date!\",\n                latest.message_id AS \"message_id!\"\n            FROM chat\n            INNER JOIN (\n                SELECT chat_id, message_date, message_id\n                FROM (\n                    SELECT\n                        chat_id,\n                        message_date,\n                        message_id,\n                        ROW_NUMBER() OVER (\n                            PARTITION BY chat_id\n                            ORDER BY message_date DESC, message_id DESC\n                        ) AS rn\n                    FROM chat_message_join\n                )\n                WHERE rn = 1\n            ) latest ON chat.ROWID = latest.chat_id\n            WHERE (\n                ?1 IS NULL\n                OR latest.message_date < ?1\n                OR (\n                    latest.message_date = ?1\n                    AND latest.message_id < ?2\n                )\n                OR (\n                    latest.message_date = ?1\n                    AND latest.message_id = ?2\n                    AND chat.ROWID < ?3\n                )\n            )\n            ORDER BY latest.message_date DESC, latest.message_id DESC, chat.ROWID DESC\n            LIMIT ?4\n            ",
+  "describe": {
+    "columns": [
+      {
+        "name": "row_id!",
+        "ordinal": 0,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "chat",
+            "name": "ROWID"
+          }
+        }
+      },
+      {
+        "name": "guid!",
+        "ordinal": 1,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "chat",
+            "name": "guid"
+          }
+        }
+      },
+      {
+        "name": "chat_identifier",
+        "ordinal": 2,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "chat",
+            "name": "chat_identifier"
+          }
+        }
+      },
+      {
+        "name": "display_name",
+        "ordinal": 3,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "chat",
+            "name": "display_name"
+          }
+        }
+      },
+      {
+        "name": "room_name",
+        "ordinal": 4,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "chat",
+            "name": "room_name"
+          }
+        }
+      },
+      {
+        "name": "service_name",
+        "ordinal": 5,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "chat",
+            "name": "service_name"
+          }
+        }
+      },
+      {
+        "name": "style",
+        "ordinal": 6,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "chat",
+            "name": "style"
+          }
+        }
+      },
+      {
+        "name": "message_date!",
+        "ordinal": 7,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "chat_message_join",
+            "name": "message_date"
+          }
+        }
+      },
+      {
+        "name": "message_id!",
+        "ordinal": 8,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "chat_message_join",
+            "name": "message_id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 4
+    },
+    "nullable": [
+      false,
+      false,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true
+    ]
+  },
+  "hash": "41e94a4871df00baade5a21224601beea30d6d90f91babddb99e58c3a2362152"
+}

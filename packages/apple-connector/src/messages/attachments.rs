@@ -1,13 +1,10 @@
-use std::{
-    collections::HashMap,
-    env,
-    path::{Path, PathBuf},
-};
+use std::{collections::HashMap, env, path::PathBuf};
 
 use super::{
     model::{Attachment, AttachmentBodyRef, AttachmentKind, BodyAttribute, MessageBody},
     row::AttachmentRow,
 };
+use crate::apple_types::AttachmentId;
 
 /// Apple `attachment.transfer_state` value for a finished transfer.
 pub const TRANSFER_STATE_COMPLETE: i64 = 5;
@@ -54,14 +51,12 @@ pub(crate) fn assemble_attachment(
         .as_deref()
         .and_then(resolve_attachment_path)
         .map(|path| path.to_string_lossy().into_owned());
-    let present_on_disk = resolved_path
-        .as_deref()
-        .is_some_and(|path| Path::new(path).is_file());
+    let present_on_disk = false;
     let kind = classify_kind(row);
 
     Attachment {
-        guid: row.guid.clone(),
-        original_guid: row.original_guid.clone(),
+        guid: AttachmentId::new(row.guid.clone()),
+        original_guid: AttachmentId::new(row.original_guid.clone()),
         filename: row.filename.clone(),
         resolved_path,
         uti: row.uti.clone(),
@@ -192,9 +187,12 @@ mod tests {
     use super::{
         TRANSFER_STATE_COMPLETE, assemble_attachments, classify_kind, resolve_attachment_path,
     };
-    use crate::messages::{
-        model::{AttachmentBodyRef, AttachmentKind, AttributedRun, BodyAttribute, MessageBody},
-        row::AttachmentRow,
+    use crate::{
+        apple_types::AttachmentId,
+        messages::{
+            model::{AttachmentBodyRef, AttachmentKind, AttributedRun, BodyAttribute, MessageBody},
+            row::AttachmentRow,
+        },
     };
 
     fn row(guid: &str) -> AttachmentRow {
@@ -255,7 +253,7 @@ mod tests {
                     end: 3,
                     part: Some(0),
                     attributes: vec![BodyAttribute::FileTransfer {
-                        guid: "at_0_ABC".to_owned(),
+                        guid: AttachmentId::new("at_0_ABC"),
                         inline_sticker: false,
                     }],
                 },
@@ -296,7 +294,7 @@ mod tests {
                 end: 3,
                 part: Some(0),
                 attributes: vec![BodyAttribute::FileTransfer {
-                    guid: "orig-guid".to_owned(),
+                    guid: AttachmentId::new("orig-guid"),
                     inline_sticker: true,
                 }],
             }],
