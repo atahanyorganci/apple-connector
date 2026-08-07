@@ -15,7 +15,7 @@ use crate::{
             NoteDetailDto, NotePageDto,
             note_convert::{note_detail_to_dto, note_page_to_dto},
         },
-        error::{ApiError, ErrorResponse},
+        error::{ApiError, ErrorCode, ErrorResponse},
         params::{NoteIdPath, NoteListParams},
         router::AppState,
     },
@@ -124,7 +124,13 @@ pub async fn get_note(
     })
     .await
     .map_err(ApiError::from_sqlx)?
-    .ok_or_else(|| ApiError::not_found(format!("note {note_id} not found")))?;
+    .ok_or_else(|| {
+        ApiError::with_details(
+            ErrorCode::NoteNotFound,
+            format!("note {note_id} not found"),
+            serde_json::json!({ "note_id": note_id.as_str() }),
+        )
+    })?;
 
     let attachments = run_timed_query(|| async {
         NoteRepository::with_entity_ids(pool, Arc::clone(&note_entity_ids))
@@ -178,7 +184,13 @@ pub async fn get_note_contents(
     })
     .await
     .map_err(ApiError::from_sqlx)?
-    .ok_or_else(|| ApiError::not_found(format!("note {note_id} not found")))?;
+    .ok_or_else(|| {
+        ApiError::with_details(
+            ErrorCode::NoteNotFound,
+            format!("note {note_id} not found"),
+            serde_json::json!({ "note_id": note_id.as_str() }),
+        )
+    })?;
 
     let tags = run_timed_query(|| async {
         NoteRepository::with_entity_ids(pool, Arc::clone(&note_entity_ids))

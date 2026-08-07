@@ -14,7 +14,7 @@ use super::health::require_notes_db;
 use crate::{
     api::{
         dto::{NoteAttachmentDetailDto, note_convert::note_attachment_detail_to_dto},
-        error::{ApiError, ErrorResponse},
+        error::{ApiError, ErrorCode, ErrorResponse},
         params::{ConditionalRequestHeaders, NoteAttachmentIdPath, RangeRequestHeader},
         router::AppState,
     },
@@ -107,7 +107,13 @@ async fn resolve_attachment(state: &AppState, id: &str) -> Result<NoteAttachment
     })
     .await
     .map_err(ApiError::from_sqlx)?
-    .ok_or_else(|| ApiError::not_found(format!("note attachment {id} not found")))
+    .ok_or_else(|| {
+        ApiError::with_details(
+            ErrorCode::NoteAttachmentNotFound,
+            format!("note attachment {id} not found"),
+            serde_json::json!({ "id": id }),
+        )
+    })
 }
 
 async fn resolve_attachment_path(
@@ -115,14 +121,20 @@ async fn resolve_attachment_path(
     id: &str,
 ) -> Result<(NoteAttachment, std::path::PathBuf), ApiError> {
     let attachment = resolve_attachment(state, id).await?;
-    let account_id = attachment
-        .account_id
-        .clone()
-        .ok_or_else(|| ApiError::not_found(format!("note attachment {id} not found")))?;
-    let filename = attachment
-        .filename
-        .clone()
-        .ok_or_else(|| ApiError::not_found(format!("note attachment {id} not found")))?;
+    let account_id = attachment.account_id.clone().ok_or_else(|| {
+        ApiError::with_details(
+            ErrorCode::NoteAttachmentNotFound,
+            format!("note attachment {id} not found"),
+            serde_json::json!({ "id": id }),
+        )
+    })?;
+    let filename = attachment.filename.clone().ok_or_else(|| {
+        ApiError::with_details(
+            ErrorCode::NoteAttachmentNotFound,
+            format!("note attachment {id} not found"),
+            serde_json::json!({ "id": id }),
+        )
+    })?;
 
     let validated = validate_attachment_path_async(
         &state.blocking_io,
@@ -132,7 +144,13 @@ async fn resolve_attachment_path(
     )
     .await
     .map_err(|_| ApiError::internal("blocking attachment validation failed"))?
-    .map_err(|_| ApiError::not_found(format!("note attachment {id} not found")))?;
+    .map_err(|_| {
+        ApiError::with_details(
+            ErrorCode::NoteAttachmentNotFound,
+            format!("note attachment {id} not found"),
+            serde_json::json!({ "id": id }),
+        )
+    })?;
 
     Ok((attachment, validated.canonical_path))
 }
@@ -155,7 +173,7 @@ async fn serve_bytes(
     let validators = file_validators_async(&state.blocking_io, path.clone())
         .await
         .map_err(|_| ApiError::internal("blocking attachment metadata read failed"))?
-        .map_err(|_| ApiError::not_found("note attachment is not available"))?;
+        .map_err(|_| ApiError::new(ErrorCode::NoteAttachmentUnavailable))?;
     let filename = path
         .file_name()
         .and_then(|name| name.to_str())

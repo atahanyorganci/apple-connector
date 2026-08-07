@@ -13,7 +13,7 @@ use crate::{
             NoteFolderDetailDto, NoteFolderPageDto, NotePageDto,
             note_convert::{note_folder_detail_to_dto, note_folder_page_to_dto, note_page_to_dto},
         },
-        error::{ApiError, ErrorResponse},
+        error::{ApiError, ErrorCode, ErrorResponse},
         params::{NoteFolderIdPath, NoteFolderKey, NoteListParams, PageParams},
         router::AppState,
     },
@@ -107,7 +107,13 @@ pub async fn get_note_folder(
         .await
         .map_err(ApiError::from_sqlx)?,
     }
-    .ok_or_else(|| ApiError::not_found(format!("note folder {folder_id} not found")))?;
+    .ok_or_else(|| {
+        ApiError::with_details(
+            ErrorCode::NoteFolderNotFound,
+            format!("note folder {folder_id} not found"),
+            serde_json::json!({ "folder_id": folder_id.as_str() }),
+        )
+    })?;
 
     Ok(Json(note_folder_detail_to_dto(&folder)))
 }
@@ -145,7 +151,13 @@ pub async fn list_folder_notes(
                 .get_folder_by_id(id)
                 .await
                 .map_err(ApiError::from_sqlx)?
-                .ok_or_else(|| ApiError::not_found(format!("note folder {folder_id} not found")))?;
+                .ok_or_else(|| {
+                    ApiError::with_details(
+                        ErrorCode::NoteFolderNotFound,
+                        format!("note folder {folder_id} not found"),
+                        serde_json::json!({ "folder_id": folder_id.as_str() }),
+                    )
+                })?;
             folder.row_id.get()
         }
     };
@@ -196,8 +208,10 @@ pub async fn list_folder_notes(
             page.next_cursor,
             limit,
         ))),
-        Err(FolderLookupError::NotFound) => Err(ApiError::not_found(format!(
-            "note folder {folder_id} not found"
-        ))),
+        Err(FolderLookupError::NotFound) => Err(ApiError::with_details(
+            ErrorCode::NoteFolderNotFound,
+            format!("note folder {folder_id} not found"),
+            serde_json::json!({ "folder_id": folder_id.as_str() }),
+        )),
     }
 }
