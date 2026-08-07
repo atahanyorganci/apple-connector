@@ -15,6 +15,7 @@ use super::{
         AddressRow, ContactRow, ContainerRow, EmailRow, GroupRow, PhoneRow, PhotoRow, SocialRow,
         UrlRow,
     },
+    schema::ParentGroupsJoin,
     search::ContactFilterBinds,
 };
 
@@ -162,17 +163,22 @@ where
 pub async fn fetch_filtered_contacts<'e, E>(
     executor: E,
     contact_ent: i64,
+    parent_groups: &ParentGroupsJoin,
     binds: &ContactFilterBinds,
 ) -> Result<Vec<ContactRow>, sqlx::Error>
 where
     E: SqliteExecutor<'e>,
 {
-    sqlx::query_as!(
-        ContactRow,
+    let ParentGroupsJoin {
+        table,
+        contact_col,
+        group_col,
+    } = parent_groups;
+    let sql = format!(
         r#"
         SELECT
-            r.Z_PK AS "row_id!",
-            r.ZUNIQUEID AS "unique_id!",
+            r.Z_PK AS row_id,
+            r.ZUNIQUEID AS unique_id,
             r.ZFIRSTNAME AS first_name,
             r.ZLASTNAME AS last_name,
             r.ZMIDDLENAME AS middle_name,
@@ -209,9 +215,9 @@ where
           AND (
             ?4 IS NULL
             OR r.Z_PK IN (
-                SELECT pg.Z_22CONTACTS
-                FROM Z_22PARENTGROUPS pg
-                JOIN ZABCDRECORD g ON g.Z_PK = pg.Z_19PARENTGROUPS1
+                SELECT pg.{contact_col}
+                FROM {table} pg
+                JOIN ZABCDRECORD g ON g.Z_PK = pg.{group_col}
                 WHERE lower(substr(g.ZUNIQUEID, 1, instr(g.ZUNIQUEID, ':') - 1)) = lower(?4)
             )
           )
@@ -219,20 +225,23 @@ where
         ORDER BY r.Z_PK DESC
         LIMIT ?6
         "#,
-        contact_ent,
-        binds.q_pattern,
-        binds.container_id,
-        binds.group_id,
-        binds.cursor_row_id,
-        binds.limit,
-    )
-    .fetch_all(executor)
-    .await
+    );
+
+    sqlx::query_as::<_, ContactRow>(sqlx::AssertSqlSafe(sql))
+        .bind(contact_ent)
+        .bind(binds.q_pattern.clone())
+        .bind(binds.container_id.clone())
+        .bind(binds.group_id.clone())
+        .bind(binds.cursor_row_id)
+        .bind(binds.limit)
+        .fetch_all(executor)
+        .await
 }
 
 pub async fn fetch_group_contacts<'e, E>(
     executor: E,
     contact_ent: i64,
+    parent_groups: &ParentGroupsJoin,
     group_id: &str,
     cursor_row_id: Option<i64>,
     limit: i64,
@@ -240,12 +249,16 @@ pub async fn fetch_group_contacts<'e, E>(
 where
     E: SqliteExecutor<'e>,
 {
-    sqlx::query_as!(
-        ContactRow,
+    let ParentGroupsJoin {
+        table,
+        contact_col,
+        group_col,
+    } = parent_groups;
+    let sql = format!(
         r#"
         SELECT
-            r.Z_PK AS "row_id!",
-            r.ZUNIQUEID AS "unique_id!",
+            r.Z_PK AS row_id,
+            r.ZUNIQUEID AS unique_id,
             r.ZFIRSTNAME AS first_name,
             r.ZLASTNAME AS last_name,
             r.ZMIDDLENAME AS middle_name,
@@ -267,22 +280,24 @@ where
         LEFT JOIN ZABCDLIKENESS l ON l.ZOWNER = r.Z_PK AND l.ZISPRIMARY = 1
         WHERE r.Z_ENT = ?1
           AND r.Z_PK IN (
-              SELECT pg.Z_22CONTACTS
-              FROM Z_22PARENTGROUPS pg
-              JOIN ZABCDRECORD g ON g.Z_PK = pg.Z_19PARENTGROUPS1
+              SELECT pg.{contact_col}
+              FROM {table} pg
+              JOIN ZABCDRECORD g ON g.Z_PK = pg.{group_col}
               WHERE lower(substr(g.ZUNIQUEID, 1, instr(g.ZUNIQUEID, ':') - 1)) = lower(?2)
           )
           AND (?3 IS NULL OR r.Z_PK < ?3)
         ORDER BY r.Z_PK DESC
         LIMIT ?4
         "#,
-        contact_ent,
-        group_id,
-        cursor_row_id,
-        limit,
-    )
-    .fetch_all(executor)
-    .await
+    );
+
+    sqlx::query_as::<_, ContactRow>(sqlx::AssertSqlSafe(sql))
+        .bind(contact_ent)
+        .bind(group_id)
+        .bind(cursor_row_id)
+        .bind(limit)
+        .fetch_all(executor)
+        .await
 }
 
 pub async fn fetch_contact_by_api_id<'e, E>(
@@ -906,24 +921,31 @@ where
 
 pub async fn fetch_group_ids_for_contact_ids<'e, E>(
     executor: E,
+    parent_groups: &ParentGroupsJoin,
     row_ids_json: &str,
 ) -> Result<Vec<GroupOwnedRow>, sqlx::Error>
 where
     E: SqliteExecutor<'e>,
 {
     record_test_query();
-    sqlx::query_as!(
-        GroupOwnedRow,
+    let ParentGroupsJoin {
+        table,
+        contact_col,
+        group_col,
+    } = parent_groups;
+    let sql = format!(
         r#"
         SELECT
-            pg.Z_22CONTACTS AS "owner!",
-            g.ZUNIQUEID AS "unique_id!"
-        FROM Z_22PARENTGROUPS pg
-        JOIN ZABCDRECORD g ON g.Z_PK = pg.Z_19PARENTGROUPS1
-        WHERE pg.Z_22CONTACTS IN (SELECT value FROM json_each(?1))
+            pg.{contact_col} AS owner,
+            g.ZUNIQUEID AS unique_id
+        FROM {table} pg
+        JOIN ZABCDRECORD g ON g.Z_PK = pg.{group_col}
+        WHERE pg.{contact_col} IN (SELECT value FROM json_each(?1))
         "#,
-        row_ids_json,
-    )
-    .fetch_all(executor)
-    .await
+    );
+
+    sqlx::query_as::<_, GroupOwnedRow>(sqlx::AssertSqlSafe(sql))
+        .bind(row_ids_json)
+        .fetch_all(executor)
+        .await
 }

@@ -347,6 +347,14 @@ impl ContactsFixtureDb {
         Ok(fixture)
     }
 
+    /// Seeded fixture with the `Z_22PARENTGROUPS` join table dropped, for
+    /// exercising explicit failure when the parentGroups join is missing.
+    pub async fn seeded_without_parent_groups_join() -> io::Result<Self> {
+        let fixture = Self::seeded().await?;
+        drop_parent_groups_join(fixture.path()).await?;
+        Ok(fixture)
+    }
+
     pub fn path(&self) -> &Path {
         &self.path
     }
@@ -411,6 +419,25 @@ pub async fn seed_extra_contacts(path: &Path, count: u32) -> io::Result<()> {
         .await
         .map_err(io::Error::other)?;
     }
+
+    connection.close().await.ok();
+    Ok(())
+}
+
+async fn drop_parent_groups_join(path: &Path) -> io::Result<()> {
+    let options = SqliteConnectOptions::new()
+        .filename(path)
+        .read_only(false)
+        .create_if_missing(false);
+
+    let mut connection = SqliteConnection::connect_with(&options)
+        .await
+        .map_err(io::Error::other)?;
+
+    sqlx::query("DROP TABLE Z_22PARENTGROUPS")
+        .execute(&mut connection)
+        .await
+        .map_err(io::Error::other)?;
 
     connection.close().await.ok();
     Ok(())

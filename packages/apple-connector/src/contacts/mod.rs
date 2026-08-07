@@ -8,6 +8,7 @@ mod model;
 mod queries;
 mod repository;
 mod row;
+mod schema;
 mod search;
 mod sources;
 
@@ -21,5 +22,9 @@ pub use model::{
 };
 pub use repository::{ContactsRepository, ContainerResolveMetadata, GroupResolveMetadata, Page};
 pub use row::api_id_from_unique_id;
+pub use schema::{
+    ContactsSchema, ParentGroupsJoin, ParentGroupsSchemaError, discover_parent_groups_join,
+    load_contacts_schema,
+};
 pub use search::ContactFilters;
 pub use sources::ContactsSources;

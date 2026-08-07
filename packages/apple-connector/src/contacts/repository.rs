@@ -20,6 +20,7 @@ use super::{
         fetch_urls_for_contact_ids,
     },
     row::api_id_from_unique_id,
+    schema::{ContactsSchema, ParentGroupsJoin, discover_parent_groups_join},
     search::ContactFilters,
 };
 use crate::{
@@ -56,6 +57,7 @@ pub struct ContactsRepository<'a> {
     pool: &'a SqlitePool,
     source_id: SourceId,
     entity_ids: Option<Arc<EntityIds>>,
+    parent_groups: Option<Arc<ParentGroupsJoin>>,
 }
 
 impl<'a> ContactsRepository<'a> {
@@ -64,6 +66,7 @@ impl<'a> ContactsRepository<'a> {
             pool,
             source_id,
             entity_ids: None,
+            parent_groups: None,
         }
     }
 
@@ -76,6 +79,20 @@ impl<'a> ContactsRepository<'a> {
             pool,
             source_id,
             entity_ids: Some(entity_ids),
+            parent_groups: None,
+        }
+    }
+
+    pub fn with_schema(
+        pool: &'a SqlitePool,
+        source_id: SourceId,
+        schema: Arc<ContactsSchema>,
+    ) -> Self {
+        Self {
+            pool,
+            source_id,
+            entity_ids: Some(Arc::new(schema.entity_ids.clone())),
+            parent_groups: Some(Arc::new(schema.parent_groups.clone())),
         }
     }
 
@@ -84,6 +101,16 @@ impl<'a> ContactsRepository<'a> {
             return Ok(Arc::clone(entity_ids));
         }
         load_entity_ids(self.pool).await.map(Arc::new)
+    }
+
+    async fn parent_groups(&self) -> Result<Arc<ParentGroupsJoin>, sqlx::Error> {
+        if let Some(parent_groups) = &self.parent_groups {
+            return Ok(Arc::clone(parent_groups));
+        }
+        let entity_ids = self.entity_ids().await?;
+        discover_parent_groups_join(self.pool, &entity_ids)
+            .await
+            .map(Arc::new)
     }
 
     pub fn source_id(&self) -> &SourceId {
@@ -146,9 +173,11 @@ impl<'a> ContactsRepository<'a> {
         filters: &ContactFilters,
     ) -> Result<Page<ContactSummary>, sqlx::Error> {
         let entity_ids = self.entity_ids().await?;
+        let parent_groups = self.parent_groups().await?;
         let fetch_limit = i64::from(limit) + 1;
         let binds = filters.bind_values(cursor.map(|value| value.row_id), fetch_limit);
-        let rows = fetch_filtered_contacts(self.pool, entity_ids.contact, &binds).await?;
+        let rows =
+            fetch_filtered_contacts(self.pool, entity_ids.contact, &parent_groups, &binds).await?;
         Ok(split_page_skipping(
             rows,
             limit,
@@ -167,10 +196,12 @@ impl<'a> ContactsRepository<'a> {
         cursor: Option<GroupContactCursor>,
     ) -> Result<Page<ContactSummary>, sqlx::Error> {
         let entity_ids = self.entity_ids().await?;
+        let parent_groups = self.parent_groups().await?;
         let fetch_limit = i64::from(limit) + 1;
         let rows = fetch_group_contacts(
             self.pool,
             entity_ids.contact,
+            &parent_groups,
             group_id,
             cursor.map(|value| value.row_id),
             fetch_limit,
@@ -266,6 +297,7 @@ impl<'a> ContactsRepository<'a> {
             return Ok(Vec::new());
         }
         let entity_ids = self.entity_ids().await?;
+        let parent_groups = self.parent_groups().await?;
 
         let row_ids: Vec<i64> = rows.iter().map(|row| row.row_id).collect();
         let fetched =
@@ -288,7 +320,7 @@ impl<'a> ContactsRepository<'a> {
         let addresses = fetch_addresses_for_contact_ids(self.pool, &ids_json).await?;
         let urls = fetch_urls_for_contact_ids(self.pool, &ids_json).await?;
         let socials = fetch_socials_for_contact_ids(self.pool, &ids_json).await?;
-        let groups = fetch_group_ids_for_contact_ids(self.pool, &ids_json).await?;
+        let groups = fetch_group_ids_for_contact_ids(self.pool, &parent_groups, &ids_json).await?;
 
         let phones_by_owner = group_phones(phones);
         let emails_by_owner = group_emails(emails);
