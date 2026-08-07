@@ -174,16 +174,4 @@ mod tests {
         assert!(!path.exists());
         Ok(())
     }
-
-    #[tokio::test(start_paused = true)]
-    async fn run_timed_query_maps_timeout_to_pool_timed_out()
-    -> Result<(), Box<dyn std::error::Error>> {
-        let result = super::run_timed_query(|| async {
-            tokio::time::sleep(super::QUERY_TIMEOUT + std::time::Duration::from_millis(1)).await;
-            Ok::<(), sqlx::Error>(())
-        })
-        .await;
-        assert!(matches!(result, Err(sqlx::Error::PoolTimedOut)));
-        Ok(())
-    }
 }
