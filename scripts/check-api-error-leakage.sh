@@ -14,7 +14,7 @@ check() {
   local message=$2
   local matches
   matches="$(rg -n --glob '*.rs' -e "$pattern" "$TARGET" || true)"
-  if [[ -n "$matches" ]]; then
+  if [[ -n $matches ]]; then
     echo "$message" >&2
     echo "$matches" >&2
     fail=1
@@ -42,7 +42,7 @@ check 'ApiError::conflict\(' \
 check 'ApiError::unprocessable(_with_details)?\(' \
   'Banned: ApiError::unprocessable* — use typed ErrorCode via ApiError::new/with_details'
 
-if [[ "$fail" -ne 0 ]]; then
+if [[ $fail -ne 0 ]]; then
   exit 1
 fi
 
