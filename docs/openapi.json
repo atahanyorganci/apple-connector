@@ -4025,13 +4025,152 @@
         ],
         "responses": {
           "200": {
-            "description": "Attachment bytes",
+            "description": "Full attachment bytes",
+            "headers": {
+              "Accept-Ranges": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Always bytes"
+              },
+              "Content-Disposition": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Inline or attachment disposition with a safe filename"
+              },
+              "Content-Length": {
+                "schema": {
+                  "type": "integer",
+                  "format": "int64"
+                },
+                "description": "Full object length in bytes"
+              },
+              "Content-Type": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Resolved attachment MIME type"
+              },
+              "ETag": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Strong validator for conditional requests"
+              },
+              "Last-Modified": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Last modification time of the attachment bytes"
+              },
+              "X-Content-Type-Options": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Always nosniff"
+              }
+            },
             "content": {
               "application/octet-stream": {}
             }
           },
+          "206": {
+            "description": "Partial attachment bytes",
+            "headers": {
+              "Accept-Ranges": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Always bytes"
+              },
+              "Content-Disposition": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Inline or attachment disposition with a safe filename"
+              },
+              "Content-Length": {
+                "schema": {
+                  "type": "integer",
+                  "format": "int64"
+                },
+                "description": "Length of the returned byte range"
+              },
+              "Content-Range": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Byte range delivered and total size"
+              },
+              "Content-Type": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Resolved attachment MIME type"
+              },
+              "ETag": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Strong validator for conditional requests"
+              },
+              "Last-Modified": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Last modification time of the attachment bytes"
+              },
+              "X-Content-Type-Options": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Always nosniff"
+              }
+            },
+            "content": {
+              "application/octet-stream": {}
+            }
+          },
+          "304": {
+            "description": "Attachment bytes not modified",
+            "headers": {
+              "ETag": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Strong validator for conditional requests"
+              },
+              "Last-Modified": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Last modification time of the attachment bytes"
+              }
+            }
+          },
           "404": {
             "description": "Attachment not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "416": {
+            "description": "Requested byte range is not satisfiable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected server error",
             "content": {
               "application/json": {
                 "schema": {
@@ -4068,19 +4207,6 @@
             }
           },
           {
-            "name": "Range",
-            "in": "header",
-            "description": "Byte range for partial content requests.",
-            "required": false,
-            "schema": {
-              "type": [
-                "string",
-                "null"
-              ]
-            },
-            "example": "bytes=0-1023"
-          },
-          {
             "name": "If-None-Match",
             "in": "header",
             "description": "Validator for conditional GET/HEAD requests.",
@@ -4109,10 +4235,86 @@
         ],
         "responses": {
           "200": {
-            "description": "Attachment metadata headers"
+            "description": "Attachment exists",
+            "headers": {
+              "Accept-Ranges": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Always bytes"
+              },
+              "Content-Length": {
+                "schema": {
+                  "type": "integer",
+                  "format": "int64"
+                },
+                "description": "Full object length in bytes"
+              },
+              "Content-Type": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Resolved attachment MIME type"
+              },
+              "ETag": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Strong validator for conditional requests"
+              },
+              "Last-Modified": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Last modification time of the attachment bytes"
+              },
+              "X-Content-Type-Options": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Always nosniff"
+              }
+            }
+          },
+          "304": {
+            "description": "Attachment bytes not modified",
+            "headers": {
+              "ETag": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Strong validator for conditional requests"
+              },
+              "Last-Modified": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Last modification time of the attachment bytes"
+              }
+            }
           },
           "404": {
             "description": "Attachment not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Notes database is unavailable",
             "content": {
               "application/json": {
                 "schema": {
@@ -4772,13 +4974,152 @@
         ],
         "responses": {
           "200": {
-            "description": "Attachment bytes",
+            "description": "Full attachment bytes",
+            "headers": {
+              "Accept-Ranges": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Always bytes"
+              },
+              "Content-Disposition": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Inline or attachment disposition with a safe filename"
+              },
+              "Content-Length": {
+                "schema": {
+                  "type": "integer",
+                  "format": "int64"
+                },
+                "description": "Full object length in bytes"
+              },
+              "Content-Type": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Resolved attachment MIME type"
+              },
+              "ETag": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Strong validator for conditional requests"
+              },
+              "Last-Modified": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Last modification time of the attachment bytes"
+              },
+              "X-Content-Type-Options": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Always nosniff"
+              }
+            },
             "content": {
               "application/octet-stream": {}
             }
           },
+          "206": {
+            "description": "Partial attachment bytes",
+            "headers": {
+              "Accept-Ranges": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Always bytes"
+              },
+              "Content-Disposition": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Inline or attachment disposition with a safe filename"
+              },
+              "Content-Length": {
+                "schema": {
+                  "type": "integer",
+                  "format": "int64"
+                },
+                "description": "Length of the returned byte range"
+              },
+              "Content-Range": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Byte range delivered and total size"
+              },
+              "Content-Type": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Resolved attachment MIME type"
+              },
+              "ETag": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Strong validator for conditional requests"
+              },
+              "Last-Modified": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Last modification time of the attachment bytes"
+              },
+              "X-Content-Type-Options": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Always nosniff"
+              }
+            },
+            "content": {
+              "application/octet-stream": {}
+            }
+          },
+          "304": {
+            "description": "Attachment bytes not modified",
+            "headers": {
+              "ETag": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Strong validator for conditional requests"
+              },
+              "Last-Modified": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Last modification time of the attachment bytes"
+              }
+            }
+          },
           "404": {
             "description": "Attachment not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "416": {
+            "description": "Requested byte range is not satisfiable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected server error",
             "content": {
               "application/json": {
                 "schema": {
@@ -4815,19 +5156,6 @@
             }
           },
           {
-            "name": "Range",
-            "in": "header",
-            "description": "Byte range for partial content requests.",
-            "required": false,
-            "schema": {
-              "type": [
-                "string",
-                "null"
-              ]
-            },
-            "example": "bytes=0-1023"
-          },
-          {
             "name": "If-None-Match",
             "in": "header",
             "description": "Validator for conditional GET/HEAD requests.",
@@ -4856,10 +5184,86 @@
         ],
         "responses": {
           "200": {
-            "description": "Attachment metadata headers"
+            "description": "Attachment exists",
+            "headers": {
+              "Accept-Ranges": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Always bytes"
+              },
+              "Content-Length": {
+                "schema": {
+                  "type": "integer",
+                  "format": "int64"
+                },
+                "description": "Full object length in bytes"
+              },
+              "Content-Type": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Resolved attachment MIME type"
+              },
+              "ETag": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Strong validator for conditional requests"
+              },
+              "Last-Modified": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Last modification time of the attachment bytes"
+              },
+              "X-Content-Type-Options": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Always nosniff"
+              }
+            }
+          },
+          "304": {
+            "description": "Attachment bytes not modified",
+            "headers": {
+              "ETag": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Strong validator for conditional requests"
+              },
+              "Last-Modified": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Last modification time of the attachment bytes"
+              }
+            }
           },
           "404": {
             "description": "Attachment not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Reminders database is unavailable",
             "content": {
               "application/json": {
                 "schema": {

@@ -4,24 +4,22 @@ use axum::{
     Json,
     body::Body,
     extract::{Request, State},
-    http::{HeaderValue, Method, header},
+    http::{HeaderMap, Method},
     response::Response,
 };
-use tower::ServiceExt;
-use tower_http::services::ServeFile;
 
 use super::health::require_reminders_db;
 use crate::{
     api::{
         dto::{ReminderAttachmentDetailDto, reminder_convert::reminder_attachment_detail_to_dto},
         error::{ApiError, ErrorCode, ErrorResponse},
+        media::{ServeMedia, copy_conditional_headers, serve_media_bytes},
         params::{ConditionalRequestHeaders, RangeRequestHeader, ReminderAttachmentIdPath},
         router::AppState,
     },
     db::run_timed_query,
     messages::attachment_path::{
-        content_disposition, file_validators_async, resolve_content_type,
-        sanitize_download_filename,
+        content_disposition, resolve_content_type, sanitize_download_filename,
     },
     reminders::{
         ReminderAttachment, ReminderRepository, attachment_path::validate_attachment_path_async,
@@ -61,19 +59,49 @@ pub async fn get_reminder_attachment(
     tag = "reminder-attachments",
     params(ReminderAttachmentIdPath, RangeRequestHeader, ConditionalRequestHeaders),
     responses(
-        (status = 200, description = "Attachment bytes", content_type = "application/octet-stream"),
+        (status = 200, description = "Full attachment bytes", content_type = "application/octet-stream",
+            headers(
+                ("Content-Type" = String, description = "Resolved attachment MIME type"),
+                ("Content-Length" = i64, description = "Full object length in bytes"),
+                ("Content-Disposition" = String, description = "Inline or attachment disposition with a safe filename"),
+                ("Accept-Ranges" = String, description = "Always bytes"),
+                ("ETag" = String, description = "Strong validator for conditional requests"),
+                ("Last-Modified" = String, description = "Last modification time of the attachment bytes"),
+                ("X-Content-Type-Options" = String, description = "Always nosniff")
+            )
+        ),
+        (status = 206, description = "Partial attachment bytes", content_type = "application/octet-stream",
+            headers(
+                ("Content-Type" = String, description = "Resolved attachment MIME type"),
+                ("Content-Length" = i64, description = "Length of the returned byte range"),
+                ("Content-Range" = String, description = "Byte range delivered and total size"),
+                ("Content-Disposition" = String, description = "Inline or attachment disposition with a safe filename"),
+                ("Accept-Ranges" = String, description = "Always bytes"),
+                ("ETag" = String, description = "Strong validator for conditional requests"),
+                ("Last-Modified" = String, description = "Last modification time of the attachment bytes"),
+                ("X-Content-Type-Options" = String, description = "Always nosniff")
+            )
+        ),
+        (status = 304, description = "Attachment bytes not modified",
+            headers(
+                ("ETag" = String, description = "Strong validator for conditional requests"),
+                ("Last-Modified" = String, description = "Last modification time of the attachment bytes")
+            )
+        ),
         (status = 404, description = "Attachment not found", body = ErrorResponse),
+        (status = 416, description = "Requested byte range is not satisfiable", body = ErrorResponse),
         (status = 503, description = "Reminders database is unavailable", body = ErrorResponse),
+        (status = 500, description = "Unexpected server error", body = ErrorResponse),
     )
 )]
 pub async fn get_reminder_attachment_content(
     State(state): State<AppState>,
     axum::extract::Path(path): axum::extract::Path<ReminderAttachmentIdPath>,
-    headers: axum::http::HeaderMap,
+    request: Request,
 ) -> Result<Response, ApiError> {
     let id = path.validated()?;
     let (_, file_path) = resolve_attachment_path(&state, id.as_str()).await?;
-    serve_bytes(&state, file_path, headers, Method::GET).await
+    serve_reminder_bytes(&state, file_path, request).await
 }
 
 /// Head reminder attachment content
@@ -82,20 +110,43 @@ pub async fn get_reminder_attachment_content(
     path = "/v1/reminder-attachments/{id}/content",
     operation_id = "headReminderAttachmentContent",
     tag = "reminder-attachments",
-    params(ReminderAttachmentIdPath, RangeRequestHeader, ConditionalRequestHeaders),
+    params(ReminderAttachmentIdPath, ConditionalRequestHeaders),
     responses(
-        (status = 200, description = "Attachment metadata headers"),
+        (status = 200, description = "Attachment exists",
+            headers(
+                ("Content-Type" = String, description = "Resolved attachment MIME type"),
+                ("Content-Length" = i64, description = "Full object length in bytes"),
+                ("Accept-Ranges" = String, description = "Always bytes"),
+                ("ETag" = String, description = "Strong validator for conditional requests"),
+                ("Last-Modified" = String, description = "Last modification time of the attachment bytes"),
+                ("X-Content-Type-Options" = String, description = "Always nosniff")
+            )
+        ),
+        (status = 304, description = "Attachment bytes not modified",
+            headers(
+                ("ETag" = String, description = "Strong validator for conditional requests"),
+                ("Last-Modified" = String, description = "Last modification time of the attachment bytes")
+            )
+        ),
         (status = 404, description = "Attachment not found", body = ErrorResponse),
+        (status = 503, description = "Reminders database is unavailable", body = ErrorResponse),
+        (status = 500, description = "Unexpected server error", body = ErrorResponse),
     )
 )]
 pub async fn head_reminder_attachment_content(
     State(state): State<AppState>,
     axum::extract::Path(path): axum::extract::Path<ReminderAttachmentIdPath>,
-    headers: axum::http::HeaderMap,
+    headers: HeaderMap,
 ) -> Result<Response, ApiError> {
     let id = path.validated()?;
     let (_, file_path) = resolve_attachment_path(&state, id.as_str()).await?;
-    serve_bytes(&state, file_path, headers, Method::HEAD).await
+    let mut request = Request::builder()
+        .method(Method::HEAD)
+        .uri("/")
+        .body(Body::empty())
+        .map_err(|_| ApiError::internal("failed to build head request"))?;
+    copy_conditional_headers(&headers, request.headers_mut());
+    serve_reminder_bytes(&state, file_path, request).await
 }
 
 async fn resolve_attachment(
@@ -186,25 +237,11 @@ async fn resolve_attachment_path(
     Ok((attachment, validated.canonical_path))
 }
 
-async fn serve_bytes(
+async fn serve_reminder_bytes(
     state: &AppState,
     path: std::path::PathBuf,
-    headers: axum::http::HeaderMap,
-    method: Method,
+    request: Request,
 ) -> Result<Response, ApiError> {
-    let mut request = Request::builder()
-        .method(method)
-        .uri("/")
-        .body(Body::empty())
-        .map_err(|_| ApiError::internal("failed to build attachment request"))?;
-    if let Some(range) = headers.get(header::RANGE) {
-        request.headers_mut().insert(header::RANGE, range.clone());
-    }
-
-    let validators = file_validators_async(&state.blocking_io, path.clone())
-        .await
-        .map_err(|_| ApiError::internal("blocking attachment metadata read failed"))?
-        .map_err(|_| ApiError::new(ErrorCode::ReminderAttachmentUnavailable))?;
     let filename = path
         .file_name()
         .and_then(|name| name.to_str())
@@ -214,27 +251,15 @@ async fn serve_bytes(
         &crate::messages::AttachmentKind::File,
         &sanitize_download_filename(Some(filename), None, filename),
     );
-
-    let response = ServeFile::new(path)
-        .oneshot(request)
-        .await
-        .map_err(|_| ApiError::internal("attachment delivery failed"))?
-        .map(Body::new);
-
-    let mut response = response;
-    let headers = response.headers_mut();
-    if let Ok(value) = HeaderValue::from_str(&content_type) {
-        headers.insert(header::CONTENT_TYPE, value);
-    }
-    if let Ok(value) = HeaderValue::from_str(&disposition) {
-        headers.insert(header::CONTENT_DISPOSITION, value);
-    }
-    if let Ok(value) = HeaderValue::from_str(&validators.etag) {
-        headers.insert(header::ETAG, value);
-    }
-    if let Ok(value) = HeaderValue::from_str(&validators.last_modified) {
-        headers.insert(header::LAST_MODIFIED, value);
-    }
-    headers.insert(header::ACCEPT_RANGES, HeaderValue::from_static("bytes"));
-    Ok(response)
+    serve_media_bytes(
+        &state.blocking_io,
+        ServeMedia {
+            path,
+            content_type,
+            content_disposition: disposition,
+            unavailable: ErrorCode::ReminderAttachmentUnavailable,
+        },
+        request,
+    )
+    .await
 }
