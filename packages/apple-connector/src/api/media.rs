@@ -118,3 +118,102 @@ pub fn copy_conditional_headers(source: &HeaderMap, destination: &mut HeaderMap)
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use std::{fs, io::Write};
+
+    use axum::body::Body;
+    use http::{Request, StatusCode, header};
+    use http_body_util::BodyExt;
+
+    use super::{ServeMedia, serve_media_bytes};
+    use crate::api::{blocking_io::BlockingIoPool, error::ErrorCode};
+
+    #[tokio::test]
+    async fn shared_media_serves_range_etag_and_unsatisfiable_range()
+    -> Result<(), Box<dyn std::error::Error>> {
+        let temp = tempfile::tempdir()?;
+        let path = temp.path().join("media.bin");
+        fs::File::create(&path)?.write_all(b"0123456789")?;
+        let pool = BlockingIoPool::new();
+
+        let response = serve_media_bytes(
+            &pool,
+            ServeMedia {
+                path: path.clone(),
+                content_type: "application/octet-stream".to_owned(),
+                content_disposition: "attachment; filename=\"media.bin\"".to_owned(),
+                unavailable: ErrorCode::MessageAttachmentUnavailable,
+            },
+            Request::builder().uri("/").body(Body::empty())?,
+        )
+        .await?;
+        assert_eq!(response.status(), StatusCode::OK);
+        let etag = response
+            .headers()
+            .get(header::ETAG)
+            .ok_or("missing etag")?
+            .clone();
+        assert_eq!(
+            response
+                .headers()
+                .get(header::X_CONTENT_TYPE_OPTIONS)
+                .ok_or("missing nosniff")?,
+            "nosniff"
+        );
+
+        let response = serve_media_bytes(
+            &pool,
+            ServeMedia {
+                path: path.clone(),
+                content_type: "application/octet-stream".to_owned(),
+                content_disposition: "attachment; filename=\"media.bin\"".to_owned(),
+                unavailable: ErrorCode::MessageAttachmentUnavailable,
+            },
+            Request::builder()
+                .uri("/")
+                .header(header::RANGE, "bytes=0-4")
+                .body(Body::empty())?,
+        )
+        .await?;
+        assert_eq!(response.status(), StatusCode::PARTIAL_CONTENT);
+        let body = response.into_body().collect().await?.to_bytes();
+        assert_eq!(&body[..], b"01234");
+
+        let response = serve_media_bytes(
+            &pool,
+            ServeMedia {
+                path: path.clone(),
+                content_type: "application/octet-stream".to_owned(),
+                content_disposition: "attachment; filename=\"media.bin\"".to_owned(),
+                unavailable: ErrorCode::MessageAttachmentUnavailable,
+            },
+            Request::builder()
+                .uri("/")
+                .header(header::IF_NONE_MATCH, etag)
+                .body(Body::empty())?,
+        )
+        .await?;
+        assert_eq!(response.status(), StatusCode::NOT_MODIFIED);
+
+        let err = serve_media_bytes(
+            &pool,
+            ServeMedia {
+                path,
+                content_type: "application/octet-stream".to_owned(),
+                content_disposition: "attachment; filename=\"media.bin\"".to_owned(),
+                unavailable: ErrorCode::MessageAttachmentUnavailable,
+            },
+            Request::builder()
+                .uri("/")
+                .header(header::RANGE, "bytes=100-200")
+                .body(Body::empty())?,
+        )
+        .await
+        .err()
+        .ok_or("expected 416 mapping")?;
+        assert_eq!(err.status(), StatusCode::RANGE_NOT_SATISFIABLE);
+        Ok(())
+    }
+}

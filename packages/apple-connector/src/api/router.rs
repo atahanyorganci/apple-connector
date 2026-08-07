@@ -293,7 +293,8 @@ fn openapi_router() -> OpenApiRouter<AppState> {
         .routes(routes!(crate::api::handlers::events::list_events_caldav))
         .routes(routes!(crate::api::handlers::events::list_events))
         .routes(routes!(
-            crate::api::handlers::event_attachments::get_event_attachment_content
+            crate::api::handlers::event_attachments::get_event_attachment_content,
+            crate::api::handlers::event_attachments::head_event_attachment_content,
         ))
         .routes(routes!(crate::api::handlers::events::get_event_ical))
         .routes(routes!(crate::api::handlers::events::get_event_caldav))
