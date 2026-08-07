@@ -1,3 +1,4 @@
+pub(crate) mod blocking_io;
 pub(crate) mod contacts;
 pub(crate) mod contacts_convert;
 pub(crate) mod cursor;

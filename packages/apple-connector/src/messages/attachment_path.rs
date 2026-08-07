@@ -7,6 +7,7 @@ use super::{
     attachments::resolve_attachment_path,
     model::{AttachmentKind, AttachmentKind::*},
 };
+use crate::api::blocking_io::{BlockingIoError, BlockingIoPool};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum AttachmentPathError {
@@ -52,6 +53,31 @@ pub fn canonicalize_attachment_root(path: &Path) -> std::io::Result<PathBuf> {
 
 pub fn is_present_on_disk(root: &Path, filename: Option<&str>) -> bool {
     filename.is_some_and(|value| validate_attachment_path(root, value).is_ok())
+}
+
+pub async fn is_present_on_disk_async(
+    pool: &BlockingIoPool,
+    root: PathBuf,
+    filename: Option<String>,
+) -> Result<bool, BlockingIoError> {
+    pool.run(move || is_present_on_disk(&root, filename.as_deref()))
+        .await
+}
+
+pub async fn validate_attachment_path_async(
+    pool: &BlockingIoPool,
+    root: PathBuf,
+    filename: String,
+) -> Result<Result<ValidatedAttachmentPath, AttachmentPathError>, BlockingIoError> {
+    pool.run(move || validate_attachment_path(&root, &filename))
+        .await
+}
+
+pub async fn file_validators_async(
+    pool: &BlockingIoPool,
+    path: PathBuf,
+) -> Result<std::io::Result<FileValidators>, BlockingIoError> {
+    pool.run(move || file_validators(&path)).await
 }
 
 pub fn validate_attachment_path(

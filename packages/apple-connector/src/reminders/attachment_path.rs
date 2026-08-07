@@ -1,5 +1,7 @@
 use std::path::{Path, PathBuf};
 
+use crate::api::blocking_io::{BlockingIoError, BlockingIoPool};
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum AttachmentPathError {
     MissingFilename,
@@ -60,6 +62,15 @@ fn validated_file_in_root(
     Ok(ValidatedAttachmentPath {
         canonical_path: canonical,
     })
+}
+
+pub async fn validate_attachment_path_async(
+    pool: &BlockingIoPool,
+    root: PathBuf,
+    filename: String,
+) -> Result<Result<ValidatedAttachmentPath, AttachmentPathError>, BlockingIoError> {
+    pool.run(move || validate_attachment_path(&root, &filename))
+        .await
 }
 
 #[cfg(test)]
