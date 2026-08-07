@@ -15,7 +15,7 @@ use crate::{
             CreateContactRequest, CreateGroupRequest, UpdateContactRequest, UpdateGroupRequest,
         },
         error::{ApiError, ErrorResponse},
-        hydrate::SyncPendingContactDetailDto,
+        hydrate::{SyncPendingContactDetailDto, SyncPendingGroupDetailDto, mutation_status},
         params::{ContactGroupPath, ContactIdPath, ContainerIdPath, GroupIdPath},
         router::AppState,
     },
@@ -31,7 +31,8 @@ use crate::{
     params(ContainerIdPath),
     request_body = CreateContactRequest,
     responses(
-        (status = 201, description = "Contact created", body = SyncPendingContactDetailDto),
+        (status = 201, description = "Contact created and hydrated from SQLite", body = SyncPendingContactDetailDto),
+        (status = 202, description = "Contact created; SQLite read path still syncing", body = SyncPendingContactDetailDto),
         (status = 403, description = "Read-only container", body = ErrorResponse),
         (status = 503, description = "Contacts databases or Contacts framework unavailable", body = ErrorResponse),
     )
@@ -74,7 +75,7 @@ pub async fn create_contact(
 
     let response =
         crate::api::hydrate::hydrate_contact(&state.contacts_sources, &saved.identifier).await?;
-    Ok((StatusCode::CREATED, Json(response)))
+    Ok((mutation_status(response.sync_pending, true), Json(response)))
 }
 
 /// Update a contact
@@ -86,7 +87,8 @@ pub async fn create_contact(
     params(ContactIdPath),
     request_body = UpdateContactRequest,
     responses(
-        (status = 200, description = "Contact updated", body = SyncPendingContactDetailDto),
+        (status = 200, description = "Contact updated and hydrated from SQLite", body = SyncPendingContactDetailDto),
+        (status = 202, description = "Contact updated; SQLite read path still syncing", body = SyncPendingContactDetailDto),
         (status = 404, description = "Contact not found", body = ErrorResponse),
         (status = 503, description = "Contacts databases or Contacts framework unavailable", body = ErrorResponse),
     )
@@ -95,7 +97,7 @@ pub async fn update_contact(
     State(state): State<AppState>,
     Path(path): Path<ContactIdPath>,
     Json(request): Json<UpdateContactRequest>,
-) -> Result<Json<SyncPendingContactDetailDto>, ApiError> {
+) -> Result<(StatusCode, Json<SyncPendingContactDetailDto>), ApiError> {
     let sources = require_contacts_sources(&state.contacts_sources)?;
     let store = require_contacts_access(&state).await?;
     let contact_id = path.validated()?;
@@ -113,7 +115,10 @@ pub async fn update_contact(
 
     let response =
         crate::api::hydrate::hydrate_contact(&state.contacts_sources, &saved.identifier).await?;
-    Ok(Json(response))
+    Ok((
+        mutation_status(response.sync_pending, false),
+        Json(response),
+    ))
 }
 
 /// Delete a contact
@@ -160,7 +165,8 @@ pub async fn delete_contact(
     params(ContainerIdPath),
     request_body = CreateGroupRequest,
     responses(
-        (status = 201, description = "Group created", body = crate::api::dto::contacts::GroupDetailDto),
+        (status = 201, description = "Group created and hydrated from SQLite", body = SyncPendingGroupDetailDto),
+        (status = 202, description = "Group created; SQLite read path still syncing", body = SyncPendingGroupDetailDto),
         (status = 403, description = "Read-only container", body = ErrorResponse),
         (status = 503, description = "Contacts databases or Contacts framework unavailable", body = ErrorResponse),
     )
@@ -169,9 +175,7 @@ pub async fn create_group(
     State(state): State<AppState>,
     Path(path): Path<ContainerIdPath>,
     Json(request): Json<CreateGroupRequest>,
-) -> Result<(StatusCode, Json<crate::api::dto::contacts::GroupDetailDto>), ApiError> {
-    use crate::api::dto::contacts_convert::group_detail_to_dto;
-
+) -> Result<(StatusCode, Json<SyncPendingGroupDetailDto>), ApiError> {
     let sources = require_contacts_sources(&state.contacts_sources)?;
     let store = require_contacts_access(&state).await?;
     let container_id = path.validated()?;
@@ -203,20 +207,9 @@ pub async fn create_group(
         .await
         .map_err(map_contacts_error)?;
 
-    let group_api_id = crate::contacts::api_id_from_unique_id(&saved.identifier);
-    for _ in 0..5 {
-        if let Some(group) = run_timed_query(|| async { sources.get_group(&group_api_id).await })
-            .await
-            .map_err(|error| ApiError::internal(error.to_string()))?
-        {
-            return Ok((StatusCode::CREATED, Json(group_detail_to_dto(&group))));
-        }
-        tokio::time::sleep(std::time::Duration::from_millis(100)).await;
-    }
-
-    Err(ApiError::service_unavailable(
-        "group created but SQLite read path has not caught up yet",
-    ))
+    let response =
+        crate::api::hydrate::hydrate_group(&state.contacts_sources, &saved.identifier).await?;
+    Ok((mutation_status(response.sync_pending, true), Json(response)))
 }
 
 /// Update a group
@@ -228,7 +221,8 @@ pub async fn create_group(
     params(GroupIdPath),
     request_body = UpdateGroupRequest,
     responses(
-        (status = 200, description = "Group updated", body = crate::api::dto::contacts::GroupDetailDto),
+        (status = 200, description = "Group updated and hydrated from SQLite", body = SyncPendingGroupDetailDto),
+        (status = 202, description = "Group updated; SQLite read path still syncing", body = SyncPendingGroupDetailDto),
         (status = 404, description = "Group not found", body = ErrorResponse),
         (status = 503, description = "Contacts databases or Contacts framework unavailable", body = ErrorResponse),
     )
@@ -237,9 +231,7 @@ pub async fn update_group(
     State(state): State<AppState>,
     Path(path): Path<GroupIdPath>,
     Json(request): Json<UpdateGroupRequest>,
-) -> Result<Json<crate::api::dto::contacts::GroupDetailDto>, ApiError> {
-    use crate::api::dto::contacts_convert::group_detail_to_dto;
-
+) -> Result<(StatusCode, Json<SyncPendingGroupDetailDto>), ApiError> {
     let sources = require_contacts_sources(&state.contacts_sources)?;
     let store = require_contacts_access(&state).await?;
     let group_id = path.validated()?;
@@ -255,12 +247,12 @@ pub async fn update_group(
         .await
         .map_err(map_contacts_error)?;
 
-    let group_api_id = crate::contacts::api_id_from_unique_id(&saved.identifier);
-    let group = run_timed_query(|| async { sources.get_group(&group_api_id).await })
-        .await
-        .map_err(|error| ApiError::internal(error.to_string()))?
-        .ok_or_else(|| ApiError::not_found("group not found"))?;
-    Ok(Json(group_detail_to_dto(&group)))
+    let response =
+        crate::api::hydrate::hydrate_group(&state.contacts_sources, &saved.identifier).await?;
+    Ok((
+        mutation_status(response.sync_pending, false),
+        Json(response),
+    ))
 }
 
 /// Delete a group

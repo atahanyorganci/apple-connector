@@ -51,7 +51,8 @@ use super::{
     },
     error::{ErrorBody, ErrorCode, ErrorResponse},
     hydrate::{
-        SyncPendingContactDetailDto, SyncPendingEventDetailDto, SyncPendingReminderDetailDto,
+        SyncPendingContactDetailDto, SyncPendingEventDetailDto, SyncPendingGroupDetailDto,
+        SyncPendingReminderDetailDto,
     },
     params::{
         AttachmentGuidPath, CalendarIdPath, ChatIdPath, ConditionalRequestHeaders,
@@ -101,8 +102,9 @@ impl Modify for SecurityAddon {
             **Writes** for Reminders, Calendar events, and Contacts use EventKit / Contacts framework \
             (requires Reminders, Calendars, and Contacts permissions in System Settings). Unsupported \
             fields return `422`; smart lists, read-only calendars/containers return `403`. Post-save \
-            responses hydrate from SQLite with up to 5×100ms retries; `sync_pending: true` indicates \
-            the SQLite read path has not caught up yet.\n\n\
+            responses hydrate from SQLite with a single non-blocking read; `sync_pending: true` \
+            (HTTP 202) indicates the SQLite read path has not caught up yet and clients should \
+            poll the resource by ID.\n\n\
             Pagination uses keyset cursors only (default limit 50, maximum 200, newest first). \
             Offsets are not supported.\n\n\
             Authentication, TLS, and network exposure controls are expected to be enforced by an \
@@ -245,6 +247,7 @@ impl Modify for SecurityAddon {
         EventStatusInputDto,
         SyncPendingEventDetailDto,
         SyncPendingContactDetailDto,
+        SyncPendingGroupDetailDto,
         ContactAddressDto,
         ContactDetailDto,
         ContactEmailDto,

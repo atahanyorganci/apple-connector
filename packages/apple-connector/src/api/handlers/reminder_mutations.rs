@@ -16,7 +16,7 @@ use crate::{
             create_reminder_input, map_eventkit_error, reminder_list_hint, update_reminder_input,
             validate_create_reminder, validate_update_reminder,
         },
-        hydrate::SyncPendingReminderDetailDto,
+        hydrate::{SyncPendingReminderDetailDto, mutation_status},
         params::{ReminderIdPath, ReminderListIdPath},
         router::AppState,
     },
@@ -33,7 +33,8 @@ use crate::{
     params(ReminderListIdPath),
     request_body = CreateReminderRequest,
     responses(
-        (status = 201, description = "Reminder created", body = SyncPendingReminderDetailDto),
+        (status = 201, description = "Reminder created and hydrated from SQLite", body = SyncPendingReminderDetailDto),
+        (status = 202, description = "Reminder created; SQLite read path still syncing", body = SyncPendingReminderDetailDto),
         (status = 400, description = "Invalid request", body = ErrorResponse),
         (status = 403, description = "Smart list or read-only target", body = ErrorResponse),
         (status = 422, description = "Unsupported field", body = ErrorResponse),
@@ -84,7 +85,7 @@ pub async fn create_reminder(
             .map_err(|error| ApiError::internal(error.to_string()))?;
         crate::api::hydrate::hydrate_reminder(pool, entity_ids, &saved.external_id).await?
     };
-    Ok((StatusCode::CREATED, Json(response)))
+    Ok((mutation_status(response.sync_pending, true), Json(response)))
 }
 
 /// Update a reminder
@@ -96,7 +97,8 @@ pub async fn create_reminder(
     params(ReminderIdPath),
     request_body = UpdateReminderRequest,
     responses(
-        (status = 200, description = "Reminder updated", body = SyncPendingReminderDetailDto),
+        (status = 200, description = "Reminder updated and hydrated from SQLite", body = SyncPendingReminderDetailDto),
+        (status = 202, description = "Reminder updated; SQLite read path still syncing", body = SyncPendingReminderDetailDto),
         (status = 404, description = "Reminder not found", body = ErrorResponse),
         (status = 422, description = "Unsupported field", body = ErrorResponse),
         (status = 503, description = "Reminders or EventKit unavailable", body = ErrorResponse),
@@ -106,7 +108,7 @@ pub async fn update_reminder(
     State(state): State<AppState>,
     Path(path): Path<ReminderIdPath>,
     Json(request): Json<UpdateReminderRequest>,
-) -> Result<Json<SyncPendingReminderDetailDto>, ApiError> {
+) -> Result<(StatusCode, Json<SyncPendingReminderDetailDto>), ApiError> {
     validate_update_reminder(&request)?;
     let pool = require_reminders_db(&state.reminders_db)?;
 
@@ -158,7 +160,10 @@ pub async fn update_reminder(
             .map_err(|error| ApiError::internal(error.to_string()))?;
         crate::api::hydrate::hydrate_reminder(pool, entity_ids, &saved.external_id).await?
     };
-    Ok(Json(response))
+    Ok((
+        mutation_status(response.sync_pending, false),
+        Json(response),
+    ))
 }
 
 /// Delete a reminder

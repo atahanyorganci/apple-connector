@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Apple Connector API",
-    "description": "Hybrid HTTP API for Messages.app, Reminders.app, Notes.app, Calendar.app, and Contacts.\n\n**Reads** use live SQLite connections (requires Full Disk Access).\n\n**Writes** for Reminders, Calendar events, and Contacts use EventKit / Contacts framework (requires Reminders, Calendars, and Contacts permissions in System Settings). Unsupported fields return `422`; smart lists, read-only calendars/containers return `403`. Post-save responses hydrate from SQLite with up to 5×100ms retries; `sync_pending: true` indicates the SQLite read path has not caught up yet.\n\nPagination uses keyset cursors only (default limit 50, maximum 200, newest first). Offsets are not supported.\n\nAuthentication, TLS, and network exposure controls are expected to be enforced by an external reverse proxy or firewall. This service does not implement authentication or TLS.",
+    "description": "Hybrid HTTP API for Messages.app, Reminders.app, Notes.app, Calendar.app, and Contacts.\n\n**Reads** use live SQLite connections (requires Full Disk Access).\n\n**Writes** for Reminders, Calendar events, and Contacts use EventKit / Contacts framework (requires Reminders, Calendars, and Contacts permissions in System Settings). Unsupported fields return `422`; smart lists, read-only calendars/containers return `403`. Post-save responses hydrate from SQLite with a single non-blocking read; `sync_pending: true` (HTTP 202) indicates the SQLite read path has not caught up yet and clients should poll the resource by ID.\n\nPagination uses keyset cursors only (default limit 50, maximum 200, newest first). Offsets are not supported.\n\nAuthentication, TLS, and network exposure controls are expected to be enforced by an external reverse proxy or firewall. This service does not implement authentication or TLS.",
     "license": {
       "name": "MIT",
       "identifier": "MIT"
@@ -827,7 +827,17 @@
         },
         "responses": {
           "201": {
-            "description": "Event created",
+            "description": "Event created and hydrated from SQLite",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SyncPendingEventDetailDto"
+                }
+              }
+            }
+          },
+          "202": {
+            "description": "Event created; SQLite read path still syncing",
             "content": {
               "application/json": {
                 "schema": {
@@ -1879,7 +1889,17 @@
         },
         "responses": {
           "200": {
-            "description": "Contact updated",
+            "description": "Contact updated and hydrated from SQLite",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SyncPendingContactDetailDto"
+                }
+              }
+            }
+          },
+          "202": {
+            "description": "Contact updated; SQLite read path still syncing",
             "content": {
               "application/json": {
                 "schema": {
@@ -2160,7 +2180,17 @@
         },
         "responses": {
           "201": {
-            "description": "Contact created",
+            "description": "Contact created and hydrated from SQLite",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SyncPendingContactDetailDto"
+                }
+              }
+            }
+          },
+          "202": {
+            "description": "Contact created; SQLite read path still syncing",
             "content": {
               "application/json": {
                 "schema": {
@@ -2221,11 +2251,21 @@
         },
         "responses": {
           "201": {
-            "description": "Group created",
+            "description": "Group created and hydrated from SQLite",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/GroupSummaryDto"
+                  "$ref": "#/components/schemas/SyncPendingGroupDetailDto"
+                }
+              }
+            }
+          },
+          "202": {
+            "description": "Group created; SQLite read path still syncing",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SyncPendingGroupDetailDto"
                 }
               }
             }
@@ -2818,7 +2858,17 @@
         },
         "responses": {
           "200": {
-            "description": "Event updated",
+            "description": "Event updated and hydrated from SQLite",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SyncPendingEventDetailDto"
+                }
+              }
+            }
+          },
+          "202": {
+            "description": "Event updated; SQLite read path still syncing",
             "content": {
               "application/json": {
                 "schema": {
@@ -3227,11 +3277,21 @@
         },
         "responses": {
           "200": {
-            "description": "Group updated",
+            "description": "Group updated and hydrated from SQLite",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/GroupSummaryDto"
+                  "$ref": "#/components/schemas/SyncPendingGroupDetailDto"
+                }
+              }
+            }
+          },
+          "202": {
+            "description": "Group updated; SQLite read path still syncing",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SyncPendingGroupDetailDto"
                 }
               }
             }
@@ -5148,7 +5208,17 @@
         },
         "responses": {
           "201": {
-            "description": "Reminder created",
+            "description": "Reminder created and hydrated from SQLite",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SyncPendingReminderDetailDto"
+                }
+              }
+            }
+          },
+          "202": {
+            "description": "Reminder created; SQLite read path still syncing",
             "content": {
               "application/json": {
                 "schema": {
@@ -5502,7 +5572,17 @@
         },
         "responses": {
           "200": {
-            "description": "Reminder updated",
+            "description": "Reminder updated and hydrated from SQLite",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SyncPendingReminderDetailDto"
+                }
+              }
+            }
+          },
+          "202": {
+            "description": "Reminder updated; SQLite read path still syncing",
             "content": {
               "application/json": {
                 "schema": {
@@ -10686,6 +10766,31 @@
           },
           "id": {
             "$ref": "#/components/schemas/EventId"
+          },
+          "sync_pending": {
+            "type": "boolean"
+          }
+        }
+      },
+      "SyncPendingGroupDetailDto": {
+        "type": "object",
+        "required": [
+          "id",
+          "sync_pending"
+        ],
+        "properties": {
+          "detail": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/GroupSummaryDto"
+              }
+            ]
+          },
+          "id": {
+            "$ref": "#/components/schemas/GroupId"
           },
           "sync_pending": {
             "type": "boolean"

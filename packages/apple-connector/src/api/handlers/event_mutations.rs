@@ -16,7 +16,7 @@ use crate::{
             calendar_hint, create_event_input, delete_event_input, map_eventkit_error,
             update_event_input,
         },
-        hydrate::SyncPendingEventDetailDto,
+        hydrate::{SyncPendingEventDetailDto, mutation_status},
         params::{CalendarIdPath, EventIdPath},
         router::AppState,
     },
@@ -33,7 +33,8 @@ use crate::{
     params(CalendarIdPath),
     request_body = CreateEventRequest,
     responses(
-        (status = 201, description = "Event created", body = SyncPendingEventDetailDto),
+        (status = 201, description = "Event created and hydrated from SQLite", body = SyncPendingEventDetailDto),
+        (status = 202, description = "Event created; SQLite read path still syncing", body = SyncPendingEventDetailDto),
         (status = 403, description = "Read-only calendar", body = ErrorResponse),
         (status = 503, description = "Calendar or EventKit unavailable", body = ErrorResponse),
     )
@@ -68,7 +69,7 @@ pub async fn create_event(
         .map_err(map_eventkit_error)?;
 
     let response = crate::api::hydrate::hydrate_event(pool, &saved.external_id).await?;
-    Ok((StatusCode::CREATED, Json(response)))
+    Ok((mutation_status(response.sync_pending, true), Json(response)))
 }
 
 /// Update a calendar event
@@ -80,7 +81,8 @@ pub async fn create_event(
     params(EventIdPath, UpdateEventParams),
     request_body = UpdateEventRequest,
     responses(
-        (status = 200, description = "Event updated", body = SyncPendingEventDetailDto),
+        (status = 200, description = "Event updated and hydrated from SQLite", body = SyncPendingEventDetailDto),
+        (status = 202, description = "Event updated; SQLite read path still syncing", body = SyncPendingEventDetailDto),
         (status = 404, description = "Event not found", body = ErrorResponse),
         (status = 503, description = "Calendar or EventKit unavailable", body = ErrorResponse),
     )
@@ -90,7 +92,7 @@ pub async fn update_event(
     Path(path): Path<EventIdPath>,
     Query(params): Query<UpdateEventParams>,
     Json(request): Json<UpdateEventRequest>,
-) -> Result<Json<SyncPendingEventDetailDto>, ApiError> {
+) -> Result<(StatusCode, Json<SyncPendingEventDetailDto>), ApiError> {
     use crate::api::dto::calendar::EventSpanDto;
 
     let pool = require_calendar_db(&state.calendar_db)?;
@@ -131,7 +133,10 @@ pub async fn update_event(
         .map_err(map_eventkit_error)?;
 
     let response = crate::api::hydrate::hydrate_event(pool, &saved.external_id).await?;
-    Ok(Json(response))
+    Ok((
+        mutation_status(response.sync_pending, false),
+        Json(response),
+    ))
 }
 
 /// Delete a calendar event
