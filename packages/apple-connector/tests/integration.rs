@@ -170,7 +170,7 @@ async fn integration_media_metadata_is_structured_without_paths()
     assert_eq!(response.status(), StatusCode::NOT_FOUND);
     let body = response.into_body().collect().await?.to_bytes();
     let payload = String::from_utf8(body.to_vec())?;
-    assert!(payload.contains("\"code\":\"resource_not_found\""));
+    assert!(payload.contains("\"code\":\"message_attachment_not_found\""));
     assert!(!payload.contains("Library/Messages"));
     assert!(!payload.contains("Attachments/"));
     Ok(())

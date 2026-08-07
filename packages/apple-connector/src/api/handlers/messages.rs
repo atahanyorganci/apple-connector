@@ -8,7 +8,7 @@ use crate::{
     api::{
         cursor::{decode_global_or_reject_for_filters, decode_search_cursor},
         dto::{MessageDetailDto, MessagePageDto, convert::message_detail_to_dto},
-        error::{ApiError, ErrorResponse},
+        error::{ApiError, ErrorCode, ErrorResponse},
         params::{MessageGuidPath, MessageListParams},
         router::AppState,
     },
@@ -89,7 +89,13 @@ pub async fn get_message(
         .get_message_by_guid(guid.as_str())
         .await
         .map_err(ApiError::from_sqlx)?
-        .ok_or_else(|| ApiError::not_found(format!("message {guid} not found")))?;
+        .ok_or_else(|| {
+            ApiError::with_details(
+                ErrorCode::MessageNotFound,
+                format!("message {guid} not found"),
+                serde_json::json!({ "guid": guid }),
+            )
+        })?;
 
     Ok(Json(message_detail_to_dto(&message)))
 }

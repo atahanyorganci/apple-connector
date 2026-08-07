@@ -11,7 +11,7 @@ use crate::{
             ChatDetailDto, ChatPageDto, MessagePageDto, PageMetaDto,
             convert::{chat_detail_to_dto, chat_summary_to_dto, message_summary_to_dto},
         },
-        error::{ApiError, ErrorResponse},
+        error::{ApiError, ErrorCode, ErrorResponse},
         params::{ChatIdPath, PageParams},
         router::AppState,
     },
@@ -86,7 +86,13 @@ pub async fn get_chat(
         .get_chat(chat_id.get())
         .await
         .map_err(ApiError::from_sqlx)?
-        .ok_or_else(|| ApiError::not_found(format!("chat {} not found", chat_id.get())))?;
+        .ok_or_else(|| {
+            ApiError::with_details(
+                ErrorCode::ChatNotFound,
+                format!("chat {} not found", chat_id.get()),
+                serde_json::json!({ "chat_id": chat_id.get() }),
+            )
+        })?;
 
     Ok(Json(chat_detail_to_dto(&chat)))
 }
@@ -130,10 +136,11 @@ pub async fn list_chat_messages(
         .map_err(ApiError::from_sqlx)?;
 
     match page {
-        Err(ChatLookupError::NotFound) => Err(ApiError::not_found(format!(
-            "chat {} not found",
-            chat_id.get()
-        ))),
+        Err(ChatLookupError::NotFound) => Err(ApiError::with_details(
+            ErrorCode::ChatNotFound,
+            format!("chat {} not found", chat_id.get()),
+            serde_json::json!({ "chat_id": chat_id.get() }),
+        )),
         Ok(page) => Ok(Json(message_page_to_dto(page, limit))),
     }
 }

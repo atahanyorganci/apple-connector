@@ -12,7 +12,7 @@ use super::health::require_messages_db;
 use crate::{
     api::{
         dto::{AttachmentDetailDto, convert::attachment_detail_to_dto},
-        error::ApiError,
+        error::{ApiError, ErrorCode},
         params::AttachmentGuidPath,
         router::AppState,
     },
@@ -57,7 +57,13 @@ pub async fn get_attachment(
     })
     .await
     .map_err(ApiError::from_sqlx)?
-    .ok_or_else(|| ApiError::not_found(format!("attachment {guid} not found")))?;
+    .ok_or_else(|| {
+        ApiError::with_details(
+            ErrorCode::MessageAttachmentNotFound,
+            format!("attachment {guid} not found"),
+            serde_json::json!({ "guid": guid.as_str() }),
+        )
+    })?;
 
     attachment.present_on_disk = is_present_on_disk_async(
         &state.blocking_io,
@@ -191,18 +197,29 @@ async fn resolve_content_attachment(
     })
     .await
     .map_err(ApiError::from_sqlx)?
-    .ok_or_else(|| ApiError::not_found(format!("attachment {guid} not found")))?;
+    .ok_or_else(|| {
+        ApiError::with_details(
+            ErrorCode::MessageAttachmentNotFound,
+            format!("attachment {guid} not found"),
+            serde_json::json!({ "guid": guid }),
+        )
+    })?;
 
     if !attachment.transfer_complete {
-        return Err(ApiError::not_found(format!(
-            "attachment {guid} is not available"
-        )));
+        return Err(ApiError::with_details(
+            ErrorCode::MessageAttachmentUnavailable,
+            format!("attachment {guid} is not available"),
+            serde_json::json!({ "guid": guid }),
+        ));
     }
 
-    let filename = attachment
-        .filename
-        .clone()
-        .ok_or_else(|| ApiError::not_found(format!("attachment {guid} is not available")))?;
+    let filename = attachment.filename.clone().ok_or_else(|| {
+        ApiError::with_details(
+            ErrorCode::MessageAttachmentUnavailable,
+            format!("attachment {guid} is not available"),
+            serde_json::json!({ "guid": guid }),
+        )
+    })?;
 
     let validated = validate_attachment_path_async(
         &state.blocking_io,
@@ -211,7 +228,13 @@ async fn resolve_content_attachment(
     )
     .await
     .map_err(|_| ApiError::internal("blocking attachment validation failed"))?
-    .map_err(|_| ApiError::not_found(format!("attachment {guid} is not available")))?;
+    .map_err(|_| {
+        ApiError::with_details(
+            ErrorCode::MessageAttachmentUnavailable,
+            format!("attachment {guid} is not available"),
+            serde_json::json!({ "guid": guid }),
+        )
+    })?;
 
     Ok((attachment, validated.canonical_path))
 }
@@ -233,7 +256,11 @@ async fn serve_attachment_bytes(
         .await
         .map_err(|_| ApiError::internal("blocking attachment metadata read failed"))?
         .map_err(|_| {
-            ApiError::not_found(format!("attachment {} is not available", attachment.guid))
+            ApiError::with_details(
+                ErrorCode::MessageAttachmentUnavailable,
+                format!("attachment {} is not available", attachment.guid),
+                serde_json::json!({ "guid": attachment.guid }),
+            )
         })?;
 
     if let Some(if_none_match) = request.headers().get(header::IF_NONE_MATCH)
@@ -271,7 +298,7 @@ fn map_served_response(
         ));
     }
     if status == StatusCode::NOT_FOUND {
-        return Err(ApiError::not_found("attachment is not available"));
+        return Err(ApiError::new(ErrorCode::MessageAttachmentUnavailable));
     }
     if status.is_server_error() {
         return Err(ApiError::internal("attachment delivery failed"));
