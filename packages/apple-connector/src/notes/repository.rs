@@ -108,12 +108,23 @@ impl<'a> NoteRepository<'a> {
     }
 
     pub async fn get_folder(&self, folder_row_id: i64) -> Result<Option<NoteFolder>, sqlx::Error> {
+        crate::db::run_timed_query(|| self.get_folder_inner(folder_row_id)).await
+    }
+
+    async fn get_folder_inner(
+        &self,
+        folder_row_id: i64,
+    ) -> Result<Option<NoteFolder>, sqlx::Error> {
         let entity_ids = self.entity_ids().await?;
         let row = get_folder_by_row_id(self.pool, entity_ids.folder, folder_row_id).await?;
         Ok(row.map(folder_from_row))
     }
 
     pub async fn get_folder_by_id(&self, id: &str) -> Result<Option<NoteFolder>, sqlx::Error> {
+        crate::db::run_timed_query(|| self.get_folder_by_id_inner(id)).await
+    }
+
+    async fn get_folder_by_id_inner(&self, id: &str) -> Result<Option<NoteFolder>, sqlx::Error> {
         let entity_ids = self.entity_ids().await?;
         let row =
             get_folder_by_identifier(self.pool, entity_ids.folder, &id.to_lowercase()).await?;
@@ -127,7 +138,20 @@ impl<'a> NoteRepository<'a> {
         limit: u32,
         cursor: Option<FolderNoteCursor>,
     ) -> Result<Result<Page<NoteSummary>, FolderLookupError>, sqlx::Error> {
-        if self.get_folder(folder_row_id).await?.is_none() {
+        crate::db::run_timed_query(|| {
+            self.list_notes_in_folder_inner(folder_row_id, filters, limit, cursor)
+        })
+        .await
+    }
+
+    async fn list_notes_in_folder_inner(
+        &self,
+        folder_row_id: i64,
+        filters: &NoteFilters,
+        limit: u32,
+        cursor: Option<FolderNoteCursor>,
+    ) -> Result<Result<Page<NoteSummary>, FolderLookupError>, sqlx::Error> {
+        if self.get_folder_inner(folder_row_id).await?.is_none() {
             return Ok(Err(FolderLookupError::NotFound));
         }
 
@@ -235,6 +259,10 @@ impl<'a> NoteRepository<'a> {
     }
 
     pub async fn get_note(&self, id: &str) -> Result<Option<NoteDetail>, sqlx::Error> {
+        crate::db::run_timed_query(|| self.get_note_inner(id)).await
+    }
+
+    async fn get_note_inner(&self, id: &str) -> Result<Option<NoteDetail>, sqlx::Error> {
         let entity_ids = self.entity_ids().await?;
         let row = get_note_by_identifier(self.pool, entity_ids.note, &id.to_lowercase()).await?;
         let Some(row) = row else {

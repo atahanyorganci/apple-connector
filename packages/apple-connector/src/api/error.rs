@@ -118,3 +118,24 @@ impl IntoResponse for ApiError {
         (self.status, Json(ErrorResponse { error: self.body })).into_response()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use axum::http::StatusCode;
+
+    use super::{ApiError, ErrorCode};
+
+    #[test]
+    fn from_sqlx_maps_pool_timeout_to_query_timeout() {
+        let error = ApiError::from_sqlx(sqlx::Error::PoolTimedOut);
+        assert_eq!(error.status(), StatusCode::GATEWAY_TIMEOUT);
+        assert_eq!(error.body().code, ErrorCode::QueryTimeout);
+    }
+
+    #[test]
+    fn request_timeout_is_gateway_timeout() {
+        let error = ApiError::request_timeout();
+        assert_eq!(error.status(), StatusCode::GATEWAY_TIMEOUT);
+        assert_eq!(error.body().code, ErrorCode::RequestTimeout);
+    }
+}

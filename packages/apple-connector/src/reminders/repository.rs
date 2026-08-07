@@ -117,6 +117,10 @@ impl<'a> ReminderRepository<'a> {
     }
 
     pub async fn get_list(&self, list_row_id: i64) -> Result<Option<ReminderList>, sqlx::Error> {
+        crate::db::run_timed_query(|| self.get_list_inner(list_row_id)).await
+    }
+
+    async fn get_list_inner(&self, list_row_id: i64) -> Result<Option<ReminderList>, sqlx::Error> {
         let entity_ids = self.entity_ids().await?;
         let row: Option<ListRow> = fetch_list_by_row_id(self.pool, list_row_id).await?;
         let Some(row) = row else {
@@ -138,6 +142,10 @@ impl<'a> ReminderRepository<'a> {
     }
 
     pub async fn get_list_by_uuid(&self, id: &str) -> Result<Option<ReminderList>, sqlx::Error> {
+        crate::db::run_timed_query(|| self.get_list_by_uuid_inner(id)).await
+    }
+
+    async fn get_list_by_uuid_inner(&self, id: &str) -> Result<Option<ReminderList>, sqlx::Error> {
         let entity_ids = self.entity_ids().await?;
         let row: Option<ListRow> = fetch_list_by_uuid(self.pool, &id.to_lowercase()).await?;
         let Some(row) = row else {
@@ -302,6 +310,10 @@ impl<'a> ReminderRepository<'a> {
     }
 
     pub async fn get_reminder(&self, id: &str) -> Result<Option<Reminder>, sqlx::Error> {
+        crate::db::run_timed_query(|| self.get_reminder_inner(id)).await
+    }
+
+    async fn get_reminder_inner(&self, id: &str) -> Result<Option<Reminder>, sqlx::Error> {
         let entity_ids = self.entity_ids().await?;
         let row: Option<ReminderRow> =
             fetch_reminder_by_uuid(self.pool, &id.to_lowercase()).await?;
@@ -315,6 +327,13 @@ impl<'a> ReminderRepository<'a> {
     }
 
     pub async fn get_attachment_by_id(
+        &self,
+        id: &str,
+    ) -> Result<Option<ReminderAttachment>, sqlx::Error> {
+        crate::db::run_timed_query(|| self.get_attachment_by_id_inner(id)).await
+    }
+
+    async fn get_attachment_by_id_inner(
         &self,
         id: &str,
     ) -> Result<Option<ReminderAttachment>, sqlx::Error> {
@@ -333,6 +352,13 @@ impl<'a> ReminderRepository<'a> {
         &self,
         list_id: &str,
     ) -> Result<Option<ReminderListResolveMetadata>, sqlx::Error> {
+        crate::db::run_timed_query(|| self.get_list_resolve_metadata_inner(list_id)).await
+    }
+
+    async fn get_list_resolve_metadata_inner(
+        &self,
+        list_id: &str,
+    ) -> Result<Option<ReminderListResolveMetadata>, sqlx::Error> {
         let row = fetch_list_resolve_metadata(self.pool, &list_id.to_lowercase()).await?;
 
         Ok(row.map(|row| ReminderListResolveMetadata {
@@ -344,6 +370,13 @@ impl<'a> ReminderRepository<'a> {
     }
 
     pub async fn get_reminder_external_id(
+        &self,
+        reminder_id: &str,
+    ) -> Result<Option<String>, sqlx::Error> {
+        crate::db::run_timed_query(|| self.get_reminder_external_id_inner(reminder_id)).await
+    }
+
+    async fn get_reminder_external_id_inner(
         &self,
         reminder_id: &str,
     ) -> Result<Option<String>, sqlx::Error> {

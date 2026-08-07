@@ -104,6 +104,13 @@ impl<'a> CalendarRepository<'a> {
         &self,
         calendar_id: &str,
     ) -> Result<Option<CalendarResolveMetadata>, sqlx::Error> {
+        crate::db::run_timed_query(|| self.get_calendar_resolve_metadata_inner(calendar_id)).await
+    }
+
+    async fn get_calendar_resolve_metadata_inner(
+        &self,
+        calendar_id: &str,
+    ) -> Result<Option<CalendarResolveMetadata>, sqlx::Error> {
         let row = fetch_calendar_resolve_metadata(self.pool, calendar_id).await?;
 
         Ok(row.map(|row| CalendarResolveMetadata {
@@ -115,6 +122,13 @@ impl<'a> CalendarRepository<'a> {
     }
 
     pub async fn get_event_external_id(
+        &self,
+        event_id: &str,
+    ) -> Result<Option<String>, sqlx::Error> {
+        crate::db::run_timed_query(|| self.get_event_external_id_inner(event_id)).await
+    }
+
+    async fn get_event_external_id_inner(
         &self,
         event_id: &str,
     ) -> Result<Option<String>, sqlx::Error> {

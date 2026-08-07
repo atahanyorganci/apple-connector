@@ -47,6 +47,10 @@ impl ContactsSources {
     }
 
     pub async fn list_containers(&self) -> Result<Vec<Container>, sqlx::Error> {
+        crate::db::run_timed_query(|| self.list_containers_inner()).await
+    }
+
+    async fn list_containers_inner(&self) -> Result<Vec<Container>, sqlx::Error> {
         let mut all = Vec::new();
         for (source_id, pool) in &self.pools {
             let repo = ContactsRepository::new(pool, source_id.clone());
@@ -60,6 +64,13 @@ impl ContactsSources {
         &self,
         container_id: &str,
     ) -> Result<Option<Container>, sqlx::Error> {
+        crate::db::run_timed_query(|| self.get_container_inner(container_id)).await
+    }
+
+    async fn get_container_inner(
+        &self,
+        container_id: &str,
+    ) -> Result<Option<Container>, sqlx::Error> {
         for (source_id, pool) in &self.pools {
             let repo = ContactsRepository::new(pool, source_id.clone());
             if let Some(container) = repo.get_container(container_id).await? {
@@ -70,6 +81,14 @@ impl ContactsSources {
     }
 
     pub async fn list_groups(
+        &self,
+        limit: u32,
+        cursor: Option<ContactListCursor>,
+    ) -> Result<Page<ContactGroup>, sqlx::Error> {
+        crate::db::run_timed_query(|| self.list_groups_inner(limit, cursor)).await
+    }
+
+    async fn list_groups_inner(
         &self,
         limit: u32,
         _cursor: Option<ContactListCursor>,
@@ -92,6 +111,10 @@ impl ContactsSources {
     }
 
     pub async fn get_group(&self, group_id: &str) -> Result<Option<ContactGroup>, sqlx::Error> {
+        crate::db::run_timed_query(|| self.get_group_inner(group_id)).await
+    }
+
+    async fn get_group_inner(&self, group_id: &str) -> Result<Option<ContactGroup>, sqlx::Error> {
         for (source_id, pool) in &self.pools {
             let repo = ContactsRepository::new(pool, source_id.clone());
             if let Some(group) = repo.get_group(group_id).await? {
@@ -102,6 +125,15 @@ impl ContactsSources {
     }
 
     pub async fn list_contacts(
+        &self,
+        limit: u32,
+        cursor: Option<ContactListCursor>,
+        filters: &ContactFilters,
+    ) -> Result<Page<ContactSummary>, sqlx::Error> {
+        crate::db::run_timed_query(|| self.list_contacts_inner(limit, cursor, filters)).await
+    }
+
+    async fn list_contacts_inner(
         &self,
         limit: u32,
         _cursor: Option<ContactListCursor>,
@@ -130,6 +162,15 @@ impl ContactsSources {
         limit: u32,
         cursor: Option<GroupContactCursor>,
     ) -> Result<Page<ContactSummary>, sqlx::Error> {
+        crate::db::run_timed_query(|| self.list_group_contacts_inner(group_id, limit, cursor)).await
+    }
+
+    async fn list_group_contacts_inner(
+        &self,
+        group_id: &str,
+        limit: u32,
+        cursor: Option<GroupContactCursor>,
+    ) -> Result<Page<ContactSummary>, sqlx::Error> {
         for (source_id, pool) in &self.pools {
             let repo = ContactsRepository::new(pool, source_id.clone());
             if repo.get_group(group_id).await?.is_some() {
@@ -147,6 +188,13 @@ impl ContactsSources {
         &self,
         contact_id: &str,
     ) -> Result<Option<ContactDetail>, sqlx::Error> {
+        crate::db::run_timed_query(|| self.get_contact_inner(contact_id)).await
+    }
+
+    async fn get_contact_inner(
+        &self,
+        contact_id: &str,
+    ) -> Result<Option<ContactDetail>, sqlx::Error> {
         for (source_id, pool) in &self.pools {
             let repo = ContactsRepository::new(pool, source_id.clone());
             if let Some(contact) = repo.get_contact(contact_id).await? {
@@ -157,6 +205,13 @@ impl ContactsSources {
     }
 
     pub async fn hydrate_contact_summaries(
+        &self,
+        summaries: Vec<ContactSummary>,
+    ) -> Result<Vec<ContactDetail>, sqlx::Error> {
+        crate::db::run_timed_query(|| self.hydrate_contact_summaries_inner(summaries)).await
+    }
+
+    async fn hydrate_contact_summaries_inner(
         &self,
         summaries: Vec<ContactSummary>,
     ) -> Result<Vec<ContactDetail>, sqlx::Error> {
@@ -210,6 +265,13 @@ impl ContactsSources {
     }
 
     pub async fn get_contact_photo(
+        &self,
+        contact_id: &str,
+    ) -> Result<Option<(Vec<u8>, Option<String>)>, sqlx::Error> {
+        crate::db::run_timed_query(|| self.get_contact_photo_inner(contact_id)).await
+    }
+
+    async fn get_contact_photo_inner(
         &self,
         contact_id: &str,
     ) -> Result<Option<(Vec<u8>, Option<String>)>, sqlx::Error> {
@@ -293,6 +355,14 @@ impl ContactsSources {
 // Specialized sort for ContactSummary
 impl ContactsSources {
     pub async fn search_contacts(
+        &self,
+        q: &str,
+        limit: u32,
+    ) -> Result<Vec<ContactSummary>, sqlx::Error> {
+        crate::db::run_timed_query(|| self.search_contacts_inner(q, limit)).await
+    }
+
+    async fn search_contacts_inner(
         &self,
         q: &str,
         limit: u32,

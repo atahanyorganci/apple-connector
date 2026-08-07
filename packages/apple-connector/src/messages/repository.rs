@@ -146,6 +146,10 @@ impl<'a> MessageRepository<'a> {
     }
 
     pub async fn get_chat(&self, chat_id: i64) -> Result<Option<Chat>, sqlx::Error> {
+        crate::db::run_timed_query(|| self.get_chat_inner(chat_id)).await
+    }
+
+    async fn get_chat_inner(&self, chat_id: i64) -> Result<Option<Chat>, sqlx::Error> {
         let Some(chat_row) = fetch_chat_row_by_id(self.pool, chat_id).await? else {
             return Ok(None);
         };
@@ -158,6 +162,15 @@ impl<'a> MessageRepository<'a> {
     }
 
     pub async fn list_chat_messages(
+        &self,
+        chat_id: i64,
+        limit: u32,
+        cursor: Option<ChatMessageCursor>,
+    ) -> Result<Result<Page<Message>, ChatLookupError>, sqlx::Error> {
+        crate::db::run_timed_query(|| self.list_chat_messages_inner(chat_id, limit, cursor)).await
+    }
+
+    async fn list_chat_messages_inner(
         &self,
         chat_id: i64,
         limit: u32,
@@ -206,6 +219,19 @@ impl<'a> MessageRepository<'a> {
     }
 
     pub async fn list_messages_filtered(
+        &self,
+        filters: &super::search::MessageFilters,
+        limit: u32,
+        search_cursor: Option<MessageSearchCursor>,
+        global_cursor: Option<MessageListCursor>,
+    ) -> Result<Page<Message>, sqlx::Error> {
+        crate::db::run_timed_query(|| {
+            self.list_messages_filtered_inner(filters, limit, search_cursor, global_cursor)
+        })
+        .await
+    }
+
+    async fn list_messages_filtered_inner(
         &self,
         filters: &super::search::MessageFilters,
         limit: u32,
@@ -361,6 +387,10 @@ impl<'a> MessageRepository<'a> {
     }
 
     pub async fn get_message_by_guid(&self, guid: &str) -> Result<Option<Message>, sqlx::Error> {
+        crate::db::run_timed_query(|| self.get_message_by_guid_inner(guid)).await
+    }
+
+    async fn get_message_by_guid_inner(&self, guid: &str) -> Result<Option<Message>, sqlx::Error> {
         let Some(row) = fetch_message_by_guid(self.pool, guid).await? else {
             return Ok(None);
         };
@@ -378,6 +408,13 @@ impl<'a> MessageRepository<'a> {
     }
 
     pub async fn get_attachment_by_guid(
+        &self,
+        guid: &str,
+    ) -> Result<Option<Attachment>, sqlx::Error> {
+        crate::db::run_timed_query(|| self.get_attachment_by_guid_inner(guid)).await
+    }
+
+    async fn get_attachment_by_guid_inner(
         &self,
         guid: &str,
     ) -> Result<Option<Attachment>, sqlx::Error> {
