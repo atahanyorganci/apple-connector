@@ -81,13 +81,37 @@ pub struct ChatListCursor {
     pub chat_id: i64,
 }
 
+fn invalid_cursor_key(field: &'static str) -> ApiError {
+    ApiError::validation_with_details(
+        "cursor pagination key is invalid",
+        serde_json::json!({ "field": field }),
+    )
+}
+
+pub trait ValidatedCursor: for<'de> Deserialize<'de> {
+    fn validate(&self) -> Result<(), ApiError>;
+}
+
+macro_rules! impl_row_id_cursor {
+    ($ty:ty) => {
+        impl ValidatedCursor for $ty {
+            fn validate(&self) -> Result<(), ApiError> {
+                if self.row_id <= 0 {
+                    return Err(invalid_cursor_key("row_id"));
+                }
+                Ok(())
+            }
+        }
+    };
+}
+
 pub fn encode<T: Serialize>(payload: &T) -> Result<String, ApiError> {
     let json = serde_json::to_vec(payload)
         .map_err(|_| ApiError::internal("failed to encode pagination cursor"))?;
     Ok(format!("{CURSOR_VERSION}.{}", URL_SAFE_NO_PAD.encode(json)))
 }
 
-pub fn decode<T: for<'de> Deserialize<'de>>(cursor: &str) -> Result<T, ApiError> {
+pub fn decode<T: ValidatedCursor>(cursor: &str) -> Result<T, ApiError> {
     let encoded = cursor
         .strip_prefix(&format!("{CURSOR_VERSION}."))
         .ok_or_else(|| {
@@ -107,12 +131,14 @@ pub fn decode<T: for<'de> Deserialize<'de>>(cursor: &str) -> Result<T, ApiError>
         )
     })?;
 
-    serde_json::from_slice(&bytes).map_err(|_| {
+    let payload: T = serde_json::from_slice(&bytes).map_err(|_| {
         ApiError::validation_with_details(
             "cursor payload is invalid",
             serde_json::json!({ "field": "cursor" }),
         )
-    })
+    })?;
+    payload.validate()?;
+    Ok(payload)
 }
 
 pub fn decode_search_cursor(
@@ -223,6 +249,171 @@ pub struct EventSearchCursor {
     pub filters: EventFiltersSnapshot,
 }
 
+impl_row_id_cursor!(ListCursor);
+impl_row_id_cursor!(FolderListCursor);
+impl_row_id_cursor!(CalendarListCursor);
+impl_row_id_cursor!(ContactListCursor);
+impl_row_id_cursor!(GroupContactCursor);
+
+impl ValidatedCursor for GlobalReminderCursor {
+    fn validate(&self) -> Result<(), ApiError> {
+        if self.row_id <= 0 {
+            return Err(invalid_cursor_key("row_id"));
+        }
+        if self.modified_at == 0.0 {
+            return Err(invalid_cursor_key("modified_at"));
+        }
+        Ok(())
+    }
+}
+
+impl ValidatedCursor for ListReminderCursor {
+    fn validate(&self) -> Result<(), ApiError> {
+        if self.row_id <= 0 {
+            return Err(invalid_cursor_key("row_id"));
+        }
+        if self.modified_at == 0.0 {
+            return Err(invalid_cursor_key("modified_at"));
+        }
+        Ok(())
+    }
+}
+
+impl ValidatedCursor for ReminderSearchCursor {
+    fn validate(&self) -> Result<(), ApiError> {
+        if self.row_id <= 0 {
+            return Err(invalid_cursor_key("row_id"));
+        }
+        if self.modified_at == 0.0 {
+            return Err(invalid_cursor_key("modified_at"));
+        }
+        Ok(())
+    }
+}
+
+impl ValidatedCursor for GlobalNoteCursor {
+    fn validate(&self) -> Result<(), ApiError> {
+        if self.row_id <= 0 {
+            return Err(invalid_cursor_key("row_id"));
+        }
+        if self.modified_at == 0.0 {
+            return Err(invalid_cursor_key("modified_at"));
+        }
+        Ok(())
+    }
+}
+
+impl ValidatedCursor for FolderNoteCursor {
+    fn validate(&self) -> Result<(), ApiError> {
+        if self.row_id <= 0 {
+            return Err(invalid_cursor_key("row_id"));
+        }
+        if self.modified_at == 0.0 {
+            return Err(invalid_cursor_key("modified_at"));
+        }
+        Ok(())
+    }
+}
+
+impl ValidatedCursor for NoteSearchCursor {
+    fn validate(&self) -> Result<(), ApiError> {
+        if self.row_id <= 0 {
+            return Err(invalid_cursor_key("row_id"));
+        }
+        if self.modified_at == 0.0 {
+            return Err(invalid_cursor_key("modified_at"));
+        }
+        Ok(())
+    }
+}
+
+impl ValidatedCursor for GlobalMessageCursor {
+    fn validate(&self) -> Result<(), ApiError> {
+        if self.row_id <= 0 {
+            return Err(invalid_cursor_key("row_id"));
+        }
+        if self.date <= 0 {
+            return Err(invalid_cursor_key("date"));
+        }
+        Ok(())
+    }
+}
+
+impl ValidatedCursor for MessageSearchCursor {
+    fn validate(&self) -> Result<(), ApiError> {
+        if self.row_id <= 0 {
+            return Err(invalid_cursor_key("row_id"));
+        }
+        if self.date <= 0 {
+            return Err(invalid_cursor_key("date"));
+        }
+        Ok(())
+    }
+}
+
+impl ValidatedCursor for ChatMessageCursor {
+    fn validate(&self) -> Result<(), ApiError> {
+        if self.message_id <= 0 {
+            return Err(invalid_cursor_key("message_id"));
+        }
+        if self.message_date <= 0 {
+            return Err(invalid_cursor_key("message_date"));
+        }
+        Ok(())
+    }
+}
+
+impl ValidatedCursor for ChatListCursor {
+    fn validate(&self) -> Result<(), ApiError> {
+        if self.message_id <= 0 {
+            return Err(invalid_cursor_key("message_id"));
+        }
+        if self.message_date <= 0 {
+            return Err(invalid_cursor_key("message_date"));
+        }
+        if self.chat_id <= 0 {
+            return Err(invalid_cursor_key("chat_id"));
+        }
+        Ok(())
+    }
+}
+
+impl ValidatedCursor for GlobalEventCursor {
+    fn validate(&self) -> Result<(), ApiError> {
+        if self.row_id <= 0 {
+            return Err(invalid_cursor_key("row_id"));
+        }
+        if self.modified_at == 0.0 {
+            return Err(invalid_cursor_key("modified_at"));
+        }
+        Ok(())
+    }
+}
+
+impl ValidatedCursor for CalendarEventCursor {
+    fn validate(&self) -> Result<(), ApiError> {
+        if self.row_id <= 0 {
+            return Err(invalid_cursor_key("row_id"));
+        }
+        if self.start_at == 0.0 {
+            return Err(invalid_cursor_key("start_at"));
+        }
+        Ok(())
+    }
+}
+
+impl ValidatedCursor for EventSearchCursor {
+    fn validate(&self) -> Result<(), ApiError> {
+        if self.row_id <= 0 {
+            return Err(invalid_cursor_key("row_id"));
+        }
+        if self.start_at == 0.0 {
+            return Err(invalid_cursor_key("start_at"));
+        }
+        Ok(())
+    }
+}
+
 pub fn decode_event_search_cursor(
     cursor: &str,
     expected_filters: &EventFiltersSnapshot,
@@ -276,6 +467,22 @@ mod tests {
             })?,
             cursor
         );
+        Ok(())
+    }
+
+    #[test]
+    fn rejects_cursor_with_zero_row_id() -> Result<(), Box<dyn std::error::Error>> {
+        let cursor = GlobalMessageCursor {
+            date: 123,
+            row_id: 0,
+        };
+        let encoded = encode(&cursor).map_err(|e| -> Box<dyn std::error::Error> {
+            Box::new(std::io::Error::other(format!("{e:?}")))
+        })?;
+        match decode::<GlobalMessageCursor>(&encoded) {
+            Err(err) => assert!(format!("{err:?}").contains("row_id")),
+            Ok(_) => return Err("zero row_id cursor should be rejected".into()),
+        }
         Ok(())
     }
 }

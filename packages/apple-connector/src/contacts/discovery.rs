@@ -109,7 +109,7 @@ async fn find_addressbook_db(source_dir: &Path) -> Result<Option<PathBuf>, Disco
         .await
         .map_err(|error| DiscoveryError::Connect(error.to_string()))?;
 
-    let mut best: Option<(PathBuf, u64)> = None;
+    let mut best: Option<(PathBuf, Option<u64>)> = None;
     while let Some(entry) = read_dir
         .next_entry()
         .await
@@ -128,11 +128,15 @@ async fn find_addressbook_db(source_dir: &Path) -> Result<Option<PathBuf>, Disco
             .ok()
             .and_then(|meta| meta.modified().ok())
             .and_then(|time| time.duration_since(std::time::UNIX_EPOCH).ok())
-            .map(|duration| duration.as_secs())
-            .unwrap_or(0);
+            .map(|duration| duration.as_secs());
         if best
             .as_ref()
-            .is_none_or(|(_, best_mtime)| mtime >= *best_mtime)
+            .is_none_or(|(_, best_mtime)| match (mtime, *best_mtime) {
+                (Some(left), Some(right)) => left >= right,
+                (Some(_), None) => true,
+                (None, Some(_)) => false,
+                (None, None) => true,
+            })
         {
             best = Some((path, mtime));
         }

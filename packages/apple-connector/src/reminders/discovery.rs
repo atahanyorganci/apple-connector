@@ -77,9 +77,8 @@ pub async fn discover_reminders_database(stores_dir: &Path) -> Result<PathBuf, D
             .ok()
             .and_then(|meta| meta.modified().ok())
             .and_then(|time| time.duration_since(std::time::UNIX_EPOCH).ok())
-            .map(|duration| duration.as_secs())
-            .unwrap_or(0);
-        let z_max = max_reminder_primary_key(&path).await.unwrap_or(0);
+            .map(|duration| duration.as_secs());
+        let z_max = max_reminder_primary_key(&path).await.ok().flatten();
 
         candidates.push(StoreCandidate {
             path,
@@ -114,8 +113,8 @@ pub async fn discover_reminders_database(stores_dir: &Path) -> Result<PathBuf, D
 struct StoreCandidate {
     path: PathBuf,
     reminder_count: i64,
-    mtime: u64,
-    z_max: i64,
+    mtime: Option<u64>,
+    z_max: Option<i64>,
 }
 
 async fn count_active_reminders(path: &Path) -> Result<i64, DiscoveryError> {
@@ -139,7 +138,7 @@ async fn count_active_reminders(path: &Path) -> Result<i64, DiscoveryError> {
     Ok(count)
 }
 
-async fn max_reminder_primary_key(path: &Path) -> Result<i64, DiscoveryError> {
+async fn max_reminder_primary_key(path: &Path) -> Result<Option<i64>, DiscoveryError> {
     let options = SqliteConnectOptions::new()
         .filename(path)
         .read_only(true)
@@ -155,7 +154,7 @@ async fn max_reminder_primary_key(path: &Path) -> Result<i64, DiscoveryError> {
         .map_err(|error| DiscoveryError::Connect(error.to_string()))?;
 
     connection.close().await.ok();
-    Ok(max.flatten().unwrap_or(0))
+    Ok(max.flatten())
 }
 
 #[cfg(test)]
