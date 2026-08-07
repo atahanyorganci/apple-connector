@@ -15,7 +15,7 @@ use crate::{
                 reminder_list_detail_to_dto, reminder_list_page_to_dto, reminder_page_to_dto,
             },
         },
-        error::{ApiError, ErrorResponse},
+        error::{ApiError, ErrorCode, ErrorResponse},
         params::{PageParams, ReminderListIdPath, ReminderListKey, ReminderListParams},
         router::AppState,
     },
@@ -92,7 +92,13 @@ pub async fn get_reminder_list(
     let list = run_timed_query(|| async { repo.get_list_by_key(&key).await })
         .await
         .map_err(ApiError::from_sqlx)?
-        .ok_or_else(|| ApiError::not_found(format!("reminder list {list_id} not found")))?;
+        .ok_or_else(|| {
+            ApiError::with_details(
+                ErrorCode::ReminderListNotFound,
+                format!("reminder list {list_id} not found"),
+                serde_json::json!({ "list_id": list_id.as_str() }),
+            )
+        })?;
 
     Ok(Json(reminder_list_detail_to_dto(&list)))
 }
@@ -133,7 +139,13 @@ pub async fn list_reminder_list_reminders(
                 .get_list_by_uuid(id)
                 .await
                 .map_err(ApiError::from_sqlx)?
-                .ok_or_else(|| ApiError::not_found(format!("reminder list {list_id} not found")))?;
+                .ok_or_else(|| {
+                    ApiError::with_details(
+                        ErrorCode::ReminderListNotFound,
+                        format!("reminder list {list_id} not found"),
+                        serde_json::json!({ "list_id": list_id.as_str() }),
+                    )
+                })?;
             list.row_id.get()
         }
     };
@@ -180,8 +192,10 @@ pub async fn list_reminder_list_reminders(
             page.next_cursor,
             limit,
         ))),
-        Err(ListLookupError::NotFound) => Err(ApiError::not_found(format!(
-            "reminder list {list_id} not found"
-        ))),
+        Err(ListLookupError::NotFound) => Err(ApiError::with_details(
+            ErrorCode::ReminderListNotFound,
+            format!("reminder list {list_id} not found"),
+            serde_json::json!({ "list_id": list_id.as_str() }),
+        )),
     }
 }

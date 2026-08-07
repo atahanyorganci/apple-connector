@@ -13,7 +13,7 @@ use crate::{
             ReminderDetailDto, ReminderPageDto,
             reminder_convert::{reminder_detail_to_dto, reminder_page_to_dto},
         },
-        error::{ApiError, ErrorResponse},
+        error::{ApiError, ErrorCode, ErrorResponse},
         params::{ReminderIdPath, ReminderListParams},
         router::AppState,
     },
@@ -131,7 +131,13 @@ pub async fn get_reminder(
     })
     .await
     .map_err(ApiError::from_sqlx)?
-    .ok_or_else(|| ApiError::not_found(format!("reminder {reminder_id} not found")))?;
+    .ok_or_else(|| {
+        ApiError::with_details(
+            ErrorCode::ReminderNotFound,
+            format!("reminder {reminder_id} not found"),
+            serde_json::json!({ "reminder_id": reminder_id.as_str() }),
+        )
+    })?;
 
     Ok(Json(reminder_detail_to_dto(&reminder)))
 }

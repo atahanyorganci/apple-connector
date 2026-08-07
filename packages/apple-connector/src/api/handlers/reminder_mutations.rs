@@ -10,7 +10,7 @@ use super::health::require_reminders_db;
 use crate::{
     api::{
         dto::reminder::{CreateReminderRequest, UpdateReminderRequest},
-        error::{ApiError, ErrorResponse},
+        error::{ApiError, ErrorCode, ErrorResponse},
         eventkit::require_eventkit_reminders,
         eventkit_convert::{
             create_reminder_input, map_eventkit_error, reminder_list_hint, update_reminder_input,
@@ -64,10 +64,10 @@ pub async fn create_reminder(
     })
     .await
     .map_err(ApiError::from_sqlx)?
-    .ok_or_else(|| ApiError::not_found("reminder list not found"))?;
+    .ok_or_else(|| ApiError::new(ErrorCode::ReminderListNotFound))?;
 
     if metadata.is_smart_list {
-        return Err(ApiError::forbidden("cannot write to smart reminder lists"));
+        return Err(ApiError::new(ErrorCode::SmartListReadOnly));
     }
 
     let saved = eventkit
@@ -127,9 +127,9 @@ pub async fn update_reminder(
         })
         .await
         .map_err(ApiError::from_sqlx)?
-        .ok_or_else(|| ApiError::not_found("reminder list not found"))?;
+        .ok_or_else(|| ApiError::new(ErrorCode::ReminderListNotFound))?;
         if metadata.is_smart_list {
-            return Err(ApiError::forbidden("cannot write to smart reminder lists"));
+            return Err(ApiError::new(ErrorCode::SmartListReadOnly));
         }
         Some(reminder_list_hint(metadata))
     } else {

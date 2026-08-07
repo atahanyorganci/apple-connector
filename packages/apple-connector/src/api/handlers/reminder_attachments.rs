@@ -14,7 +14,7 @@ use super::health::require_reminders_db;
 use crate::{
     api::{
         dto::{ReminderAttachmentDetailDto, reminder_convert::reminder_attachment_detail_to_dto},
-        error::{ApiError, ErrorResponse},
+        error::{ApiError, ErrorCode, ErrorResponse},
         params::{ConditionalRequestHeaders, RangeRequestHeader, ReminderAttachmentIdPath},
         router::AppState,
     },
@@ -115,7 +115,13 @@ async fn resolve_attachment(
     })
     .await
     .map_err(ApiError::from_sqlx)?
-    .ok_or_else(|| ApiError::not_found(format!("reminder attachment {id} not found")))?;
+    .ok_or_else(|| {
+        ApiError::with_details(
+            ErrorCode::ReminderAttachmentNotFound,
+            format!("reminder attachment {id} not found"),
+            serde_json::json!({ "id": id }),
+        )
+    })?;
 
     let reminder_id = run_timed_query(|| async {
         ReminderRepository::with_entity_ids(pool, Arc::clone(&reminder_entity_ids))
@@ -146,12 +152,21 @@ async fn resolve_attachment_path(
     })
     .await
     .map_err(ApiError::from_sqlx)?
-    .ok_or_else(|| ApiError::not_found(format!("reminder attachment {id} not found")))?;
+    .ok_or_else(|| {
+        ApiError::with_details(
+            ErrorCode::ReminderAttachmentNotFound,
+            format!("reminder attachment {id} not found"),
+            serde_json::json!({ "id": id }),
+        )
+    })?;
 
-    let filename = attachment
-        .filename
-        .clone()
-        .ok_or_else(|| ApiError::not_found(format!("reminder attachment {id} not found")))?;
+    let filename = attachment.filename.clone().ok_or_else(|| {
+        ApiError::with_details(
+            ErrorCode::ReminderAttachmentNotFound,
+            format!("reminder attachment {id} not found"),
+            serde_json::json!({ "id": id }),
+        )
+    })?;
 
     let validated = validate_attachment_path_async(
         &state.blocking_io,
@@ -160,7 +175,13 @@ async fn resolve_attachment_path(
     )
     .await
     .map_err(|_| ApiError::internal("blocking attachment validation failed"))?
-    .map_err(|_| ApiError::not_found(format!("reminder attachment {id} not found")))?;
+    .map_err(|_| {
+        ApiError::with_details(
+            ErrorCode::ReminderAttachmentNotFound,
+            format!("reminder attachment {id} not found"),
+            serde_json::json!({ "id": id }),
+        )
+    })?;
 
     Ok((attachment, validated.canonical_path))
 }
@@ -183,7 +204,7 @@ async fn serve_bytes(
     let validators = file_validators_async(&state.blocking_io, path.clone())
         .await
         .map_err(|_| ApiError::internal("blocking attachment metadata read failed"))?
-        .map_err(|_| ApiError::not_found("reminder attachment is not available"))?;
+        .map_err(|_| ApiError::new(ErrorCode::ReminderAttachmentUnavailable))?;
     let filename = path
         .file_name()
         .and_then(|name| name.to_str())

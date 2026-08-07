@@ -14,7 +14,7 @@ use crate::{
                 RecurrenceFrequencyDto, RecurrenceInputDto, UpdateReminderRequest,
             },
         },
-        error::ApiError,
+        error::{ApiError, ErrorCode},
     },
     apple_types::ReminderPriority,
     calendar::CalendarResolveMetadata,
@@ -23,16 +23,18 @@ use crate::{
 
 pub fn map_eventkit_error(error: EventKitError) -> ApiError {
     match error {
-        EventKitError::NotFound => ApiError::not_found("EventKit item not found"),
-        EventKitError::AccessDenied => ApiError::forbidden("EventKit access denied"),
-        EventKitError::ReadOnlyCalendar => {
-            ApiError::forbidden("target calendar or list is read-only")
+        EventKitError::NotFound => ApiError::new(ErrorCode::ResourceNotFound),
+        EventKitError::AccessDenied => ApiError::new(ErrorCode::EventkitAccessDenied),
+        EventKitError::ReadOnlyCalendar => ApiError::new(ErrorCode::CalendarReadOnly),
+        EventKitError::ValidationFailed(message) => {
+            ApiError::with_message(ErrorCode::UnprocessableEntity, message)
         }
-        EventKitError::ValidationFailed(message) => ApiError::unprocessable(message),
-        EventKitError::AmbiguousMatch(message) => ApiError::conflict(message),
+        EventKitError::AmbiguousMatch(message) => {
+            ApiError::with_message(ErrorCode::AmbiguousEventKitMatch, message)
+        }
         EventKitError::UnsupportedPlatform => ApiError::eventkit_unavailable(),
-        EventKitError::Framework(message) => ApiError::internal(message),
-        EventKitError::Timeout => ApiError::new(crate::api::error::ErrorCode::GatewayTimeout),
+        EventKitError::Framework(_message) => ApiError::new(ErrorCode::InternalError),
+        EventKitError::Timeout => ApiError::new(ErrorCode::GatewayTimeout),
     }
 }
 
@@ -60,8 +62,9 @@ pub fn validate_update_reminder(request: &UpdateReminderRequest) -> Result<(), A
 
 fn validate_reminder_priority(priority: Option<i64>) -> Result<(), ApiError> {
     if let Some(value) = priority {
-        ReminderPriority::try_new(value)
-            .map_err(|error| ApiError::unprocessable(error.to_string()))?;
+        ReminderPriority::try_new(value).map_err(|error| {
+            ApiError::with_message(ErrorCode::UnprocessableEntity, error.to_string())
+        })?;
     }
     Ok(())
 }
@@ -74,31 +77,36 @@ fn reject_unsupported_reminder_fields(
     flagged: bool,
 ) -> Result<(), ApiError> {
     if section {
-        return Err(ApiError::unprocessable_with_details(
+        return Err(ApiError::with_details(
+            ErrorCode::UnsupportedReminderField,
             "unsupported reminder field",
             serde_json::json!({ "field": "section_id" }),
         ));
     }
     if parent {
-        return Err(ApiError::unprocessable_with_details(
+        return Err(ApiError::with_details(
+            ErrorCode::UnsupportedReminderField,
             "unsupported reminder field",
             serde_json::json!({ "field": "parent_id" }),
         ));
     }
     if tags {
-        return Err(ApiError::unprocessable_with_details(
+        return Err(ApiError::with_details(
+            ErrorCode::UnsupportedReminderField,
             "unsupported reminder field",
             serde_json::json!({ "field": "tags" }),
         ));
     }
     if attachments {
-        return Err(ApiError::unprocessable_with_details(
+        return Err(ApiError::with_details(
+            ErrorCode::UnsupportedReminderField,
             "unsupported reminder field",
             serde_json::json!({ "field": "attachments" }),
         ));
     }
     if flagged {
-        return Err(ApiError::unprocessable_with_details(
+        return Err(ApiError::with_details(
+            ErrorCode::UnsupportedReminderField,
             "unsupported reminder field",
             serde_json::json!({ "field": "flagged" }),
         ));
