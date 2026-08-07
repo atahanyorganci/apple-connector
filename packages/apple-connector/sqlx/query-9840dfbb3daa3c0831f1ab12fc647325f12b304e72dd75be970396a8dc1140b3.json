@@ -1,0 +1,38 @@
+{
+  "db_name": "SQLite",
+  "query": "\n        SELECT\n            Z_ENT AS \"ent!\",\n            Z_NAME AS \"name!\"\n        FROM Z_PRIMARYKEY\n        WHERE Z_NAME IN (\n            'ABCDContact', 'ABCDGroup', 'CNCDContainer'\n        )\n        ",
+  "describe": {
+    "columns": [
+      {
+        "name": "ent!",
+        "ordinal": 0,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "Z_PRIMARYKEY",
+            "name": "Z_ENT"
+          }
+        }
+      },
+      {
+        "name": "name!",
+        "ordinal": 1,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "Z_PRIMARYKEY",
+            "name": "Z_NAME"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 0
+    },
+    "nullable": [
+      false,
+      true
+    ]
+  },
+  "hash": "9840dfbb3daa3c0831f1ab12fc647325f12b304e72dd75be970396a8dc1140b3"
+}

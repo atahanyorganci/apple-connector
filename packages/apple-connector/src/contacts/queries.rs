@@ -1,6 +1,6 @@
 //! Compile-time checked AddressBook queries.
 
-use sqlx::SqliteExecutor;
+use sqlx::{SqliteExecutor, SqlitePool};
 
 #[cfg(test)]
 fn record_test_query() {
@@ -17,6 +17,29 @@ use super::{
     },
     search::ContactFilterBinds,
 };
+
+#[derive(Debug, Clone, sqlx::FromRow)]
+pub struct EntityNameRow {
+    pub ent: i64,
+    pub name: String,
+}
+
+pub async fn fetch_entity_name_rows(pool: &SqlitePool) -> Result<Vec<EntityNameRow>, sqlx::Error> {
+    sqlx::query_as!(
+        EntityNameRow,
+        r#"
+        SELECT
+            Z_ENT AS "ent!",
+            Z_NAME AS "name!"
+        FROM Z_PRIMARYKEY
+        WHERE Z_NAME IN (
+            'ABCDContact', 'ABCDGroup', 'CNCDContainer'
+        )
+        "#,
+    )
+    .fetch_all(pool)
+    .await
+}
 
 pub async fn fetch_containers<'e, E>(executor: E) -> Result<Vec<ContainerRow>, sqlx::Error>
 where
