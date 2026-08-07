@@ -175,7 +175,6 @@ restarting the server.
 | `has_due_date`, `due_before`, `due_after` | Due-date presence and bounds.                                    |
 | `priority_min`                            | Minimum Reminders priority value.                                |
 | `has_notes`, `top_level_only`             | Notes presence and parent-only listing.                          |
-| `section_id`                              | Restrict to one section UUID.                                    |
 | `include_subtasks`, `include_tags`        | Expand nested subtasks and hashtag tags.                         |
 
 Filtered requests bind cursors to the active filter set. Reusing a cursor with

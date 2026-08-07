@@ -12,7 +12,6 @@ pub struct ReminderFilters {
     pub completed: Option<bool>,
     pub flagged: Option<bool>,
     pub list_id: Option<ListIdFilter>,
-    pub section_id: Option<String>,
     pub has_due_date: Option<bool>,
     pub due_before: Option<i64>,
     pub due_after: Option<i64>,
@@ -57,8 +56,6 @@ pub struct ReminderFiltersSnapshot {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub list_id: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub section_id: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub has_due_date: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub due_before: Option<i64>,
@@ -78,7 +75,6 @@ impl ReminderFilters {
             || self.completed.is_some()
             || self.flagged.is_some()
             || self.list_id.is_some()
-            || self.section_id.is_some()
             || self.has_due_date.is_some()
             || self.due_before.is_some()
             || self.due_after.is_some()
@@ -97,7 +93,6 @@ impl ReminderFilters {
             completed: self.completed,
             flagged: self.flagged,
             list_id: self.list_id.as_ref().map(list_id_filter_key),
-            section_id: self.section_id.clone(),
             has_due_date: self.has_due_date,
             due_before: self.due_before,
             due_after: self.due_after,

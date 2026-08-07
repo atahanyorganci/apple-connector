@@ -5067,15 +5067,6 @@
             "style": "form"
           },
           {
-            "name": "section_id",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "string"
-            },
-            "style": "form"
-          },
-          {
             "name": "q",
             "in": "query",
             "required": false,
@@ -5333,15 +5324,6 @@
             "required": false,
             "schema": {
               "type": "boolean"
-            },
-            "style": "form"
-          },
-          {
-            "name": "section_id",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "string"
             },
             "style": "form"
           },
@@ -10363,12 +10345,6 @@
             "format": "int32"
           },
           "q": {
-            "type": [
-              "string",
-              "null"
-            ]
-          },
-          "section_id": {
             "type": [
               "string",
               "null"

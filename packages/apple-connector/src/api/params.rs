@@ -534,7 +534,6 @@ pub struct ReminderListParams {
     pub top_level_only: Option<bool>,
     pub include_subtasks: Option<bool>,
     pub include_tags: Option<bool>,
-    pub section_id: Option<String>,
     #[param(max_length = 256, example = "groceries")]
     pub q: Option<String>,
     pub list_id: Option<String>,
@@ -624,7 +623,6 @@ impl ReminderListParams {
             completed: self.completed,
             flagged: self.flagged,
             list_id,
-            section_id: self.section_id.clone(),
             has_due_date: self.has_due_date,
             due_before,
             due_after,
