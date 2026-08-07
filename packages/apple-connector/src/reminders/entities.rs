@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 
 use sqlx::SqlitePool;
+use thiserror::Error;
 use tracing::debug;
 
 #[derive(Debug, Clone, Default)]
@@ -14,10 +15,22 @@ pub struct EntityIds {
     pub smart_list: i64,
 }
 
+#[derive(Debug, Error)]
+#[error("missing Z_PRIMARYKEY entity: {name}")]
+pub struct EntityIdError {
+    pub name: &'static str,
+}
+
 #[derive(Debug, sqlx::FromRow)]
 struct EntityIdRow {
     ent: i64,
     name: String,
+}
+
+fn require_entity(map: &HashMap<String, i64>, name: &'static str) -> Result<i64, sqlx::Error> {
+    map.get(name)
+        .copied()
+        .ok_or_else(|| sqlx::Error::Decode(Box::new(EntityIdError { name })))
 }
 
 pub async fn load_entity_ids(pool: &SqlitePool) -> Result<EntityIds, sqlx::Error> {
@@ -41,13 +54,13 @@ pub async fn load_entity_ids(pool: &SqlitePool) -> Result<EntityIds, sqlx::Error
     }
 
     let ids = EntityIds {
-        alarm: *map.get("REMCDAlarm").unwrap_or(&0),
-        alarm_date_trigger: *map.get("REMCDAlarmDateTrigger").unwrap_or(&0),
-        alarm_time_interval_trigger: *map.get("REMCDAlarmTimeIntervalTrigger").unwrap_or(&0),
-        alarm_location_trigger: *map.get("REMCDAlarmLocationTrigger").unwrap_or(&0),
-        recurrence_rule: *map.get("REMCDRecurrenceRule").unwrap_or(&0),
-        hashtag: *map.get("REMCDHashtag").unwrap_or(&0),
-        smart_list: *map.get("REMCDSmartList").unwrap_or(&0),
+        alarm: require_entity(&map, "REMCDAlarm")?,
+        alarm_date_trigger: require_entity(&map, "REMCDAlarmDateTrigger")?,
+        alarm_time_interval_trigger: require_entity(&map, "REMCDAlarmTimeIntervalTrigger")?,
+        alarm_location_trigger: require_entity(&map, "REMCDAlarmLocationTrigger")?,
+        recurrence_rule: require_entity(&map, "REMCDRecurrenceRule")?,
+        hashtag: require_entity(&map, "REMCDHashtag")?,
+        smart_list: require_entity(&map, "REMCDSmartList")?,
     };
 
     debug!(?ids, "resolved Reminders entity ids");

@@ -12,8 +12,8 @@ pub mod sections;
 
 pub use inventory::{ReminderInventory, load_inventory};
 pub use model::{
-    Alarm, AlarmKind, AttachmentKind, Due, ListKind, Priority, RecurrenceRule, Reminder,
-    ReminderAttachment, ReminderList, ReminderSummary, Section, SmartFilter,
+    Alarm, AlarmKind, AttachmentKind, Due, ListKind, RecurrenceRule, Reminder, ReminderAttachment,
+    ReminderList, ReminderSummary, Section, SmartFilter,
 };
 pub use repository::{ListLookupError, ReminderListResolveMetadata, ReminderRepository};
 pub use search::{ListIdFilter, ReminderFilters, ReminderFiltersSnapshot};

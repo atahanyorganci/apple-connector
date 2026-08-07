@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 
 use sqlx::SqlitePool;
+use thiserror::Error;
 use tracing::debug;
 
 use super::queries::fetch_entity_name_rows;
@@ -16,6 +17,26 @@ pub struct EntityIds {
     pub hashtag: i64,
 }
 
+#[derive(Debug, Error)]
+#[error("missing Z_PRIMARYKEY entity: {name}")]
+pub struct EntityIdError {
+    pub name: &'static str,
+}
+
+const NOTE_ENTITY_NAMES: &[&str] = &[
+    "ICNote",
+    "ICFolder",
+    "ICAttachment",
+    "ICAccount",
+    "ICHashtag",
+];
+
+fn require_entity(map: &HashMap<String, i64>, name: &'static str) -> Result<i64, sqlx::Error> {
+    map.get(name)
+        .copied()
+        .ok_or_else(|| sqlx::Error::Decode(Box::new(EntityIdError { name })))
+}
+
 pub async fn load_entity_ids(pool: &SqlitePool) -> Result<EntityIds, sqlx::Error> {
     let rows = fetch_entity_name_rows(pool).await?;
 
@@ -24,12 +45,16 @@ pub async fn load_entity_ids(pool: &SqlitePool) -> Result<EntityIds, sqlx::Error
         map.insert(row.name, row.ent);
     }
 
+    for name in NOTE_ENTITY_NAMES {
+        require_entity(&map, name)?;
+    }
+
     let ids = EntityIds {
-        note: *map.get("ICNote").unwrap_or(&12),
-        folder: *map.get("ICFolder").unwrap_or(&15),
-        attachment: *map.get("ICAttachment").unwrap_or(&5),
-        account: *map.get("ICAccount").unwrap_or(&14),
-        hashtag: *map.get("ICHashtag").unwrap_or(&8),
+        note: require_entity(&map, "ICNote")?,
+        folder: require_entity(&map, "ICFolder")?,
+        attachment: require_entity(&map, "ICAttachment")?,
+        account: require_entity(&map, "ICAccount")?,
+        hashtag: require_entity(&map, "ICHashtag")?,
     };
 
     debug!(?ids, "resolved Notes entity ids");
