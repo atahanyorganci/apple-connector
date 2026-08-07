@@ -91,7 +91,7 @@
             "description": "Attachment GUID.",
             "required": true,
             "schema": {
-              "type": "string"
+              "$ref": "#/components/schemas/AttachmentId"
             },
             "example": "at_0_1234567890ABCDEF"
           }
@@ -155,7 +155,7 @@
             "description": "Attachment GUID.",
             "required": true,
             "schema": {
-              "type": "string"
+              "$ref": "#/components/schemas/AttachmentId"
             },
             "example": "at_0_1234567890ABCDEF"
           },
@@ -381,7 +381,7 @@
             "description": "Attachment GUID.",
             "required": true,
             "schema": {
-              "type": "string"
+              "$ref": "#/components/schemas/AttachmentId"
             },
             "example": "at_0_1234567890ABCDEF"
           },
@@ -618,7 +618,7 @@
             "in": "path",
             "required": true,
             "schema": {
-              "type": "string"
+              "$ref": "#/components/schemas/CalendarId"
             }
           }
         ],
@@ -669,7 +669,7 @@
             "in": "path",
             "required": true,
             "schema": {
-              "type": "string"
+              "$ref": "#/components/schemas/CalendarId"
             }
           },
           {
@@ -811,7 +811,7 @@
             "in": "path",
             "required": true,
             "schema": {
-              "type": "string"
+              "$ref": "#/components/schemas/CalendarId"
             }
           }
         ],
@@ -872,7 +872,7 @@
             "in": "path",
             "required": true,
             "schema": {
-              "type": "string"
+              "$ref": "#/components/schemas/CalendarId"
             }
           },
           {
@@ -1012,7 +1012,7 @@
             "in": "path",
             "required": true,
             "schema": {
-              "type": "string"
+              "$ref": "#/components/schemas/CalendarId"
             }
           },
           {
@@ -1234,8 +1234,7 @@
             "description": "Internal chat row identifier.",
             "required": true,
             "schema": {
-              "type": "integer",
-              "format": "int64"
+              "$ref": "#/components/schemas/ChatId"
             },
             "example": 42
           }
@@ -1299,8 +1298,7 @@
             "description": "Internal chat row identifier.",
             "required": true,
             "schema": {
-              "type": "integer",
-              "format": "int64"
+              "$ref": "#/components/schemas/ChatId"
             },
             "example": 42
           },
@@ -1774,7 +1772,7 @@
             "in": "path",
             "required": true,
             "schema": {
-              "type": "string"
+              "$ref": "#/components/schemas/ContactId"
             }
           }
         ],
@@ -1823,7 +1821,7 @@
             "in": "path",
             "required": true,
             "schema": {
-              "type": "string"
+              "$ref": "#/components/schemas/ContactId"
             }
           }
         ],
@@ -1865,7 +1863,7 @@
             "in": "path",
             "required": true,
             "schema": {
-              "type": "string"
+              "$ref": "#/components/schemas/ContactId"
             }
           }
         ],
@@ -1926,7 +1924,7 @@
             "in": "path",
             "required": true,
             "schema": {
-              "type": "string"
+              "$ref": "#/components/schemas/ContactId"
             }
           }
         ],
@@ -1973,7 +1971,7 @@
             "in": "path",
             "required": true,
             "schema": {
-              "type": "string"
+              "$ref": "#/components/schemas/ContactId"
             }
           }
         ],
@@ -2017,7 +2015,7 @@
             "in": "path",
             "required": true,
             "schema": {
-              "type": "string"
+              "$ref": "#/components/schemas/ContactId"
             }
           }
         ],
@@ -2095,7 +2093,7 @@
             "in": "path",
             "required": true,
             "schema": {
-              "type": "string"
+              "$ref": "#/components/schemas/ContainerId"
             }
           }
         ],
@@ -2146,7 +2144,7 @@
             "in": "path",
             "required": true,
             "schema": {
-              "type": "string"
+              "$ref": "#/components/schemas/ContainerId"
             }
           }
         ],
@@ -2207,7 +2205,7 @@
             "in": "path",
             "required": true,
             "schema": {
-              "type": "string"
+              "$ref": "#/components/schemas/ContainerId"
             }
           }
         ],
@@ -2668,7 +2666,7 @@
             "in": "path",
             "required": true,
             "schema": {
-              "type": "string"
+              "$ref": "#/components/schemas/EventId"
             }
           }
         ],
@@ -2717,7 +2715,7 @@
             "in": "path",
             "required": true,
             "schema": {
-              "type": "string"
+              "$ref": "#/components/schemas/EventId"
             }
           },
           {
@@ -2789,7 +2787,7 @@
             "in": "path",
             "required": true,
             "schema": {
-              "type": "string"
+              "$ref": "#/components/schemas/EventId"
             }
           },
           {
@@ -2865,7 +2863,7 @@
             "in": "path",
             "required": true,
             "schema": {
-              "type": "string"
+              "$ref": "#/components/schemas/EventId"
             }
           },
           {
@@ -2873,7 +2871,7 @@
             "in": "path",
             "required": true,
             "schema": {
-              "type": "string"
+              "$ref": "#/components/schemas/CalendarAttachmentId"
             }
           },
           {
@@ -2959,7 +2957,7 @@
             "in": "path",
             "required": true,
             "schema": {
-              "type": "string"
+              "$ref": "#/components/schemas/EventId"
             }
           }
         ],
@@ -3006,7 +3004,7 @@
             "in": "path",
             "required": true,
             "schema": {
-              "type": "string"
+              "$ref": "#/components/schemas/EventId"
             }
           }
         ],
@@ -3122,7 +3120,7 @@
             "in": "path",
             "required": true,
             "schema": {
-              "type": "string"
+              "$ref": "#/components/schemas/GroupId"
             }
           }
         ],
@@ -3171,7 +3169,7 @@
             "in": "path",
             "required": true,
             "schema": {
-              "type": "string"
+              "$ref": "#/components/schemas/GroupId"
             }
           }
         ],
@@ -3213,7 +3211,7 @@
             "in": "path",
             "required": true,
             "schema": {
-              "type": "string"
+              "$ref": "#/components/schemas/GroupId"
             }
           }
         ],
@@ -3274,7 +3272,7 @@
             "in": "path",
             "required": true,
             "schema": {
-              "type": "string"
+              "$ref": "#/components/schemas/GroupId"
             }
           },
           {
@@ -3361,7 +3359,7 @@
             "in": "path",
             "required": true,
             "schema": {
-              "type": "string"
+              "$ref": "#/components/schemas/GroupId"
             }
           },
           {
@@ -3444,7 +3442,7 @@
             "in": "path",
             "required": true,
             "schema": {
-              "type": "string"
+              "$ref": "#/components/schemas/GroupId"
             }
           },
           {
@@ -3527,7 +3525,7 @@
             "in": "path",
             "required": true,
             "schema": {
-              "type": "string"
+              "$ref": "#/components/schemas/GroupId"
             }
           },
           {
@@ -3535,7 +3533,7 @@
             "in": "path",
             "required": true,
             "schema": {
-              "type": "string"
+              "$ref": "#/components/schemas/ContactId"
             }
           }
         ],
@@ -3577,7 +3575,7 @@
             "in": "path",
             "required": true,
             "schema": {
-              "type": "string"
+              "$ref": "#/components/schemas/GroupId"
             }
           },
           {
@@ -3585,7 +3583,7 @@
             "in": "path",
             "required": true,
             "schema": {
-              "type": "string"
+              "$ref": "#/components/schemas/ContactId"
             }
           }
         ],
@@ -3669,8 +3667,7 @@
             "description": "Restrict results to messages in this chat.",
             "required": false,
             "schema": {
-              "type": "integer",
-              "format": "int64"
+              "$ref": "#/components/schemas/ChatId"
             },
             "style": "form",
             "example": 42
@@ -3810,7 +3807,7 @@
             "description": "Message GUID.",
             "required": true,
             "schema": {
-              "type": "string"
+              "$ref": "#/components/schemas/MessageId"
             },
             "example": "A1B2C3D4-E5F6-7890-ABCD-EF1234567890"
           }
@@ -3872,7 +3869,7 @@
             "in": "path",
             "required": true,
             "schema": {
-              "type": "string"
+              "$ref": "#/components/schemas/NoteAttachmentId"
             }
           }
         ],
@@ -3923,7 +3920,7 @@
             "in": "path",
             "required": true,
             "schema": {
-              "type": "string"
+              "$ref": "#/components/schemas/NoteAttachmentId"
             }
           },
           {
@@ -4007,7 +4004,7 @@
             "in": "path",
             "required": true,
             "schema": {
-              "type": "string"
+              "$ref": "#/components/schemas/NoteAttachmentId"
             }
           },
           {
@@ -4149,7 +4146,7 @@
             "in": "path",
             "required": true,
             "schema": {
-              "type": "string"
+              "$ref": "#/components/schemas/NoteFolderId"
             }
           }
         ],
@@ -4200,7 +4197,7 @@
             "in": "path",
             "required": true,
             "schema": {
-              "type": "string"
+              "$ref": "#/components/schemas/NoteFolderId"
             }
           },
           {
@@ -4516,7 +4513,7 @@
             "in": "path",
             "required": true,
             "schema": {
-              "type": "string"
+              "$ref": "#/components/schemas/NoteId"
             }
           }
         ],
@@ -4568,7 +4565,7 @@
             "in": "path",
             "required": true,
             "schema": {
-              "type": "string"
+              "$ref": "#/components/schemas/NoteId"
             }
           }
         ],
@@ -4619,7 +4616,7 @@
             "in": "path",
             "required": true,
             "schema": {
-              "type": "string"
+              "$ref": "#/components/schemas/ReminderAttachmentId"
             }
           }
         ],
@@ -4670,7 +4667,7 @@
             "in": "path",
             "required": true,
             "schema": {
-              "type": "string"
+              "$ref": "#/components/schemas/ReminderAttachmentId"
             }
           },
           {
@@ -4754,7 +4751,7 @@
             "in": "path",
             "required": true,
             "schema": {
-              "type": "string"
+              "$ref": "#/components/schemas/ReminderAttachmentId"
             }
           },
           {
@@ -4896,7 +4893,7 @@
             "in": "path",
             "required": true,
             "schema": {
-              "type": "string"
+              "$ref": "#/components/schemas/ReminderListId"
             }
           }
         ],
@@ -4947,7 +4944,7 @@
             "in": "path",
             "required": true,
             "schema": {
-              "type": "string"
+              "$ref": "#/components/schemas/ReminderListId"
             }
           },
           {
@@ -5144,7 +5141,7 @@
             "in": "path",
             "required": true,
             "schema": {
-              "type": "string"
+              "$ref": "#/components/schemas/ReminderListId"
             }
           }
         ],
@@ -5416,7 +5413,7 @@
             "in": "path",
             "required": true,
             "schema": {
-              "type": "string"
+              "$ref": "#/components/schemas/ReminderId"
             }
           }
         ],
@@ -5465,7 +5462,7 @@
             "in": "path",
             "required": true,
             "schema": {
-              "type": "string"
+              "$ref": "#/components/schemas/ReminderId"
             }
           }
         ],
@@ -5507,7 +5504,7 @@
             "in": "path",
             "required": true,
             "schema": {
-              "type": "string"
+              "$ref": "#/components/schemas/ReminderId"
             }
           }
         ],
@@ -5872,7 +5869,7 @@
         ],
         "properties": {
           "guid": {
-            "type": "string",
+            "$ref": "#/components/schemas/AttachmentId",
             "description": "Attachment GUID."
           }
         }
@@ -6007,7 +6004,8 @@
         "enum": [
           "invalid_typed_stream",
           "not_attributed_string",
-          "missing_text"
+          "missing_text",
+          "payload_too_large"
         ]
       },
       "AudioContentDto": {
@@ -6029,18 +6027,56 @@
         }
       },
       "AvailabilityDto": {
-        "type": "string",
-        "enum": [
-          "busy",
-          "free",
-          "tentative",
-          "unavailable"
+        "oneOf": [
+          {
+            "type": "string",
+            "enum": [
+              "busy"
+            ]
+          },
+          {
+            "type": "string",
+            "enum": [
+              "free"
+            ]
+          },
+          {
+            "type": "string",
+            "enum": [
+              "tentative"
+            ]
+          },
+          {
+            "type": "string",
+            "enum": [
+              "unavailable"
+            ]
+          },
+          {
+            "type": "object",
+            "required": [
+              "unknown"
+            ],
+            "properties": {
+              "unknown": {
+                "type": "object",
+                "required": [
+                  "code"
+                ],
+                "properties": {
+                  "code": {
+                    "type": "integer",
+                    "format": "int64"
+                  }
+                }
+              }
+            }
+          }
         ]
       },
       "CalendarAccountDto": {
         "type": "object",
         "required": [
-          "id",
           "row_id",
           "store_type",
           "disabled"
@@ -6050,7 +6086,14 @@
             "type": "boolean"
           },
           "id": {
-            "$ref": "#/components/schemas/CalendarAccountId"
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/CalendarAccountId"
+              }
+            ]
           },
           "name": {
             "type": [
@@ -6128,7 +6171,7 @@
         ],
         "properties": {
           "calendar_id": {
-            "type": "string"
+            "$ref": "#/components/schemas/CalendarId"
           }
         }
       },
@@ -6155,12 +6198,18 @@
         "required": [
           "id",
           "row_id",
-          "account_id",
           "account_row_id"
         ],
         "properties": {
           "account_id": {
-            "$ref": "#/components/schemas/CalendarAccountId"
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/CalendarAccountId"
+              }
+            ]
           },
           "account_row_id": {
             "type": "integer",
@@ -6248,8 +6297,7 @@
         ],
         "properties": {
           "chat_id": {
-            "type": "integer",
-            "format": "int64",
+            "$ref": "#/components/schemas/ChatId",
             "description": "Internal chat row identifier."
           }
         }
@@ -6539,10 +6587,10 @@
         ],
         "properties": {
           "contact_id": {
-            "type": "string"
+            "$ref": "#/components/schemas/ContactId"
           },
           "group_id": {
-            "type": "string"
+            "$ref": "#/components/schemas/GroupId"
           }
         }
       },
@@ -6558,7 +6606,7 @@
         ],
         "properties": {
           "contact_id": {
-            "type": "string"
+            "$ref": "#/components/schemas/ContactId"
           }
         }
       },
@@ -6685,12 +6733,18 @@
         "type": "object",
         "required": [
           "id",
-          "source_id",
-          "container_id"
+          "source_id"
         ],
         "properties": {
           "container_id": {
-            "$ref": "#/components/schemas/ContainerId"
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/ContainerId"
+              }
+            ]
           },
           "display_name": {
             "type": [
@@ -6782,7 +6836,7 @@
         ],
         "properties": {
           "container_id": {
-            "type": "string"
+            "$ref": "#/components/schemas/ContainerId"
           }
         }
       },
@@ -7301,10 +7355,10 @@
         ],
         "properties": {
           "attachment_id": {
-            "type": "string"
+            "$ref": "#/components/schemas/CalendarAttachmentId"
           },
           "event_id": {
-            "type": "string"
+            "$ref": "#/components/schemas/EventId"
           }
         }
       },
@@ -7344,11 +7398,45 @@
         }
       },
       "EventClassDto": {
-        "type": "string",
-        "enum": [
-          "standard",
-          "birthday",
-          "special_day"
+        "oneOf": [
+          {
+            "type": "string",
+            "enum": [
+              "standard"
+            ]
+          },
+          {
+            "type": "string",
+            "enum": [
+              "birthday"
+            ]
+          },
+          {
+            "type": "string",
+            "enum": [
+              "special_day"
+            ]
+          },
+          {
+            "type": "object",
+            "required": [
+              "unknown"
+            ],
+            "properties": {
+              "unknown": {
+                "type": "object",
+                "required": [
+                  "code"
+                ],
+                "properties": {
+                  "code": {
+                    "type": "integer",
+                    "format": "int64"
+                  }
+                }
+              }
+            }
+          }
         ]
       },
       "EventDetailDto": {
@@ -7527,7 +7615,7 @@
         ],
         "properties": {
           "event_id": {
-            "type": "string"
+            "$ref": "#/components/schemas/EventId"
           }
         }
       },
@@ -7713,11 +7801,45 @@
         ]
       },
       "EventStatusDto": {
-        "type": "string",
-        "enum": [
-          "confirmed",
-          "tentative",
-          "cancelled"
+        "oneOf": [
+          {
+            "type": "string",
+            "enum": [
+              "confirmed"
+            ]
+          },
+          {
+            "type": "string",
+            "enum": [
+              "tentative"
+            ]
+          },
+          {
+            "type": "string",
+            "enum": [
+              "cancelled"
+            ]
+          },
+          {
+            "type": "object",
+            "required": [
+              "unknown"
+            ],
+            "properties": {
+              "unknown": {
+                "type": "object",
+                "required": [
+                  "code"
+                ],
+                "properties": {
+                  "code": {
+                    "type": "integer",
+                    "format": "int64"
+                  }
+                }
+              }
+            }
+          }
         ]
       },
       "EventStatusInputDto": {
@@ -7877,7 +7999,7 @@
         ],
         "properties": {
           "group_id": {
-            "type": "string"
+            "$ref": "#/components/schemas/GroupId"
           }
         }
       },
@@ -7904,13 +8026,19 @@
         "required": [
           "id",
           "source_id",
-          "container_id",
           "is_smart_group",
           "is_subscribed"
         ],
         "properties": {
           "container_id": {
-            "$ref": "#/components/schemas/ContainerId"
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/ContainerId"
+              }
+            ]
           },
           "id": {
             "$ref": "#/components/schemas/GroupId"
@@ -7994,13 +8122,57 @@
         }
       },
       "InvitationStatusDto": {
-        "type": "string",
-        "enum": [
-          "unknown",
-          "accepted",
-          "declined",
-          "tentative",
-          "needs_action"
+        "oneOf": [
+          {
+            "type": "string",
+            "enum": [
+              "unknown"
+            ]
+          },
+          {
+            "type": "string",
+            "enum": [
+              "accepted"
+            ]
+          },
+          {
+            "type": "string",
+            "enum": [
+              "declined"
+            ]
+          },
+          {
+            "type": "string",
+            "enum": [
+              "tentative"
+            ]
+          },
+          {
+            "type": "string",
+            "enum": [
+              "needs_action"
+            ]
+          },
+          {
+            "type": "object",
+            "required": [
+              "raw"
+            ],
+            "properties": {
+              "raw": {
+                "type": "object",
+                "required": [
+                  "code"
+                ],
+                "properties": {
+                  "code": {
+                    "type": "integer",
+                    "format": "int64"
+                  }
+                }
+              }
+            }
+          }
         ]
       },
       "LabeledStringDto": {
@@ -8387,7 +8559,7 @@
         ],
         "properties": {
           "guid": {
-            "type": "string",
+            "$ref": "#/components/schemas/MessageId",
             "description": "Message GUID."
           }
         }
@@ -8415,12 +8587,15 @@
             "description": "Return messages sent strictly before this RFC 3339 timestamp."
           },
           "chat_id": {
-            "type": [
-              "integer",
-              "null"
-            ],
-            "format": "int64",
-            "description": "Restrict results to messages in this chat."
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/ChatId",
+                "description": "Restrict results to messages in this chat."
+              }
+            ]
           },
           "content_type": {
             "oneOf": [
@@ -8616,7 +8791,7 @@
         ],
         "properties": {
           "id": {
-            "type": "string"
+            "$ref": "#/components/schemas/NoteAttachmentId"
           }
         }
       },
@@ -8963,7 +9138,7 @@
         ],
         "properties": {
           "folder_id": {
-            "type": "string"
+            "$ref": "#/components/schemas/NoteFolderId"
           }
         }
       },
@@ -9041,7 +9216,7 @@
         ],
         "properties": {
           "note_id": {
-            "type": "string"
+            "$ref": "#/components/schemas/NoteId"
           }
         }
       },
@@ -9471,11 +9646,45 @@
         }
       },
       "PrivacyLevelDto": {
-        "type": "string",
-        "enum": [
-          "default",
-          "public",
-          "private"
+        "oneOf": [
+          {
+            "type": "string",
+            "enum": [
+              "default"
+            ]
+          },
+          {
+            "type": "string",
+            "enum": [
+              "public"
+            ]
+          },
+          {
+            "type": "string",
+            "enum": [
+              "private"
+            ]
+          },
+          {
+            "type": "object",
+            "required": [
+              "unknown"
+            ],
+            "properties": {
+              "unknown": {
+                "type": "object",
+                "required": [
+                  "code"
+                ],
+                "properties": {
+                  "code": {
+                    "type": "integer",
+                    "format": "int64"
+                  }
+                }
+              }
+            }
+          }
         ]
       },
       "RangeRequestHeader": {
@@ -9757,7 +9966,7 @@
         ],
         "properties": {
           "id": {
-            "type": "string"
+            "$ref": "#/components/schemas/ReminderAttachmentId"
           }
         }
       },
@@ -9970,7 +10179,7 @@
         ],
         "properties": {
           "reminder_id": {
-            "type": "string"
+            "$ref": "#/components/schemas/ReminderId"
           }
         }
       },
@@ -10046,7 +10255,7 @@
         ],
         "properties": {
           "list_id": {
-            "type": "string"
+            "$ref": "#/components/schemas/ReminderListId"
           }
         }
       },
@@ -10398,68 +10607,133 @@
         "example": "27fd6c1e-5da5-4340-a31a-1d83c25d3b70"
       },
       "StoreTypeDto": {
-        "type": "string",
-        "enum": [
-          "local",
-          "cal_dav",
-          "exchange",
-          "subscription",
-          "birthday"
+        "oneOf": [
+          {
+            "type": "string",
+            "enum": [
+              "local"
+            ]
+          },
+          {
+            "type": "string",
+            "enum": [
+              "cal_dav"
+            ]
+          },
+          {
+            "type": "string",
+            "enum": [
+              "exchange"
+            ]
+          },
+          {
+            "type": "string",
+            "enum": [
+              "subscription"
+            ]
+          },
+          {
+            "type": "string",
+            "enum": [
+              "birthday"
+            ]
+          },
+          {
+            "type": "object",
+            "required": [
+              "unknown"
+            ],
+            "properties": {
+              "unknown": {
+                "type": "object",
+                "required": [
+                  "code"
+                ],
+                "properties": {
+                  "code": {
+                    "type": "integer",
+                    "format": "int64"
+                  }
+                }
+              }
+            }
+          }
         ]
       },
       "SyncPendingContactDetailDto": {
-        "allOf": [
-          {
-            "$ref": "#/components/schemas/ContactDetailDto"
-          },
-          {
-            "type": "object",
-            "required": [
-              "sync_pending"
-            ],
-            "properties": {
-              "sync_pending": {
-                "type": "boolean"
+        "type": "object",
+        "required": [
+          "id",
+          "sync_pending"
+        ],
+        "properties": {
+          "detail": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/ContactDetailDto"
               }
-            }
+            ]
+          },
+          "id": {
+            "$ref": "#/components/schemas/ContactId"
+          },
+          "sync_pending": {
+            "type": "boolean"
           }
-        ]
+        }
       },
       "SyncPendingEventDetailDto": {
-        "allOf": [
-          {
-            "$ref": "#/components/schemas/EventDetailDto"
-          },
-          {
-            "type": "object",
-            "required": [
-              "sync_pending"
-            ],
-            "properties": {
-              "sync_pending": {
-                "type": "boolean"
+        "type": "object",
+        "required": [
+          "id",
+          "sync_pending"
+        ],
+        "properties": {
+          "detail": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/EventDetailDto"
               }
-            }
+            ]
+          },
+          "id": {
+            "$ref": "#/components/schemas/EventId"
+          },
+          "sync_pending": {
+            "type": "boolean"
           }
-        ]
+        }
       },
       "SyncPendingReminderDetailDto": {
-        "allOf": [
-          {
-            "$ref": "#/components/schemas/ReminderDetailDto"
-          },
-          {
-            "type": "object",
-            "required": [
-              "sync_pending"
-            ],
-            "properties": {
-              "sync_pending": {
-                "type": "boolean"
+        "type": "object",
+        "required": [
+          "id",
+          "sync_pending"
+        ],
+        "properties": {
+          "detail": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/ReminderDetailDto"
               }
-            }
+            ]
+          },
+          "id": {
+            "$ref": "#/components/schemas/ReminderId"
+          },
+          "sync_pending": {
+            "type": "boolean"
           }
-        ]
+        }
       },
       "SystemContentDto": {
         "type": "object",
