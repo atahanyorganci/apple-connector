@@ -1,10 +1,12 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, sync::Arc};
 
 use sqlx::SqlitePool;
+use tokio::sync::OnceCell;
 
 use super::{
     model::{ContactDetail, ContactGroup, ContactSummary, Container},
     repository::{ContactsRepository, Page},
+    schema::{ContactsSchema, load_contacts_schema},
     search::ContactFilters,
 };
 use crate::{
@@ -15,15 +17,60 @@ use crate::{
 #[derive(Debug, Clone)]
 pub struct ContactsSources {
     pools: HashMap<SourceId, SqlitePool>,
+    schemas: HashMap<SourceId, Arc<OnceCell<Arc<ContactsSchema>>>>,
 }
 
 impl ContactsSources {
     pub fn new(pools: HashMap<SourceId, SqlitePool>) -> Self {
-        Self { pools }
+        let schemas = pools
+            .keys()
+            .map(|source_id| (source_id.clone(), Arc::new(OnceCell::new())))
+            .collect();
+        Self { pools, schemas }
     }
 
     pub fn is_empty(&self) -> bool {
         self.pools.is_empty()
+    }
+
+    /// Resolve (and cache) the verified Contacts schema for a source. Each
+    /// source has its own cache since Core Data entity/join names can differ
+    /// per AddressBook store.
+    pub async fn cached_schema(
+        &self,
+        source_id: &SourceId,
+    ) -> Result<Arc<ContactsSchema>, sqlx::Error> {
+        let pool = self.pools.get(source_id).ok_or_else(|| {
+            sqlx::Error::Configuration(format!("unknown Contacts source: {source_id}").into())
+        })?;
+        let cell = self.schemas.get(source_id).ok_or_else(|| {
+            sqlx::Error::Configuration(format!("unknown Contacts source: {source_id}").into())
+        })?;
+        cell.get_or_try_init(|| async { load_contacts_schema(pool).await.map(Arc::new) })
+            .await
+            .map(Arc::clone)
+    }
+
+    /// Eagerly resolve and cache the schema for every configured source.
+    /// Used at startup so misconfigured stores fail fast.
+    pub async fn warm_schemas(&self) -> Result<(), sqlx::Error> {
+        for source_id in self.pools.keys() {
+            self.cached_schema(source_id).await?;
+        }
+        Ok(())
+    }
+
+    async fn repository_for<'a>(
+        &self,
+        source_id: &SourceId,
+        pool: &'a SqlitePool,
+    ) -> Result<ContactsRepository<'a>, sqlx::Error> {
+        let schema = self.cached_schema(source_id).await?;
+        Ok(ContactsRepository::with_schema(
+            pool,
+            source_id.clone(),
+            schema,
+        ))
     }
 
     pub fn source_ids(&self) -> impl Iterator<Item = &SourceId> {
@@ -53,7 +100,7 @@ impl ContactsSources {
     async fn list_containers_inner(&self) -> Result<Vec<Container>, sqlx::Error> {
         let mut all = Vec::new();
         for (source_id, pool) in &self.pools {
-            let repo = ContactsRepository::new(pool, source_id.clone());
+            let repo = self.repository_for(source_id, pool).await?;
             all.extend(repo.list_containers().await?);
         }
         all.sort_by(|a, b| a.id.as_str().cmp(b.id.as_str()));
@@ -72,7 +119,7 @@ impl ContactsSources {
         container_id: &str,
     ) -> Result<Option<Container>, sqlx::Error> {
         for (source_id, pool) in &self.pools {
-            let repo = ContactsRepository::new(pool, source_id.clone());
+            let repo = self.repository_for(source_id, pool).await?;
             if let Some(container) = repo.get_container(container_id).await? {
                 return Ok(Some(container));
             }
@@ -96,7 +143,7 @@ impl ContactsSources {
         let mut merged = Vec::new();
         let per_source = limit.saturating_add(1);
         for (source_id, pool) in &self.pools {
-            let repo = ContactsRepository::new(pool, source_id.clone());
+            let repo = self.repository_for(source_id, pool).await?;
             let page = repo.list_groups(per_source, None).await?;
             merged.extend(page.items);
         }
@@ -116,7 +163,7 @@ impl ContactsSources {
 
     async fn get_group_inner(&self, group_id: &str) -> Result<Option<ContactGroup>, sqlx::Error> {
         for (source_id, pool) in &self.pools {
-            let repo = ContactsRepository::new(pool, source_id.clone());
+            let repo = self.repository_for(source_id, pool).await?;
             if let Some(group) = repo.get_group(group_id).await? {
                 return Ok(Some(group));
             }
@@ -142,7 +189,7 @@ impl ContactsSources {
         let mut merged = Vec::new();
         let per_source = limit.saturating_add(1);
         for (source_id, pool) in &self.pools {
-            let repo = ContactsRepository::new(pool, source_id.clone());
+            let repo = self.repository_for(source_id, pool).await?;
             let page = repo.list_contacts(per_source, None, filters).await?;
             merged.extend(page.items);
         }
@@ -172,7 +219,7 @@ impl ContactsSources {
         cursor: Option<GroupContactCursor>,
     ) -> Result<Page<ContactSummary>, sqlx::Error> {
         for (source_id, pool) in &self.pools {
-            let repo = ContactsRepository::new(pool, source_id.clone());
+            let repo = self.repository_for(source_id, pool).await?;
             if repo.get_group(group_id).await?.is_some() {
                 return repo.list_group_contacts(group_id, limit, cursor).await;
             }
@@ -196,7 +243,7 @@ impl ContactsSources {
         contact_id: &str,
     ) -> Result<Option<ContactDetail>, sqlx::Error> {
         for (source_id, pool) in &self.pools {
-            let repo = ContactsRepository::new(pool, source_id.clone());
+            let repo = self.repository_for(source_id, pool).await?;
             if let Some(contact) = repo.get_contact(contact_id).await? {
                 return Ok(Some(contact));
             }
@@ -217,7 +264,7 @@ impl ContactsSources {
     ) -> Result<Vec<ContactDetail>, sqlx::Error> {
         use std::collections::HashMap;
 
-        use super::{entities::load_entity_ids, queries::fetch_contacts_by_api_ids};
+        use super::queries::fetch_contacts_by_api_ids;
         use crate::{contacts::row::api_id_from_unique_id, sqlx_util::json_strings};
 
         if summaries.is_empty() {
@@ -238,8 +285,10 @@ impl ContactsSources {
             let Some(pool) = self.pools.get(&source_id) else {
                 continue;
             };
-            let repo = ContactsRepository::new(pool, source_id.clone());
-            let entity_ids = load_entity_ids(pool).await?;
+            let schema = self.cached_schema(&source_id).await?;
+            let repo =
+                ContactsRepository::with_schema(pool, source_id.clone(), Arc::clone(&schema));
+            let entity_ids = &schema.entity_ids;
             let api_ids: Vec<&str> = group.iter().map(|summary| summary.id.as_str()).collect();
             let rows = fetch_contacts_by_api_ids(pool, entity_ids.contact, &json_strings(&api_ids))
                 .await?;
@@ -278,7 +327,7 @@ impl ContactsSources {
         contact_id: &str,
     ) -> Result<Option<(Vec<u8>, Option<String>)>, sqlx::Error> {
         for (source_id, pool) in &self.pools {
-            let repo = ContactsRepository::new(pool, source_id.clone());
+            let repo = self.repository_for(source_id, pool).await?;
             if let Some(photo) = repo.get_contact_photo(contact_id).await? {
                 return Ok(Some(photo));
             }
@@ -291,7 +340,7 @@ impl ContactsSources {
         contact_id: &str,
     ) -> Result<Option<(&SourceId, &SqlitePool)>, sqlx::Error> {
         for (source_id, pool) in &self.pools {
-            let repo = ContactsRepository::new(pool, source_id.clone());
+            let repo = self.repository_for(source_id, pool).await?;
             if repo.get_contact_external_id(contact_id).await?.is_some() {
                 return Ok(Some((source_id, pool)));
             }
@@ -305,7 +354,7 @@ impl ContactsSources {
         contact_id: &str,
     ) -> Result<Option<String>, sqlx::Error> {
         for (source_id, pool) in &self.pools {
-            let repo = ContactsRepository::new(pool, source_id.clone());
+            let repo = self.repository_for(source_id, pool).await?;
             if let Some(external_id) = repo.get_contact_external_id(contact_id).await? {
                 return Ok(Some(external_id));
             }
@@ -319,7 +368,7 @@ impl ContactsSources {
         group_id: &str,
     ) -> Result<Option<String>, sqlx::Error> {
         for (source_id, pool) in &self.pools {
-            let repo = ContactsRepository::new(pool, source_id.clone());
+            let repo = self.repository_for(source_id, pool).await?;
             if let Some(external_id) = repo.get_group_external_id(group_id).await? {
                 return Ok(Some(external_id));
             }
@@ -332,7 +381,7 @@ impl ContactsSources {
         container_id: &str,
     ) -> Result<Option<super::repository::ContainerResolveMetadata>, sqlx::Error> {
         for (source_id, pool) in &self.pools {
-            let repo = ContactsRepository::new(pool, source_id.clone());
+            let repo = self.repository_for(source_id, pool).await?;
             if let Some(meta) = repo.get_container_resolve_metadata(container_id).await? {
                 return Ok(Some(meta));
             }
@@ -345,7 +394,7 @@ impl ContactsSources {
         group_id: &str,
     ) -> Result<Option<super::repository::GroupResolveMetadata>, sqlx::Error> {
         for (source_id, pool) in &self.pools {
-            let repo = ContactsRepository::new(pool, source_id.clone());
+            let repo = self.repository_for(source_id, pool).await?;
             if let Some(meta) = repo.get_group_resolve_metadata(group_id).await? {
                 return Ok(Some(meta));
             }
@@ -375,5 +424,54 @@ impl ContactsSources {
         };
         let page = self.list_contacts(limit, None, &filters).await?;
         Ok(page.items)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::collections::HashMap;
+
+    use super::ContactsSources;
+    use crate::{apple_types::SourceId, db::connect_pool, fixtures::ContactsFixtureDb};
+
+    #[tokio::test]
+    async fn caches_schema_per_source_and_warms_all_sources()
+    -> Result<(), Box<dyn std::error::Error>> {
+        let fixture = ContactsFixtureDb::seeded().await?;
+        let pool = connect_pool(fixture.path()).await?;
+        let source_id = SourceId::new("fixture-source");
+        let sources = ContactsSources::new(HashMap::from([(source_id.clone(), pool)]));
+
+        sources.warm_schemas().await?;
+
+        let schema = sources.cached_schema(&source_id).await?;
+        assert_eq!(schema.entity_ids.contact, 22);
+        assert_eq!(schema.parent_groups.table, "Z_22PARENTGROUPS");
+
+        let schema_again = sources.cached_schema(&source_id).await?;
+        assert!(std::sync::Arc::ptr_eq(&schema, &schema_again));
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn warm_schemas_fails_explicitly_for_misconfigured_source()
+    -> Result<(), Box<dyn std::error::Error>> {
+        let fixture = ContactsFixtureDb::seeded_without_parent_groups_join().await?;
+        let pool = connect_pool(fixture.path()).await?;
+        let source_id = SourceId::new("broken-source");
+        let sources = ContactsSources::new(HashMap::from([(source_id, pool)]));
+
+        let error = sources
+            .warm_schemas()
+            .await
+            .err()
+            .ok_or("expected warm_schemas to fail for misconfigured source")?;
+        assert!(
+            error
+                .to_string()
+                .contains("missing Contacts parentGroups join table"),
+            "unexpected error: {error}"
+        );
+        Ok(())
     }
 }

@@ -148,6 +148,9 @@ impl AppState {
         if self.notes_db.is_some() {
             self.cached_notes_entity_ids().await?;
         }
+        if !self.contacts_sources.is_empty() {
+            self.contacts_sources.warm_schemas().await?;
+        }
         Ok(())
     }
 
@@ -454,11 +457,53 @@ pub(crate) mod openapi_contract {
 
 #[cfg(test)]
 mod tests {
+    use std::collections::HashMap;
+
     use axum::body::Body;
     use http::{Request, StatusCode};
     use tower::ServiceExt;
 
     use super::{AppState, openapi_contract::contract, router};
+    use crate::{
+        apple_types::SourceId, contacts::ContactsSources, db::connect_pool,
+        fixtures::ContactsFixtureDb,
+    };
+
+    #[tokio::test]
+    async fn warm_entity_id_caches_warms_configured_contacts_sources()
+    -> Result<(), Box<dyn std::error::Error>> {
+        let fixture = ContactsFixtureDb::seeded().await?;
+        let pool = connect_pool(fixture.path()).await?;
+        let contacts_sources =
+            ContactsSources::new(HashMap::from([(SourceId::new("fixture-source"), pool)]));
+        let state = AppState::with_contacts(None, None, None, None, contacts_sources, None);
+
+        state.warm_entity_id_caches().await?;
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn warm_entity_id_caches_fails_for_misconfigured_contacts_source()
+    -> Result<(), Box<dyn std::error::Error>> {
+        let fixture = ContactsFixtureDb::seeded_without_parent_groups_join().await?;
+        let pool = connect_pool(fixture.path()).await?;
+        let contacts_sources =
+            ContactsSources::new(HashMap::from([(SourceId::new("broken-source"), pool)]));
+        let state = AppState::with_contacts(None, None, None, None, contacts_sources, None);
+
+        let error = state
+            .warm_entity_id_caches()
+            .await
+            .err()
+            .ok_or("expected warmup to fail for misconfigured contacts source")?;
+        assert!(
+            error
+                .to_string()
+                .contains("missing Contacts parentGroups join table"),
+            "unexpected error: {error}"
+        );
+        Ok(())
+    }
 
     #[tokio::test]
     async fn router_registers_every_contract_route() -> Result<(), Box<dyn std::error::Error>> {
