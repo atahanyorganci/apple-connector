@@ -296,12 +296,6 @@ async fn resolve_calendar_path(cli: &Cli) -> Option<PathBuf> {
         return Some(default_path);
     }
 
-    for legacy in calendar::legacy_calendar_database_paths() {
-        if legacy.is_file() {
-            return Some(legacy);
-        }
-    }
-
     None
 }
 

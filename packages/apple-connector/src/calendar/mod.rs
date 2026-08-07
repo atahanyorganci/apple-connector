@@ -12,7 +12,7 @@ mod search;
 
 pub use discovery::{
     calendar_attachment_root_for_database, default_calendar_attachment_root,
-    default_calendar_database_path, legacy_calendar_database_paths,
+    default_calendar_database_path,
 };
 pub use inventory::{CalendarInventory, load_inventory};
 pub use model::{

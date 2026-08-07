@@ -21,17 +21,6 @@ pub fn calendar_attachment_root_for_database(database_path: &Path) -> Result<Pat
     default_calendar_attachment_root()
 }
 
-pub fn legacy_calendar_database_paths() -> Vec<PathBuf> {
-    let Some(home) = std::env::var_os("HOME") else {
-        return Vec::new();
-    };
-    let home = PathBuf::from(home);
-    vec![
-        home.join("Library/Calendars/Calendar.sqlitedb"),
-        home.join("Library/Application Support/Calendar/Calendar.sqlitedb"),
-    ]
-}
-
 #[cfg(test)]
 mod tests {
     use super::{default_calendar_attachment_root, default_calendar_database_path};

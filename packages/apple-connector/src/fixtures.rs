@@ -266,6 +266,27 @@ impl CalendarFixtureDb {
         Self::with_seed(true).await
     }
 
+    /// Fixture with only a legacy `ZCALENDARITEM` table (no modern `CalendarItem`).
+    pub async fn legacy_unsupported() -> io::Result<Self> {
+        let temp_dir = TempDir::new()?;
+        let path = temp_dir.path().join("Calendar.sqlitedb");
+        let options = SqliteConnectOptions::new()
+            .filename(&path)
+            .create_if_missing(true);
+        let mut connection = SqliteConnection::connect_with(&options)
+            .await
+            .map_err(io::Error::other)?;
+        sqlx::raw_sql("CREATE TABLE ZCALENDARITEM (Z_PK INTEGER PRIMARY KEY)")
+            .execute(&mut connection)
+            .await
+            .map_err(io::Error::other)?;
+        connection.close().await.ok();
+        Ok(Self {
+            _temp_dir: temp_dir,
+            path,
+        })
+    }
+
     pub fn path(&self) -> &Path {
         &self.path
     }

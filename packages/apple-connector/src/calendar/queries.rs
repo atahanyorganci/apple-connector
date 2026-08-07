@@ -499,18 +499,6 @@ pub async fn count_calendar_item_table(pool: &SqlitePool) -> Result<i64, sqlx::E
     .await
 }
 
-pub async fn count_zcalendaritem_table(pool: &SqlitePool) -> Result<i64, sqlx::Error> {
-    sqlx::query_scalar!(
-        r#"
-        SELECT COUNT(*) AS "count!: i64"
-        FROM sqlite_master
-        WHERE type = 'table' AND name = 'ZCALENDARITEM'
-        "#,
-    )
-    .fetch_one(pool)
-    .await
-}
-
 pub async fn count_stores(pool: &SqlitePool) -> Result<i64, sqlx::Error> {
     sqlx::query_scalar!(r#"SELECT COUNT(*) AS "count!: i64" FROM Store"#,)
         .fetch_one(pool)

@@ -5,7 +5,7 @@ use super::{
         count_attachments, count_calendars, count_events, count_hidden_events, count_occurrences,
         count_recurring_events, count_stores,
     },
-    schema::{CalendarSchemaVariant, detect_schema_variant},
+    schema::detect_schema_variant,
 };
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
@@ -22,28 +22,15 @@ pub struct CalendarInventory {
 
 pub async fn load_inventory(pool: &SqlitePool) -> Result<CalendarInventory, sqlx::Error> {
     let variant = detect_schema_variant(pool).await?;
-    let (stores, calendars, events, recurring, occurrences, attachments, hidden) = match variant {
-        CalendarSchemaVariant::CalendarItem => (
-            count_stores(pool).await?,
-            count_calendars(pool).await?,
-            count_events(pool).await?,
-            count_recurring_events(pool).await?,
-            count_occurrences(pool).await?,
-            count_attachments(pool).await?,
-            count_hidden_events(pool).await?,
-        ),
-        CalendarSchemaVariant::ZCalendarItem => (0, 0, 0, 0, 0, 0, 0),
-    };
-
     Ok(CalendarInventory {
         schema_variant: variant.as_str().to_owned(),
-        stores: stores as u64,
-        calendars: calendars as u64,
-        events: events as u64,
-        recurring_events: recurring as u64,
-        occurrences: occurrences as u64,
-        attachments: attachments as u64,
-        hidden_events: hidden as u64,
+        stores: count_stores(pool).await? as u64,
+        calendars: count_calendars(pool).await? as u64,
+        events: count_events(pool).await? as u64,
+        recurring_events: count_recurring_events(pool).await? as u64,
+        occurrences: count_occurrences(pool).await? as u64,
+        attachments: count_attachments(pool).await? as u64,
+        hidden_events: count_hidden_events(pool).await? as u64,
     })
 }
 
