@@ -62,48 +62,9 @@ impl ApiError {
         }
     }
 
-    /// Transitional helper — prefer typed `ErrorCode` constructors in new code.
-    pub fn validation(message: impl Into<String>) -> Self {
-        Self::with_message(ErrorCode::ValidationError, message)
-    }
-
-    /// Transitional helper — prefer typed `ErrorCode` constructors in new code.
-    pub fn validation_with_details(message: impl Into<String>, details: serde_json::Value) -> Self {
-        Self::with_details(ErrorCode::ValidationError, message, details)
-    }
-
-    /// Transitional helper — prefer domain-specific `*_not_found` codes.
-    pub fn not_found(message: impl Into<String>) -> Self {
-        Self::with_message(ErrorCode::ResourceNotFound, message)
-    }
-
+    /// Prefer typed `ErrorCode` constructors (`new` / `with_message` / `with_details`).
     pub fn range_not_satisfiable(message: impl Into<String>) -> Self {
         Self::with_message(ErrorCode::ByteRangeNotSatisfiable, message)
-    }
-
-    /// Transitional helper — prefer domain-specific unavailable codes.
-    pub fn service_unavailable(message: impl Into<String>) -> Self {
-        Self::with_message(ErrorCode::ServiceUnavailable, message)
-    }
-
-    /// Transitional helper — prefer typed permission codes.
-    pub fn forbidden(message: impl Into<String>) -> Self {
-        Self::with_message(ErrorCode::Forbidden, message)
-    }
-
-    pub fn conflict(message: impl Into<String>) -> Self {
-        Self::with_message(ErrorCode::Conflict, message)
-    }
-
-    pub fn unprocessable(message: impl Into<String>) -> Self {
-        Self::with_message(ErrorCode::UnprocessableEntity, message)
-    }
-
-    pub fn unprocessable_with_details(
-        message: impl Into<String>,
-        details: serde_json::Value,
-    ) -> Self {
-        Self::with_details(ErrorCode::UnprocessableEntity, message, details)
     }
 
     pub fn eventkit_unavailable() -> Self {

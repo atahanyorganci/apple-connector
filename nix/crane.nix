@@ -117,6 +117,16 @@
           done
           touch $out
         '';
+
+      workspace-api-error-leakage =
+        pkgs.runCommand "apple-connector-api-error-leakage-check" {
+          inherit src;
+          nativeBuildInputs = [pkgs.ripgrep pkgs.bash];
+        } ''
+          cd $src
+          bash scripts/check-api-error-leakage.sh
+          touch $out
+        '';
     };
     packages = {
       "apple-connector" = apple-connector;

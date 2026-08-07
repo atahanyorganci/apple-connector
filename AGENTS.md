@@ -45,6 +45,7 @@ Requires **Apple Silicon macOS**, **Full Disk Access** (SQLite reads), **Reminde
 - Date values are UTC Unix seconds (integers), not RFC 3339 strings in JSON responses.
 - After handler or schema changes: `cargo run -p apple-connector --bin export-openapi docs/openapi.json`.
 - Do not use `.unwrap()` or `.expect()` anywhere (production or tests). Propagate errors with `?` and map into domain errors (`thiserror`); in tests return `Result<(), Box<dyn std::error::Error>>` and use `?`.
+- API errors use typed `ErrorCode` values (`ApiError::new` / `with_message` / `with_details`). Never return `error.to_string()` from sqlx/EventKit/Contacts to clients; map with `ApiError::from_sqlx` or domain mappers. See `docs/errors.md`.
 - Use conventional commits; link issues in PRs; never merge to `main` without maintainer approval.
 
 ## Planning
