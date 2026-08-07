@@ -1423,7 +1423,7 @@
               "type": "string"
             },
             "style": "form",
-            "example": "v1.eyJyb3dfaWQiOjF9"
+            "example": "v1.eyJzb3VyY2VfaWQiOiIyN2ZkNmMxZS01ZGE1LTQzNDAtYTMxYS0xZDgzYzI1ZDNiNzAiLCJyb3dfaWQiOjF9"
           },
           {
             "name": "q",
@@ -1519,7 +1519,7 @@
               "type": "string"
             },
             "style": "form",
-            "example": "v1.eyJyb3dfaWQiOjF9"
+            "example": "v1.eyJzb3VyY2VfaWQiOiIyN2ZkNmMxZS01ZGE1LTQzNDAtYTMxYS0xZDgzYzI1ZDNiNzAiLCJyb3dfaWQiOjF9"
           },
           {
             "name": "q",
@@ -1611,7 +1611,7 @@
               "type": "string"
             },
             "style": "form",
-            "example": "v1.eyJyb3dfaWQiOjF9"
+            "example": "v1.eyJzb3VyY2VfaWQiOiIyN2ZkNmMxZS01ZGE1LTQzNDAtYTMxYS0xZDgzYzI1ZDNiNzAiLCJyb3dfaWQiOjF9"
           },
           {
             "name": "q",
@@ -1707,7 +1707,7 @@
               "type": "string"
             },
             "style": "form",
-            "example": "v1.eyJyb3dfaWQiOjF9"
+            "example": "v1.eyJzb3VyY2VfaWQiOiIyN2ZkNmMxZS01ZGE1LTQzNDAtYTMxYS0xZDgzYzI1ZDNiNzAiLCJyb3dfaWQiOjF9"
           },
           {
             "name": "q",

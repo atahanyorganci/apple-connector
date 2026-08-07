@@ -1002,7 +1002,9 @@ impl ContactGroupPath {
 pub struct ContactListParams {
     #[param(minimum = 1, maximum = 200, default = 50, example = 50)]
     pub limit: Option<u32>,
-    #[param(example = "v1.eyJyb3dfaWQiOjF9")]
+    #[param(
+        example = "v1.eyJzb3VyY2VfaWQiOiIyN2ZkNmMxZS01ZGE1LTQzNDAtYTMxYS0xZDgzYzI1ZDNiNzAiLCJyb3dfaWQiOjF9"
+    )]
     pub cursor: Option<String>,
     #[param(max_length = 256, example = "jane")]
     pub q: Option<String>,

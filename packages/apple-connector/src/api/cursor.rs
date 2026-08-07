@@ -234,8 +234,17 @@ pub struct GlobalEventCursor {
     pub row_id: i64,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+/// Cursor for globally paginating Contacts/Groups across every configured
+/// AddressBook source.
+///
+/// Sources are consumed one at a time in a stable order (ascending by
+/// `source_id`); `row_id` is the underlying source's own `Z_PK`-based
+/// pagination cursor. A `row_id` of `i64::MAX` means "start this source
+/// from the beginning" (used when resuming at the first item of the next
+/// source in the sequence).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ContactListCursor {
+    pub source_id: String,
     pub row_id: i64,
 }
 
@@ -260,8 +269,19 @@ pub struct EventSearchCursor {
 impl_row_id_cursor!(ListCursor);
 impl_row_id_cursor!(FolderListCursor);
 impl_row_id_cursor!(CalendarListCursor);
-impl_row_id_cursor!(ContactListCursor);
 impl_row_id_cursor!(GroupContactCursor);
+
+impl ValidatedCursor for ContactListCursor {
+    fn validate(&self) -> Result<(), ApiError> {
+        if self.source_id.is_empty() {
+            return Err(invalid_cursor_key("source_id"));
+        }
+        if self.row_id <= 0 {
+            return Err(invalid_cursor_key("row_id"));
+        }
+        Ok(())
+    }
+}
 
 impl ValidatedCursor for GlobalReminderCursor {
     fn validate(&self) -> Result<(), ApiError> {

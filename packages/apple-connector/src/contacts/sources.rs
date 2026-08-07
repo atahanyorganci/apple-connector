@@ -73,6 +73,20 @@ impl ContactsSources {
         ))
     }
 
+    /// Stable global ordering of sources for cross-source pagination:
+    /// sources are consumed one at a time, ascending by `source_id`.
+    fn sorted_source_ids(&self) -> Vec<SourceId> {
+        let mut ids: Vec<SourceId> = self.pools.keys().cloned().collect();
+        ids.sort();
+        ids
+    }
+
+    fn pool_for_source_or_err(&self, source_id: &SourceId) -> Result<&SqlitePool, sqlx::Error> {
+        self.pools.get(source_id).ok_or_else(|| {
+            sqlx::Error::Configuration(format!("unknown Contacts source: {source_id}").into())
+        })
+    }
+
     pub fn source_ids(&self) -> impl Iterator<Item = &SourceId> {
         self.pools.keys()
     }
@@ -138,23 +152,83 @@ impl ContactsSources {
     async fn list_groups_inner(
         &self,
         limit: u32,
-        _cursor: Option<ContactListCursor>,
+        cursor: Option<ContactListCursor>,
     ) -> Result<Page<ContactGroup>, sqlx::Error> {
-        let mut merged = Vec::new();
-        let per_source = limit.saturating_add(1);
-        for (source_id, pool) in &self.pools {
-            let repo = self.repository_for(source_id, pool).await?;
-            let page = repo.list_groups(per_source, None).await?;
-            merged.extend(page.items);
+        let source_ids = self.sorted_source_ids();
+        if source_ids.is_empty() {
+            return Ok(empty_page());
         }
-        merged.sort_by(|a, b| a.id.as_str().cmp(b.id.as_str()));
-        let has_more = merged.len() > limit as usize;
-        let items = merged.into_iter().take(limit as usize).collect();
-        Ok(Page {
-            items,
-            has_more,
-            next_cursor: None,
-        })
+        let (mut idx, mut pending_cursor) = resolve_cursor_start(&source_ids, cursor)?;
+
+        let mut items = Vec::new();
+        while idx < source_ids.len() && items.len() < limit as usize {
+            let source_id = &source_ids[idx];
+            let pool = self.pool_for_source_or_err(source_id)?;
+            let repo = self.repository_for(source_id, pool).await?;
+            let remaining = limit.saturating_sub(u32::try_from(items.len()).unwrap_or(limit));
+            let page = repo.list_groups(remaining, pending_cursor.take()).await?;
+            let source_has_more = page.has_more;
+            items.extend(page.items);
+            if source_has_more {
+                if items.len() >= limit as usize {
+                    return Ok(Page {
+                        items,
+                        has_more: true,
+                        next_cursor: page.next_cursor,
+                    });
+                }
+                pending_cursor = decode_next_cursor(page.next_cursor)?;
+                continue;
+            }
+            idx += 1;
+            pending_cursor = None;
+        }
+
+        if items.len() < limit as usize {
+            return Ok(Page {
+                items,
+                has_more: false,
+                next_cursor: None,
+            });
+        }
+        match self.first_source_with_groups(&source_ids, idx).await? {
+            Some(next_source_id) => Ok(Page {
+                items,
+                has_more: true,
+                next_cursor: encode_resume_cursor(next_source_id)?,
+            }),
+            None => Ok(Page {
+                items,
+                has_more: false,
+                next_cursor: None,
+            }),
+        }
+    }
+
+    /// Finds the first source (starting at `start_idx`) with at least one
+    /// group available, draining exhausted-but-empty pages within a source
+    /// before moving to the next one.
+    async fn first_source_with_groups(
+        &self,
+        source_ids: &[SourceId],
+        start_idx: usize,
+    ) -> Result<Option<SourceId>, sqlx::Error> {
+        for source_id in &source_ids[start_idx..] {
+            let pool = self.pool_for_source_or_err(source_id)?;
+            let repo = self.repository_for(source_id, pool).await?;
+            let mut cursor = None;
+            loop {
+                let page = repo.list_groups(1, cursor.take()).await?;
+                if !page.items.is_empty() {
+                    return Ok(Some(source_id.clone()));
+                }
+                if !page.has_more {
+                    break;
+                }
+                cursor = decode_next_cursor(page.next_cursor)?;
+            }
+        }
+        Ok(None)
     }
 
     pub async fn get_group(&self, group_id: &str) -> Result<Option<ContactGroup>, sqlx::Error> {
@@ -183,24 +257,90 @@ impl ContactsSources {
     async fn list_contacts_inner(
         &self,
         limit: u32,
-        _cursor: Option<ContactListCursor>,
+        cursor: Option<ContactListCursor>,
         filters: &ContactFilters,
     ) -> Result<Page<ContactSummary>, sqlx::Error> {
-        let mut merged = Vec::new();
-        let per_source = limit.saturating_add(1);
-        for (source_id, pool) in &self.pools {
-            let repo = self.repository_for(source_id, pool).await?;
-            let page = repo.list_contacts(per_source, None, filters).await?;
-            merged.extend(page.items);
+        let source_ids = self.sorted_source_ids();
+        if source_ids.is_empty() {
+            return Ok(empty_page());
         }
-        merged.sort_by(|a, b| a.id.as_str().cmp(b.id.as_str()));
-        let has_more = merged.len() > limit as usize;
-        let items = merged.into_iter().take(limit as usize).collect();
-        Ok(Page {
-            items,
-            has_more,
-            next_cursor: None,
-        })
+        let (mut idx, mut pending_cursor) = resolve_cursor_start(&source_ids, cursor)?;
+
+        let mut items = Vec::new();
+        while idx < source_ids.len() && items.len() < limit as usize {
+            let source_id = &source_ids[idx];
+            let pool = self.pool_for_source_or_err(source_id)?;
+            let repo = self.repository_for(source_id, pool).await?;
+            let remaining = limit.saturating_sub(u32::try_from(items.len()).unwrap_or(limit));
+            let page = repo
+                .list_contacts(remaining, pending_cursor.take(), filters)
+                .await?;
+            let source_has_more = page.has_more;
+            items.extend(page.items);
+            if source_has_more {
+                if items.len() >= limit as usize {
+                    return Ok(Page {
+                        items,
+                        has_more: true,
+                        next_cursor: page.next_cursor,
+                    });
+                }
+                pending_cursor = decode_next_cursor(page.next_cursor)?;
+                continue;
+            }
+            idx += 1;
+            pending_cursor = None;
+        }
+
+        if items.len() < limit as usize {
+            return Ok(Page {
+                items,
+                has_more: false,
+                next_cursor: None,
+            });
+        }
+        match self
+            .first_source_with_contacts(&source_ids, idx, filters)
+            .await?
+        {
+            Some(next_source_id) => Ok(Page {
+                items,
+                has_more: true,
+                next_cursor: encode_resume_cursor(next_source_id)?,
+            }),
+            None => Ok(Page {
+                items,
+                has_more: false,
+                next_cursor: None,
+            }),
+        }
+    }
+
+    /// Finds the first source (starting at `start_idx`) with at least one
+    /// matching contact, draining exhausted-but-empty pages within a source
+    /// before moving to the next one.
+    async fn first_source_with_contacts(
+        &self,
+        source_ids: &[SourceId],
+        start_idx: usize,
+        filters: &ContactFilters,
+    ) -> Result<Option<SourceId>, sqlx::Error> {
+        for source_id in &source_ids[start_idx..] {
+            let pool = self.pool_for_source_or_err(source_id)?;
+            let repo = self.repository_for(source_id, pool).await?;
+            let mut cursor = None;
+            loop {
+                let page = repo.list_contacts(1, cursor.take(), filters).await?;
+                if !page.items.is_empty() {
+                    return Ok(Some(source_id.clone()));
+                }
+                if !page.has_more {
+                    break;
+                }
+                cursor = decode_next_cursor(page.next_cursor)?;
+            }
+        }
+        Ok(None)
     }
 
     pub async fn list_group_contacts(
@@ -427,6 +567,65 @@ impl ContactsSources {
     }
 }
 
+fn empty_page<T>() -> Page<T> {
+    Page {
+        items: Vec::new(),
+        has_more: false,
+        next_cursor: None,
+    }
+}
+
+/// Resolves where cross-source pagination should resume: the index into
+/// `source_ids` to start from, and (if resuming mid-source) the per-source
+/// cursor to hand to that source's repository. A missing cursor starts from
+/// the first source; `ContactListCursor::row_id == i64::MAX` starts the
+/// named source from its own beginning.
+fn resolve_cursor_start(
+    source_ids: &[SourceId],
+    cursor: Option<ContactListCursor>,
+) -> Result<(usize, Option<ContactListCursor>), sqlx::Error> {
+    let Some(cursor) = cursor else {
+        return Ok((0, None));
+    };
+    let idx = source_ids
+        .iter()
+        .position(|id| id.as_str() == cursor.source_id)
+        .ok_or_else(|| {
+            sqlx::Error::Configuration(
+                format!("unknown Contacts source in cursor: {}", cursor.source_id).into(),
+            )
+        })?;
+    if cursor.row_id == i64::MAX {
+        Ok((idx, None))
+    } else {
+        Ok((idx, Some(cursor)))
+    }
+}
+
+/// Decodes a per-source `next_cursor` produced by `ContactsRepository`,
+/// which is always a valid `ContactListCursor` for the same source.
+fn decode_next_cursor(
+    next_cursor: Option<String>,
+) -> Result<Option<ContactListCursor>, sqlx::Error> {
+    let Some(next_cursor) = next_cursor else {
+        return Ok(None);
+    };
+    crate::api::cursor::decode::<ContactListCursor>(&next_cursor)
+        .map(Some)
+        .map_err(|_| sqlx::Error::Protocol("invalid Contacts pagination cursor".to_owned()))
+}
+
+/// Encodes a cursor that resumes multi-source pagination at the start of
+/// `source_id` (see `ContactListCursor` docs for the `row_id::MAX` sentinel).
+fn encode_resume_cursor(source_id: SourceId) -> Result<Option<String>, sqlx::Error> {
+    let encoded = crate::api::cursor::encode(&ContactListCursor {
+        source_id: source_id.into_inner(),
+        row_id: i64::MAX,
+    })
+    .map_err(|_| sqlx::Error::Protocol("failed to encode Contacts pagination cursor".to_owned()))?;
+    Ok(Some(encoded))
+}
+
 #[cfg(test)]
 mod tests {
     use std::collections::HashMap;
@@ -489,6 +688,172 @@ mod tests {
                 .contains("missing Contacts parentGroups join table"),
             "unexpected error: {error}"
         );
+        Ok(())
+    }
+
+    /// Builds a multi-source `ContactsSources` where each `tag` becomes an
+    /// independent AddressBook source (its own fixture file/pool), seeded
+    /// with `groups_per_source` extra groups and `contacts_per_source` extra
+    /// contacts on top of the default seed row. Returns the fixtures
+    /// alongside the sources so their backing temp files stay alive for the
+    /// duration of the test.
+    async fn build_multi_source(
+        tags: &[&str],
+        groups_per_source: u32,
+        contacts_per_source: u32,
+    ) -> Result<(ContactsSources, Vec<ContactsFixtureDb>), Box<dyn std::error::Error>> {
+        let mut pools = HashMap::new();
+        let mut fixtures = Vec::new();
+        for tag in tags {
+            let fixture = ContactsFixtureDb::seeded().await?;
+            if groups_per_source > 0 {
+                crate::fixtures::seed_extra_groups(fixture.path(), tag, groups_per_source).await?;
+            }
+            if contacts_per_source > 0 {
+                crate::fixtures::seed_tagged_contacts(fixture.path(), tag, contacts_per_source)
+                    .await?;
+            }
+            let pool = connect_pool(fixture.path()).await?;
+            pools.insert(SourceId::new(*tag), pool);
+            fixtures.push(fixture);
+        }
+        Ok((ContactsSources::new(pools), fixtures))
+    }
+
+    #[tokio::test]
+    async fn list_groups_paginates_stably_across_sources() -> Result<(), Box<dyn std::error::Error>>
+    {
+        use std::collections::HashSet;
+
+        let (sources, _fixtures) = build_multi_source(&["src-a", "src-b"], 3, 0).await?;
+        // 1 default seeded group + 3 extra groups per source, across 2 sources.
+        const EXPECTED_TOTAL: usize = (1 + 3) * 2;
+
+        let mut seen: HashSet<(String, String)> = HashSet::new();
+        let mut cursor = None;
+        let mut pages: Vec<HashSet<(String, String)>> = Vec::new();
+        loop {
+            let page = sources.list_groups(3, cursor.clone()).await?;
+            assert!(
+                !page.items.is_empty() || pages.is_empty(),
+                "page unexpectedly empty"
+            );
+            let mut page_ids = HashSet::new();
+            for item in &page.items {
+                let key = (
+                    item.source_id.as_str().to_owned(),
+                    item.id.as_str().to_owned(),
+                );
+                assert!(
+                    seen.insert(key.clone()),
+                    "duplicate group returned across pages: {key:?}"
+                );
+                page_ids.insert(key);
+            }
+            pages.push(page_ids);
+
+            if page.has_more {
+                let next = page
+                    .next_cursor
+                    .ok_or("has_more was true but next_cursor was missing")?;
+                cursor = Some(crate::api::cursor::decode::<
+                    crate::api::cursor::ContactListCursor,
+                >(&next)?);
+            } else {
+                assert!(
+                    page.next_cursor.is_none(),
+                    "next_cursor should be absent once has_more is false"
+                );
+                break;
+            }
+        }
+
+        assert_eq!(seen.len(), EXPECTED_TOTAL);
+        assert!(
+            pages.len() >= 2,
+            "expected pagination across multiple pages"
+        );
+        assert_ne!(pages[0], pages[1], "page 2 must differ from page 1");
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn list_contacts_paginates_stably_across_sources()
+    -> Result<(), Box<dyn std::error::Error>> {
+        use std::collections::HashSet;
+
+        let (sources, _fixtures) = build_multi_source(&["src-a", "src-b"], 0, 3).await?;
+        // 1 default seeded contact + 3 extra contacts per source, across 2 sources.
+        const EXPECTED_TOTAL: usize = (1 + 3) * 2;
+
+        let mut seen: HashSet<(String, String)> = HashSet::new();
+        let mut cursor = None;
+        let mut pages: Vec<HashSet<(String, String)>> = Vec::new();
+        loop {
+            let page = sources
+                .list_contacts(3, cursor.clone(), &Default::default())
+                .await?;
+            let mut page_ids = HashSet::new();
+            for item in &page.items {
+                let key = (
+                    item.source_id.as_str().to_owned(),
+                    item.id.as_str().to_owned(),
+                );
+                assert!(
+                    seen.insert(key.clone()),
+                    "duplicate contact returned across pages: {key:?}"
+                );
+                page_ids.insert(key);
+            }
+            pages.push(page_ids);
+
+            if page.has_more {
+                let next = page
+                    .next_cursor
+                    .ok_or("has_more was true but next_cursor was missing")?;
+                cursor = Some(crate::api::cursor::decode::<
+                    crate::api::cursor::ContactListCursor,
+                >(&next)?);
+            } else {
+                assert!(
+                    page.next_cursor.is_none(),
+                    "next_cursor should be absent once has_more is false"
+                );
+                break;
+            }
+        }
+
+        assert_eq!(seen.len(), EXPECTED_TOTAL);
+        assert!(
+            pages.len() >= 2,
+            "expected pagination across multiple pages"
+        );
+        assert_ne!(pages[0], pages[1], "page 2 must differ from page 1");
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn list_groups_cursor_resumes_at_next_source_boundary()
+    -> Result<(), Box<dyn std::error::Error>> {
+        // One group per source (the default seed row only): a page that
+        // exhausts the first source exactly at `limit` must still report
+        // `has_more` with a cursor that resumes at the start of the next
+        // source, not stall with a false "no more data".
+        let (sources, _fixtures) = build_multi_source(&["src-a", "src-b"], 0, 0).await?;
+
+        let page1 = sources.list_groups(1, None).await?;
+        assert_eq!(page1.items.len(), 1);
+        assert!(page1.has_more, "expected more groups in the second source");
+        let cursor = crate::api::cursor::decode::<crate::api::cursor::ContactListCursor>(
+            &page1.next_cursor.ok_or("missing next_cursor")?,
+        )?;
+        assert_eq!(cursor.source_id, "src-b");
+
+        let page2 = sources.list_groups(1, Some(cursor)).await?;
+        assert_eq!(page2.items.len(), 1);
+        assert!(!page2.has_more);
+        assert!(page2.next_cursor.is_none());
+        assert_ne!(page1.items[0].source_id, page2.items[0].source_id);
         Ok(())
     }
 }

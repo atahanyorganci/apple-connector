@@ -457,6 +457,64 @@ pub async fn seed_extra_contacts(path: &Path, count: u32) -> io::Result<()> {
     Ok(())
 }
 
+/// Inserts additional group rows (entity 19) for pagination tests. `tag`
+/// distinguishes ids when seeding multiple fixtures (e.g. simulated sources).
+pub async fn seed_extra_groups(path: &Path, tag: &str, count: u32) -> io::Result<()> {
+    let options = SqliteConnectOptions::new()
+        .filename(path)
+        .read_only(false)
+        .create_if_missing(false);
+
+    let mut connection = SqliteConnection::connect_with(&options)
+        .await
+        .map_err(io::Error::other)?;
+
+    for index in 0..count {
+        let pk = 200_i64 + i64::from(index);
+        sqlx::query(
+            "INSERT INTO ZABCDRECORD (Z_PK, Z_ENT, Z_OPT, ZCONTAINER, ZNAME, ZUNIQUEID) VALUES (?1, 19, 1, 1, ?2, ?3)",
+        )
+        .bind(pk)
+        .bind(format!("Group-{tag}-{index}"))
+        .bind(format!("{tag}-group-{index:04}:ABGroup"))
+        .execute(&mut connection)
+        .await
+        .map_err(io::Error::other)?;
+    }
+
+    connection.close().await.ok();
+    Ok(())
+}
+
+/// Inserts additional contact rows (entity 22) tagged with `tag`, so ids
+/// stay distinct across multiple fixtures simulating separate sources.
+pub async fn seed_tagged_contacts(path: &Path, tag: &str, count: u32) -> io::Result<()> {
+    let options = SqliteConnectOptions::new()
+        .filename(path)
+        .read_only(false)
+        .create_if_missing(false);
+
+    let mut connection = SqliteConnection::connect_with(&options)
+        .await
+        .map_err(io::Error::other)?;
+
+    for index in 0..count {
+        let pk = 300_i64 + i64::from(index);
+        sqlx::query(
+            "INSERT INTO ZABCDRECORD (Z_PK, Z_ENT, Z_OPT, ZCONTAINER, ZFIRSTNAME, ZUNIQUEID, ZCREATIONDATE, ZMODIFICATIONDATE) VALUES (?1, 22, 1, 1, ?2, ?3, 1700000000, 1700000000)",
+        )
+        .bind(pk)
+        .bind(format!("Person-{tag}-{index}"))
+        .bind(format!("{tag}-contact-{index:04}:ABContact"))
+        .execute(&mut connection)
+        .await
+        .map_err(io::Error::other)?;
+    }
+
+    connection.close().await.ok();
+    Ok(())
+}
+
 async fn drop_parent_groups_join(path: &Path) -> io::Result<()> {
     let options = SqliteConnectOptions::new()
         .filename(path)

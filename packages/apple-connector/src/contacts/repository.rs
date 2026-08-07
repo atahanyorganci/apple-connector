@@ -149,7 +149,7 @@ impl<'a> ContactsRepository<'a> {
             fetch_limit,
         )
         .await?;
-        Ok(split_page_skipping(
+        let (items, has_more, last_row_id) = split_page_skipping(
             rows,
             limit,
             |row| {
@@ -157,7 +157,23 @@ impl<'a> ContactsRepository<'a> {
                 group.container_id.is_some().then_some(group)
             },
             |row| row.row_id,
-        ))
+        );
+        let next_cursor = if has_more {
+            last_row_id.and_then(|row_id| {
+                encode(&ContactListCursor {
+                    source_id: self.source_id.as_str().to_owned(),
+                    row_id,
+                })
+                .ok()
+            })
+        } else {
+            None
+        };
+        Ok(Page {
+            items,
+            has_more,
+            next_cursor,
+        })
     }
 
     pub async fn get_group(&self, group_id: &str) -> Result<Option<ContactGroup>, sqlx::Error> {
@@ -178,7 +194,7 @@ impl<'a> ContactsRepository<'a> {
         let binds = filters.bind_values(cursor.map(|value| value.row_id), fetch_limit);
         let rows =
             fetch_filtered_contacts(self.pool, entity_ids.contact, &parent_groups, &binds).await?;
-        Ok(split_page_skipping(
+        let (items, has_more, last_row_id) = split_page_skipping(
             rows,
             limit,
             |row| {
@@ -186,7 +202,23 @@ impl<'a> ContactsRepository<'a> {
                 summary.container_id.is_some().then_some(summary)
             },
             |row| row.row_id,
-        ))
+        );
+        let next_cursor = if has_more {
+            last_row_id.and_then(|row_id| {
+                encode(&ContactListCursor {
+                    source_id: self.source_id.as_str().to_owned(),
+                    row_id,
+                })
+                .ok()
+            })
+        } else {
+            None
+        };
+        Ok(Page {
+            items,
+            has_more,
+            next_cursor,
+        })
     }
 
     pub async fn list_group_contacts(
@@ -207,7 +239,7 @@ impl<'a> ContactsRepository<'a> {
             fetch_limit,
         )
         .await?;
-        Ok(split_page_skipping(
+        let (items, has_more, last_row_id) = split_page_skipping(
             rows,
             limit,
             |row| {
@@ -215,7 +247,17 @@ impl<'a> ContactsRepository<'a> {
                 summary.container_id.is_some().then_some(summary)
             },
             |row| row.row_id,
-        ))
+        );
+        let next_cursor = if has_more {
+            last_row_id.and_then(|row_id| encode(&GroupContactCursor { row_id }).ok())
+        } else {
+            None
+        };
+        Ok(Page {
+            items,
+            has_more,
+            next_cursor,
+        })
     }
 
     pub async fn get_contact(
@@ -453,7 +495,16 @@ fn group_group_ids(rows: Vec<GroupOwnedRow>) -> HashMap<i64, Vec<String>> {
     map
 }
 
-fn split_page_skipping<T, R, F, K>(rows: Vec<R>, limit: u32, map: F, row_id: K) -> Page<T>
+/// Splits a raw (possibly over-fetched) row set into a page of at most
+/// `limit` mapped items, plus whether more rows remain beyond `limit` and
+/// the `row_id` of the last row within the page (the resume point for a
+/// follow-up cursor, when `has_more` is true).
+fn split_page_skipping<T, R, F, K>(
+    rows: Vec<R>,
+    limit: u32,
+    map: F,
+    row_id: K,
+) -> (Vec<T>, bool, Option<i64>)
 where
     F: Fn(R) -> Option<T>,
     K: Fn(&R) -> i64,
@@ -465,16 +516,7 @@ where
         .take(limit as usize)
         .filter_map(map)
         .collect();
-    let next_cursor = if has_more {
-        last_row_id.and_then(|id| encode(&ContactListCursor { row_id: id }).ok())
-    } else {
-        None
-    };
-    Page {
-        items,
-        has_more,
-        next_cursor,
-    }
+    (items, has_more, last_row_id)
 }
 
 #[cfg(test)]
