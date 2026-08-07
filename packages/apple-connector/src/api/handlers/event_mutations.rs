@@ -63,7 +63,7 @@ pub async fn create_event(
     .ok_or_else(|| ApiError::not_found("calendar not found"))?;
 
     let saved = eventkit
-        .create_event(calendar_hint(metadata), create_event_input(request))
+        .create_event(calendar_hint(metadata), create_event_input(request)?)
         .await
         .map_err(map_eventkit_error)?;
 
@@ -125,7 +125,7 @@ pub async fn update_event(
             event_id.as_str(),
             external_id.as_deref(),
             params.occurrence_start.map(|value| value.seconds()),
-            update_event_input(request, calendar_hint, span),
+            update_event_input(request, calendar_hint, span)?,
         )
         .await
         .map_err(map_eventkit_error)?;

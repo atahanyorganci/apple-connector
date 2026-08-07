@@ -130,8 +130,10 @@ pub fn calendar_hint(metadata: CalendarResolveMetadata) -> CalendarResolveHint {
     }
 }
 
-pub fn create_reminder_input(request: CreateReminderRequest) -> CreateReminderInput {
-    CreateReminderInput {
+pub fn create_reminder_input(
+    request: CreateReminderRequest,
+) -> Result<CreateReminderInput, ApiError> {
+    Ok(CreateReminderInput {
         title: request.title,
         notes: request.notes,
         due: request.due.map(due_input),
@@ -139,16 +141,20 @@ pub fn create_reminder_input(request: CreateReminderRequest) -> CreateReminderIn
         priority: request.priority,
         url: request.url,
         location: request.location.map(location_input),
-        alarms: request.alarms.into_iter().map(alarm_input).collect(),
+        alarms: request
+            .alarms
+            .into_iter()
+            .map(alarm_input)
+            .collect::<Result<Vec<_>, _>>()?,
         recurrence: request.recurrence.map(recurrence_input),
-    }
+    })
 }
 
 pub fn update_reminder_input(
     request: UpdateReminderRequest,
     list_hint: Option<ReminderListResolveHint>,
-) -> UpdateReminderInput {
-    UpdateReminderInput {
+) -> Result<UpdateReminderInput, ApiError> {
+    Ok(UpdateReminderInput {
         title: request.title,
         notes: request.notes,
         due: request.due.map(|due| due.map(due_input)),
@@ -161,15 +167,21 @@ pub fn update_reminder_input(
             .map(|location| location.map(location_input)),
         alarms: request
             .alarms
-            .map(|alarms| alarms.into_iter().map(alarm_input).collect()),
+            .map(|alarms| {
+                alarms
+                    .into_iter()
+                    .map(alarm_input)
+                    .collect::<Result<Vec<_>, _>>()
+            })
+            .transpose()?,
         recurrence: request
             .recurrence
             .map(|recurrence| recurrence.map(recurrence_input)),
-    }
+    })
 }
 
-pub fn create_event_input(request: CreateEventRequest) -> CreateEventInput {
-    CreateEventInput {
+pub fn create_event_input(request: CreateEventRequest) -> Result<CreateEventInput, ApiError> {
+    Ok(CreateEventInput {
         summary: request.summary,
         description: request.description,
         start: request.start.seconds(),
@@ -178,17 +190,21 @@ pub fn create_event_input(request: CreateEventRequest) -> CreateEventInput {
         url: request.url,
         status: request.status.map(event_status_input),
         location: request.location.map(location_input),
-        alarms: request.alarms.into_iter().map(alarm_input).collect(),
+        alarms: request
+            .alarms
+            .into_iter()
+            .map(alarm_input)
+            .collect::<Result<Vec<_>, _>>()?,
         recurrence: request.recurrence.map(recurrence_input),
-    }
+    })
 }
 
 pub fn update_event_input(
     request: UpdateEventRequest,
     calendar_hint: Option<CalendarResolveHint>,
     span: EventSpanDto,
-) -> UpdateEventInput {
-    UpdateEventInput {
+) -> Result<UpdateEventInput, ApiError> {
+    Ok(UpdateEventInput {
         summary: request.summary,
         description: request.description,
         start: request.start.map(|value| value.seconds()),
@@ -202,12 +218,18 @@ pub fn update_event_input(
             .map(|location| location.map(location_input)),
         alarms: request
             .alarms
-            .map(|alarms| alarms.into_iter().map(alarm_input).collect()),
+            .map(|alarms| {
+                alarms
+                    .into_iter()
+                    .map(alarm_input)
+                    .collect::<Result<Vec<_>, _>>()
+            })
+            .transpose()?,
         recurrence: request
             .recurrence
             .map(|recurrence| recurrence.map(recurrence_input)),
         span: span.into(),
-    }
+    })
 }
 
 pub fn delete_event_input(span: EventSpanDto, occurrence_start: Option<i64>) -> DeleteEventInput {
@@ -242,16 +264,36 @@ fn location_input(location: LocationInputDto) -> LocationInput {
     }
 }
 
-fn alarm_input(alarm: AlarmInputDto) -> AlarmInput {
-    AlarmInput {
-        kind: match alarm.kind {
-            AlarmKindDto::Absolute => AlarmKind::Absolute,
-            AlarmKindDto::Relative => AlarmKind::Relative,
-            AlarmKindDto::Location | AlarmKindDto::Unknown => AlarmKind::Relative,
-        },
+fn alarm_input(alarm: AlarmInputDto) -> Result<AlarmInput, ApiError> {
+    let kind = match alarm.kind {
+        AlarmKindDto::Absolute => AlarmKind::Absolute,
+        AlarmKindDto::Relative => AlarmKind::Relative,
+        AlarmKindDto::Location => {
+            return Err(ApiError::unprocessable_with_details(
+                "unsupported alarm kind",
+                serde_json::json!({
+                    "code": "unsupported_alarm_kind",
+                    "field": "alarms.kind",
+                    "kind": "location",
+                }),
+            ));
+        }
+        AlarmKindDto::Unknown => {
+            return Err(ApiError::unprocessable_with_details(
+                "unsupported alarm kind",
+                serde_json::json!({
+                    "code": "unsupported_alarm_kind",
+                    "field": "alarms.kind",
+                    "kind": "unknown",
+                }),
+            ));
+        }
+    };
+    Ok(AlarmInput {
+        kind,
         at: alarm.at.map(|value| value.seconds()),
         offset_seconds: alarm.offset_seconds,
-    }
+    })
 }
 
 fn recurrence_input(recurrence: RecurrenceInputDto) -> RecurrenceInput {
@@ -347,5 +389,45 @@ mod tests {
     fn map_eventkit_not_found() {
         let error = map_eventkit_error(EventKitError::NotFound);
         assert_eq!(error.status(), axum::http::StatusCode::NOT_FOUND);
+    }
+
+    #[test]
+    fn alarm_input_rejects_location_and_unknown_kinds() -> Result<(), Box<dyn std::error::Error>> {
+        for kind in [AlarmKindDto::Location, AlarmKindDto::Unknown] {
+            let error = alarm_input(AlarmInputDto {
+                kind,
+                at: None,
+                offset_seconds: Some(-600),
+            })
+            .err()
+            .ok_or("expected unsupported alarm kind")?;
+            assert_eq!(error.status(), axum::http::StatusCode::UNPROCESSABLE_ENTITY);
+            let body = serde_json::to_value(error.body())?;
+            assert_eq!(body["details"]["code"], "unsupported_alarm_kind");
+            assert_eq!(body["details"]["field"], "alarms.kind");
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn alarm_input_accepts_relative_and_absolute() -> Result<(), Box<dyn std::error::Error>> {
+        let relative = alarm_input(AlarmInputDto {
+            kind: AlarmKindDto::Relative,
+            at: None,
+            offset_seconds: Some(-600),
+        })?;
+        assert_eq!(relative.kind, AlarmKind::Relative);
+        assert_eq!(relative.offset_seconds, Some(-600));
+
+        let absolute = alarm_input(AlarmInputDto {
+            kind: AlarmKindDto::Absolute,
+            at: Some(crate::apple_types::UnixTimestamp::from_seconds(
+                1_700_000_000,
+            )),
+            offset_seconds: None,
+        })?;
+        assert_eq!(absolute.kind, AlarmKind::Absolute);
+        assert_eq!(absolute.at, Some(1_700_000_000));
+        Ok(())
     }
 }

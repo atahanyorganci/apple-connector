@@ -70,7 +70,10 @@ pub async fn create_reminder(
     }
 
     let saved = eventkit
-        .create_reminder(reminder_list_hint(metadata), create_reminder_input(request))
+        .create_reminder(
+            reminder_list_hint(metadata),
+            create_reminder_input(request)?,
+        )
         .await
         .map_err(map_eventkit_error)?;
 
@@ -143,7 +146,7 @@ pub async fn update_reminder(
         .update_reminder(
             reminder_id.as_str(),
             external_id.as_deref(),
-            update_reminder_input(request, list_hint),
+            update_reminder_input(request, list_hint)?,
         )
         .await
         .map_err(map_eventkit_error)?;
