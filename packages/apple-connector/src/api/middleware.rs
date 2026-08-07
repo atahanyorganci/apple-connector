@@ -11,7 +11,7 @@ use axum::{
 };
 use tracing::info;
 
-use super::error::ApiError;
+use super::error::{ApiError, ErrorCode};
 
 /// Default timeout for JSON and metadata API handlers.
 pub const JSON_REQUEST_TIMEOUT: Duration = Duration::from_secs(30);
@@ -74,7 +74,7 @@ pub async fn request_timeout(
 }
 
 pub async fn not_found() -> impl IntoResponse {
-    ApiError::not_found("route not found").into_response()
+    ApiError::new(ErrorCode::RouteNotFound).into_response()
 }
 
 pub async fn method_not_allowed() -> impl IntoResponse {
@@ -152,7 +152,7 @@ mod tests {
         assert_eq!(response.status(), StatusCode::NOT_FOUND);
         let body = response.into_body().collect().await?.to_bytes();
         let payload = String::from_utf8(body.to_vec())?;
-        assert!(payload.contains("\"code\":\"not_found\""));
+        assert!(payload.contains("\"code\":\"route_not_found\""));
         assert!(!payload.contains("secret"));
         Ok(())
     }

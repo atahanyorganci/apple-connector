@@ -5,6 +5,7 @@ pub(crate) mod cursor;
 mod doc;
 mod dto;
 mod error;
+mod error_codes;
 mod eventkit;
 mod eventkit_convert;
 mod handlers;
