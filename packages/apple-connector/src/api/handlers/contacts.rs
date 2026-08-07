@@ -68,7 +68,7 @@ pub async fn list_contacts_vcard(
     let details = sources
         .hydrate_contact_summaries(page.items)
         .await
-        .map_err(|error| ApiError::internal(error.to_string()))?;
+        .map_err(ApiError::from_sqlx)?;
     contact_page_vcard(&details)
 }
 
@@ -94,7 +94,7 @@ pub async fn list_contacts_carddav(
     let details = sources
         .hydrate_contact_summaries(page.items)
         .await
-        .map_err(|error| ApiError::internal(error.to_string()))?;
+        .map_err(ApiError::from_sqlx)?;
     contact_page_carddav(&details)
 }
 
@@ -120,7 +120,7 @@ pub async fn search_contacts(
     let q = params.validated_search_query()?;
     let items = run_timed_query(|| async { sources.search_contacts(&q, limit).await })
         .await
-        .map_err(|error| ApiError::internal(error.to_string()))?;
+        .map_err(ApiError::from_sqlx)?;
     Ok(Json(contact_page_to_dto(
         Page {
             items,
@@ -222,7 +222,7 @@ pub async fn get_contact_photo(
     let contact_id = path.validated()?;
     let photo = run_timed_query(|| async { sources.get_contact_photo(contact_id.as_str()).await })
         .await
-        .map_err(|error| ApiError::internal(error.to_string()))?
+        .map_err(ApiError::from_sqlx)?
         .ok_or_else(|| ApiError::not_found("Contact photo not found"))?;
 
     let (bytes, image_type) = photo;
@@ -253,7 +253,7 @@ async fn fetch_contact_page(
         .transpose()?;
     run_timed_query(|| async { sources.list_contacts(limit, cursor, &filters).await })
         .await
-        .map_err(|error| ApiError::internal(error.to_string()))
+        .map_err(ApiError::from_sqlx)
 }
 
 async fn fetch_contact_detail(
@@ -262,7 +262,7 @@ async fn fetch_contact_detail(
 ) -> Result<crate::contacts::ContactDetail, ApiError> {
     run_timed_query(|| async { sources.get_contact(contact_id).await })
         .await
-        .map_err(|error| ApiError::internal(error.to_string()))?
+        .map_err(ApiError::from_sqlx)?
         .ok_or_else(|| ApiError::not_found("Contact not found"))
 }
 

@@ -42,7 +42,7 @@ pub async fn get_event_attachment_content(
             .await
     })
     .await
-    .map_err(|error| ApiError::internal(error.to_string()))?
+    .map_err(ApiError::from_sqlx)?
     .ok_or_else(|| ApiError::not_found("Attachment not found"))?;
     let local_path = attachment
         .local_path
@@ -65,7 +65,7 @@ pub async fn get_event_attachment_content(
         .header(header::CONTENT_TYPE, content_type)
         .header(header::ACCEPT_RANGES, "bytes")
         .body(body)
-        .map_err(|error| ApiError::internal(error.to_string()))
+        .map_err(|_| ApiError::internal("failed to build attachment response"))
 }
 
 fn mime_from_format(format: &str) -> String {

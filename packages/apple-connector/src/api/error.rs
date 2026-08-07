@@ -119,8 +119,20 @@ impl ApiError {
         Self::new(ErrorCode::InternalError)
     }
 
+    /// Map database errors without leaking driver details. Query bounds surface as 504.
+    pub fn from_sqlx(error: sqlx::Error) -> Self {
+        match error {
+            sqlx::Error::PoolTimedOut => Self::new(ErrorCode::QueryTimeout),
+            _ => Self::new(ErrorCode::InternalError),
+        }
+    }
+
     pub fn method_not_allowed() -> Self {
         Self::new(ErrorCode::MethodNotAllowed)
+    }
+
+    pub fn request_timeout() -> Self {
+        Self::new(ErrorCode::RequestTimeout)
     }
 
     pub fn status(&self) -> StatusCode {

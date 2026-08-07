@@ -43,7 +43,7 @@ pub async fn list_note_folders(
     let note_entity_ids = state
         .cached_notes_entity_ids()
         .await
-        .map_err(|error| ApiError::internal(error.to_string()))?;
+        .map_err(ApiError::from_sqlx)?;
     let limit = validate_page(&page)?;
     let cursor = page
         .validated_cursor()?
@@ -56,7 +56,7 @@ pub async fn list_note_folders(
             .await
     })
     .await
-    .map_err(|error| ApiError::internal(error.to_string()))?;
+    .map_err(ApiError::from_sqlx)?;
 
     Ok(Json(note_folder_page_to_dto(
         page.items,
@@ -88,7 +88,7 @@ pub async fn get_note_folder(
     let note_entity_ids = state
         .cached_notes_entity_ids()
         .await
-        .map_err(|error| ApiError::internal(error.to_string()))?;
+        .map_err(ApiError::from_sqlx)?;
     let key = path.validated_key()?;
     let folder_id = path.folder_id;
     let folder = match key {
@@ -98,14 +98,14 @@ pub async fn get_note_folder(
                 .await
         })
         .await
-        .map_err(|error| ApiError::internal(error.to_string()))?,
+        .map_err(ApiError::from_sqlx)?,
         NoteFolderKey::Id(id) => run_timed_query(|| async {
             NoteRepository::with_entity_ids(pool, Arc::clone(&note_entity_ids))
                 .get_folder_by_id(&id)
                 .await
         })
         .await
-        .map_err(|error| ApiError::internal(error.to_string()))?,
+        .map_err(ApiError::from_sqlx)?,
     }
     .ok_or_else(|| ApiError::not_found(format!("note folder {folder_id} not found")))?;
 
@@ -135,7 +135,7 @@ pub async fn list_folder_notes(
     let note_entity_ids = state
         .cached_notes_entity_ids()
         .await
-        .map_err(|error| ApiError::internal(error.to_string()))?;
+        .map_err(ApiError::from_sqlx)?;
     let key = path.validated_key()?;
     let folder_id = path.folder_id;
     let folder_row_id = match &key {
@@ -144,7 +144,7 @@ pub async fn list_folder_notes(
             let folder = NoteRepository::with_entity_ids(pool, Arc::clone(&note_entity_ids))
                 .get_folder_by_id(id)
                 .await
-                .map_err(|error| ApiError::internal(error.to_string()))?
+                .map_err(ApiError::from_sqlx)?
                 .ok_or_else(|| ApiError::not_found(format!("note folder {folder_id} not found")))?;
             folder.row_id.get()
         }
@@ -178,7 +178,7 @@ pub async fn list_folder_notes(
                 .await
         })
         .await
-        .map_err(|error| ApiError::internal(error.to_string()))?)
+        .map_err(ApiError::from_sqlx)?)
     } else {
         run_timed_query(|| async {
             NoteRepository::with_entity_ids(pool, Arc::clone(&note_entity_ids))
@@ -186,7 +186,7 @@ pub async fn list_folder_notes(
                 .await
         })
         .await
-        .map_err(|error| ApiError::internal(error.to_string()))?
+        .map_err(ApiError::from_sqlx)?
     };
 
     match page {

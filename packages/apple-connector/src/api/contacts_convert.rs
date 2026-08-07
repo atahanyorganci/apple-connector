@@ -29,7 +29,7 @@ pub fn map_contacts_error(error: ContactsError) -> ApiError {
         ContactsError::ValidationFailed(message) => ApiError::unprocessable(message),
         ContactsError::UnsupportedPlatform => ApiError::contacts_unavailable(),
         ContactsError::Framework(message) => ApiError::internal(message),
-        ContactsError::Timeout => ApiError::internal("Contacts operation timed out"),
+        ContactsError::Timeout => ApiError::new(crate::api::error::ErrorCode::GatewayTimeout),
     }
 }
 
@@ -133,7 +133,7 @@ pub fn contact_detail_vcard(
     contact: &crate::contacts::ContactDetail,
 ) -> Result<Response, ApiError> {
     let body = serde_vcard::to_string(&contact.to_vcard())
-        .map_err(|error| ApiError::internal(error.to_string()))?;
+        .map_err(|_| ApiError::internal("serialization failed"))?;
     Ok((
         StatusCode::OK,
         [(axum::http::header::CONTENT_TYPE, VCARD_CONTENT_TYPE)],
@@ -151,8 +151,8 @@ pub fn contact_detail_carddav(
         content_type: Some(VCARD_CONTENT_TYPE.to_owned()),
         vcard: contact.to_vcard(),
     };
-    let body =
-        serde_carddav::to_string(&object).map_err(|error| ApiError::internal(error.to_string()))?;
+    let body = serde_carddav::to_string(&object)
+        .map_err(|_| ApiError::internal("serialization failed"))?;
     Ok((
         StatusCode::OK,
         [(axum::http::header::CONTENT_TYPE, CARDDAV_CONTENT_TYPE)],
@@ -168,7 +168,7 @@ pub fn contact_page_vcard(
     for contact in contacts {
         body.push_str(
             &serde_vcard::to_string(&contact.to_vcard())
-                .map_err(|error| ApiError::internal(error.to_string()))?,
+                .map_err(|_| ApiError::internal("serialization failed"))?,
         );
         body.push('\n');
     }
@@ -193,7 +193,7 @@ pub fn contact_page_carddav(
         };
         xml_parts.push(
             serde_carddav::to_string(&object)
-                .map_err(|error| ApiError::internal(error.to_string()))?,
+                .map_err(|_| ApiError::internal("serialization failed"))?,
         );
     }
     Ok((

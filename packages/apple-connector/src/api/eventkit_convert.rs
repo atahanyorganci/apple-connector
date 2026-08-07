@@ -32,7 +32,7 @@ pub fn map_eventkit_error(error: EventKitError) -> ApiError {
         EventKitError::AmbiguousMatch(message) => ApiError::conflict(message),
         EventKitError::UnsupportedPlatform => ApiError::eventkit_unavailable(),
         EventKitError::Framework(message) => ApiError::internal(message),
-        EventKitError::Timeout => ApiError::internal("EventKit operation timed out"),
+        EventKitError::Timeout => ApiError::new(crate::api::error::ErrorCode::GatewayTimeout),
     }
 }
 

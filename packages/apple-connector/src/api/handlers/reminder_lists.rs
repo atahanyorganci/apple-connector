@@ -44,7 +44,7 @@ pub async fn list_reminder_lists(
     let reminder_entity_ids = state
         .cached_reminders_entity_ids()
         .await
-        .map_err(|error| ApiError::internal(error.to_string()))?;
+        .map_err(ApiError::from_sqlx)?;
     let limit = validate_page(&page)?;
     let cursor = page
         .validated_cursor()?
@@ -54,7 +54,7 @@ pub async fn list_reminder_lists(
     let repo = ReminderRepository::with_entity_ids(pool, Arc::clone(&reminder_entity_ids));
     let page = run_timed_query(|| async { repo.list_lists(limit, cursor).await })
         .await
-        .map_err(|error| ApiError::internal(error.to_string()))?;
+        .map_err(ApiError::from_sqlx)?;
 
     Ok(Json(reminder_list_page_to_dto(
         page.items,
@@ -85,13 +85,13 @@ pub async fn get_reminder_list(
     let reminder_entity_ids = state
         .cached_reminders_entity_ids()
         .await
-        .map_err(|error| ApiError::internal(error.to_string()))?;
+        .map_err(ApiError::from_sqlx)?;
     let list_id = path.list_id.clone();
     let key = path.validated_key()?;
     let repo = ReminderRepository::with_entity_ids(pool, Arc::clone(&reminder_entity_ids));
     let list = run_timed_query(|| async { repo.get_list_by_key(&key).await })
         .await
-        .map_err(|error| ApiError::internal(error.to_string()))?
+        .map_err(ApiError::from_sqlx)?
         .ok_or_else(|| ApiError::not_found(format!("reminder list {list_id} not found")))?;
 
     Ok(Json(reminder_list_detail_to_dto(&list)))
@@ -119,7 +119,7 @@ pub async fn list_reminder_list_reminders(
     let reminder_entity_ids = state
         .cached_reminders_entity_ids()
         .await
-        .map_err(|error| ApiError::internal(error.to_string()))?;
+        .map_err(ApiError::from_sqlx)?;
     let list_id = path.list_id.clone();
     let key = path.validated_key()?;
     let list_row_id = match &key {
@@ -128,11 +128,11 @@ pub async fn list_reminder_list_reminders(
             let repo = state
                 .reminder_repository(pool)
                 .await
-                .map_err(|error| ApiError::internal(error.to_string()))?;
+                .map_err(ApiError::from_sqlx)?;
             let list = repo
                 .get_list_by_uuid(id)
                 .await
-                .map_err(|error| ApiError::internal(error.to_string()))?
+                .map_err(ApiError::from_sqlx)?
                 .ok_or_else(|| ApiError::not_found(format!("reminder list {list_id} not found")))?;
             list.row_id.get()
         }
@@ -171,7 +171,7 @@ pub async fn list_reminder_list_reminders(
         .await
     })
     .await
-    .map_err(|error| ApiError::internal(error.to_string()))?;
+    .map_err(ApiError::from_sqlx)?;
 
     match page {
         Ok(page) => Ok(Json(reminder_page_to_dto(

@@ -71,7 +71,7 @@ pub async fn hydrate_reminder(
     if let Some(reminder) = ReminderRepository::with_entity_ids(pool, entity_ids)
         .get_reminder(external_id)
         .await
-        .map_err(|error| ApiError::internal(error.to_string()))?
+        .map_err(ApiError::from_sqlx)?
     {
         return Ok(SyncPendingReminderDetailDto {
             id: reminder.id.clone(),
@@ -96,7 +96,7 @@ pub async fn hydrate_event(
     if let Some(event) = CalendarRepository::new(pool)
         .get_event(external_id)
         .await
-        .map_err(|error| ApiError::internal(error.to_string()))?
+        .map_err(ApiError::from_sqlx)?
     {
         return Ok(SyncPendingEventDetailDto {
             id: event.summary.id.clone(),
@@ -122,7 +122,7 @@ pub async fn hydrate_contact(
     if let Some(contact) = sources
         .get_contact(&api_id)
         .await
-        .map_err(|error| ApiError::internal(error.to_string()))?
+        .map_err(ApiError::from_sqlx)?
     {
         return Ok(SyncPendingContactDetailDto {
             id: contact.id.clone(),
@@ -148,7 +148,7 @@ pub async fn hydrate_group(
     if let Some(group) = sources
         .get_group(&api_id)
         .await
-        .map_err(|error| ApiError::internal(error.to_string()))?
+        .map_err(ApiError::from_sqlx)?
     {
         return Ok(SyncPendingGroupDetailDto {
             id: group.id.clone(),

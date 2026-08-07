@@ -56,7 +56,7 @@ pub async fn get_attachment(
             .await
     })
     .await
-    .map_err(|error| ApiError::internal(error.to_string()))?
+    .map_err(ApiError::from_sqlx)?
     .ok_or_else(|| ApiError::not_found(format!("attachment {guid} not found")))?;
 
     attachment.present_on_disk = is_present_on_disk_async(
@@ -190,7 +190,7 @@ async fn resolve_content_attachment(
             .await
     })
     .await
-    .map_err(|error| ApiError::internal(error.to_string()))?
+    .map_err(ApiError::from_sqlx)?
     .ok_or_else(|| ApiError::not_found(format!("attachment {guid} not found")))?;
 
     if !attachment.transfer_complete {

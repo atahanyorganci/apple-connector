@@ -99,14 +99,14 @@ async fn resolve_attachment(state: &AppState, id: &str) -> Result<NoteAttachment
     let note_entity_ids = state
         .cached_notes_entity_ids()
         .await
-        .map_err(|error| ApiError::internal(error.to_string()))?;
+        .map_err(ApiError::from_sqlx)?;
     run_timed_query(|| async {
         NoteRepository::with_entity_ids(pool, Arc::clone(&note_entity_ids))
             .get_attachment_by_id(id)
             .await
     })
     .await
-    .map_err(|error| ApiError::internal(error.to_string()))?
+    .map_err(ApiError::from_sqlx)?
     .ok_or_else(|| ApiError::not_found(format!("note attachment {id} not found")))
 }
 

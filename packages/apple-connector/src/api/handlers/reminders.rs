@@ -43,7 +43,7 @@ pub async fn list_reminders(
     let reminder_entity_ids = state
         .cached_reminders_entity_ids()
         .await
-        .map_err(|error| ApiError::internal(error.to_string()))?;
+        .map_err(ApiError::from_sqlx)?;
     let limit = params.validated_limit()?;
     params.validated_cursor()?;
     let filters = params.validated_filters()?;
@@ -90,7 +90,7 @@ pub async fn list_reminders(
         })
         .await
     }
-    .map_err(|error| ApiError::internal(error.to_string()))?;
+    .map_err(ApiError::from_sqlx)?;
 
     Ok(Json(reminder_page_to_dto(
         page.items,
@@ -123,14 +123,14 @@ pub async fn get_reminder(
     let reminder_entity_ids = state
         .cached_reminders_entity_ids()
         .await
-        .map_err(|error| ApiError::internal(error.to_string()))?;
+        .map_err(ApiError::from_sqlx)?;
     let reminder = run_timed_query(|| async {
         ReminderRepository::with_entity_ids(pool, Arc::clone(&reminder_entity_ids))
             .get_reminder(reminder_id.as_str())
             .await
     })
     .await
-    .map_err(|error| ApiError::internal(error.to_string()))?
+    .map_err(ApiError::from_sqlx)?
     .ok_or_else(|| ApiError::not_found(format!("reminder {reminder_id} not found")))?;
 
     Ok(Json(reminder_detail_to_dto(&reminder)))

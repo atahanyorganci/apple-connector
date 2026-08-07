@@ -48,7 +48,7 @@ pub async fn list_calendar_accounts(
     let accounts =
         run_timed_query(|| async { CalendarRepository::new(pool).list_accounts().await })
             .await
-            .map_err(|error| ApiError::internal(error.to_string()))?;
+            .map_err(ApiError::from_sqlx)?;
     Ok(Json(calendar_account_page_to_dto(accounts)))
 }
 
@@ -83,7 +83,7 @@ pub async fn list_calendars(
             .await
     })
     .await
-    .map_err(|error| ApiError::internal(error.to_string()))?;
+    .map_err(ApiError::from_sqlx)?;
     Ok(Json(calendar_page_to_dto(
         page.items,
         page.has_more,
@@ -117,7 +117,7 @@ pub async fn get_calendar(
             .await
     })
     .await
-    .map_err(|error| ApiError::internal(error.to_string()))?
+    .map_err(ApiError::from_sqlx)?
     .ok_or_else(|| ApiError::not_found("Calendar not found"))?;
     Ok(Json(calendar_detail_to_dto(&calendar)))
 }
@@ -219,7 +219,7 @@ pub(crate) async fn fetch_calendar_event_page(
             .await
     })
     .await
-    .map_err(|error| ApiError::internal(error.to_string()))
+    .map_err(ApiError::from_sqlx)
 }
 
 pub(crate) fn event_page_json(

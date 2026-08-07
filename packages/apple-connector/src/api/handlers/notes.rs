@@ -45,7 +45,7 @@ pub async fn list_notes(
     let note_entity_ids = state
         .cached_notes_entity_ids()
         .await
-        .map_err(|error| ApiError::internal(error.to_string()))?;
+        .map_err(ApiError::from_sqlx)?;
     let limit = params.validated_limit()?;
     params.validated_cursor()?;
     let filters = params.validated_filters()?;
@@ -83,7 +83,7 @@ pub async fn list_notes(
         })
         .await
     }
-    .map_err(|error| ApiError::internal(error.to_string()))?;
+    .map_err(ApiError::from_sqlx)?;
 
     Ok(Json(note_page_to_dto(
         page.items,
@@ -116,14 +116,14 @@ pub async fn get_note(
     let note_entity_ids = state
         .cached_notes_entity_ids()
         .await
-        .map_err(|error| ApiError::internal(error.to_string()))?;
+        .map_err(ApiError::from_sqlx)?;
     let note = run_timed_query(|| async {
         NoteRepository::with_entity_ids(pool, Arc::clone(&note_entity_ids))
             .get_note(note_id.as_str())
             .await
     })
     .await
-    .map_err(|error| ApiError::internal(error.to_string()))?
+    .map_err(ApiError::from_sqlx)?
     .ok_or_else(|| ApiError::not_found(format!("note {note_id} not found")))?;
 
     let attachments = run_timed_query(|| async {
@@ -132,7 +132,7 @@ pub async fn get_note(
             .await
     })
     .await
-    .map_err(|error| ApiError::internal(error.to_string()))?;
+    .map_err(ApiError::from_sqlx)?;
 
     Ok(Json(note_detail_to_dto(&note, &attachments)))
 }
@@ -170,14 +170,14 @@ pub async fn get_note_contents(
     let note_entity_ids = state
         .cached_notes_entity_ids()
         .await
-        .map_err(|error| ApiError::internal(error.to_string()))?;
+        .map_err(ApiError::from_sqlx)?;
     let note = run_timed_query(|| async {
         NoteRepository::with_entity_ids(pool, Arc::clone(&note_entity_ids))
             .get_note(note_id.as_str())
             .await
     })
     .await
-    .map_err(|error| ApiError::internal(error.to_string()))?
+    .map_err(ApiError::from_sqlx)?
     .ok_or_else(|| ApiError::not_found(format!("note {note_id} not found")))?;
 
     let tags = run_timed_query(|| async {
@@ -186,7 +186,7 @@ pub async fn get_note_contents(
             .await
     })
     .await
-    .map_err(|error| ApiError::internal(error.to_string()))?;
+    .map_err(ApiError::from_sqlx)?;
 
     let preamble = preamble_from_note(&note.summary, tags);
     let document = render_document(&preamble, &note.body);
@@ -198,7 +198,7 @@ pub async fn get_note_contents(
             HeaderValue::from_static("text/markdown; charset=utf-8"),
         )
         .body(axum::body::Body::from(document))
-        .map_err(|error| ApiError::internal(error.to_string()))
+        .map_err(|_| ApiError::internal("failed to build markdown response"))
 }
 
 #[cfg(test)]

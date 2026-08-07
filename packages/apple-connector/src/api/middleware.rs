@@ -69,7 +69,7 @@ pub async fn request_timeout(
 
     match tokio::time::timeout(timeout, next.run(request)).await {
         Ok(response) => Ok(response),
-        Err(_) => Err(ApiError::internal("request timed out")),
+        Err(_) => Err(ApiError::request_timeout()),
     }
 }
 

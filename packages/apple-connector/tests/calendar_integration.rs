@@ -146,6 +146,6 @@ async fn integration_calendar_unavailable_without_database()
     let app = router(AppState::new(None, None, None, None));
     let (status, payload) = response_json(app, "/v1/events?limit=1").await?;
     assert_eq!(status, StatusCode::SERVICE_UNAVAILABLE);
-    assert_eq!(payload["error"]["code"], "service_unavailable");
+    assert_eq!(payload["error"]["code"], "calendar_database_unavailable");
     Ok(())
 }

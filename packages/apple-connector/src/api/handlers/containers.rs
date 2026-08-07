@@ -31,7 +31,7 @@ pub async fn list_containers(
     let sources = require_contacts_sources(&state.contacts_sources)?;
     let containers = run_timed_query(|| async { sources.list_containers().await })
         .await
-        .map_err(|error| ApiError::internal(error.to_string()))?;
+        .map_err(ApiError::from_sqlx)?;
     Ok(Json(container_page_to_dto(containers)))
 }
 
@@ -57,7 +57,7 @@ pub async fn get_container(
     let container =
         run_timed_query(|| async { sources.get_container(container_id.as_str()).await })
             .await
-            .map_err(|error| ApiError::internal(error.to_string()))?
+            .map_err(ApiError::from_sqlx)?
             .ok_or_else(|| ApiError::not_found("Container not found"))?;
     Ok(Json(container_detail_to_dto(&container)))
 }

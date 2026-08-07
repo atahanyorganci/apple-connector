@@ -107,14 +107,14 @@ async fn resolve_attachment(
     let reminder_entity_ids = state
         .cached_reminders_entity_ids()
         .await
-        .map_err(|error| ApiError::internal(error.to_string()))?;
+        .map_err(ApiError::from_sqlx)?;
     let attachment = run_timed_query(|| async {
         ReminderRepository::with_entity_ids(pool, Arc::clone(&reminder_entity_ids))
             .get_attachment_by_id(id)
             .await
     })
     .await
-    .map_err(|error| ApiError::internal(error.to_string()))?
+    .map_err(ApiError::from_sqlx)?
     .ok_or_else(|| ApiError::not_found(format!("reminder attachment {id} not found")))?;
 
     let reminder_id = run_timed_query(|| async {
@@ -123,7 +123,7 @@ async fn resolve_attachment(
             .await
     })
     .await
-    .map_err(|error| ApiError::internal(error.to_string()))?
+    .map_err(ApiError::from_sqlx)?
     .unwrap_or_else(|| "unknown".to_owned());
 
     Ok((attachment, reminder_id))
@@ -138,14 +138,14 @@ async fn resolve_attachment_path(
     let reminder_entity_ids = state
         .cached_reminders_entity_ids()
         .await
-        .map_err(|error| ApiError::internal(error.to_string()))?;
+        .map_err(ApiError::from_sqlx)?;
     let attachment = run_timed_query(|| async {
         ReminderRepository::with_entity_ids(pool, Arc::clone(&reminder_entity_ids))
             .get_attachment_by_id(id)
             .await
     })
     .await
-    .map_err(|error| ApiError::internal(error.to_string()))?
+    .map_err(ApiError::from_sqlx)?
     .ok_or_else(|| ApiError::not_found(format!("reminder attachment {id} not found")))?;
 
     let filename = attachment

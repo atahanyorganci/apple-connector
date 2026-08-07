@@ -49,7 +49,7 @@ pub async fn create_contact(
     let container =
         run_timed_query(|| async { sources.get_container(container_id.as_str()).await })
             .await
-            .map_err(|error| ApiError::internal(error.to_string()))?
+            .map_err(ApiError::from_sqlx)?
             .ok_or_else(|| ApiError::not_found("container not found"))?;
 
     if container.read_only {
@@ -62,7 +62,7 @@ pub async fn create_contact(
             .await
     })
     .await
-    .map_err(|error| ApiError::internal(error.to_string()))?
+    .map_err(ApiError::from_sqlx)?
     .ok_or_else(|| ApiError::not_found("container not found"))?;
 
     let saved = store
@@ -105,7 +105,7 @@ pub async fn update_contact(
     let framework_id =
         run_timed_query(|| async { sources.get_contact_framework_id(contact_id.as_str()).await })
             .await
-            .map_err(|error| ApiError::internal(error.to_string()))?
+            .map_err(ApiError::from_sqlx)?
             .ok_or_else(|| ApiError::not_found("contact not found"))?;
 
     let saved = store
@@ -145,7 +145,7 @@ pub async fn delete_contact(
     let framework_id =
         run_timed_query(|| async { sources.get_contact_framework_id(contact_id.as_str()).await })
             .await
-            .map_err(|error| ApiError::internal(error.to_string()))?
+            .map_err(ApiError::from_sqlx)?
             .ok_or_else(|| ApiError::not_found("contact not found"))?;
 
     store
@@ -183,7 +183,7 @@ pub async fn create_group(
     let container =
         run_timed_query(|| async { sources.get_container(container_id.as_str()).await })
             .await
-            .map_err(|error| ApiError::internal(error.to_string()))?
+            .map_err(ApiError::from_sqlx)?
             .ok_or_else(|| ApiError::not_found("container not found"))?;
 
     if container.read_only {
@@ -196,7 +196,7 @@ pub async fn create_group(
             .await
     })
     .await
-    .map_err(|error| ApiError::internal(error.to_string()))?
+    .map_err(ApiError::from_sqlx)?
     .ok_or_else(|| ApiError::not_found("container not found"))?;
 
     let saved = store
@@ -239,7 +239,7 @@ pub async fn update_group(
     let framework_id =
         run_timed_query(|| async { sources.get_group_framework_id(group_id.as_str()).await })
             .await
-            .map_err(|error| ApiError::internal(error.to_string()))?
+            .map_err(ApiError::from_sqlx)?
             .ok_or_else(|| ApiError::not_found("group not found"))?;
 
     let saved = store
@@ -279,7 +279,7 @@ pub async fn delete_group(
     let framework_id =
         run_timed_query(|| async { sources.get_group_framework_id(group_id.as_str()).await })
             .await
-            .map_err(|error| ApiError::internal(error.to_string()))?
+            .map_err(ApiError::from_sqlx)?
             .ok_or_else(|| ApiError::not_found("group not found"))?;
 
     store
@@ -314,13 +314,13 @@ pub async fn add_contact_to_group(
     let group_framework_id =
         run_timed_query(|| async { sources.get_group_framework_id(group_id.as_str()).await })
             .await
-            .map_err(|error| ApiError::internal(error.to_string()))?
+            .map_err(ApiError::from_sqlx)?
             .ok_or_else(|| ApiError::not_found("group not found"))?;
 
     let contact_framework_id =
         run_timed_query(|| async { sources.get_contact_framework_id(contact_id.as_str()).await })
             .await
-            .map_err(|error| ApiError::internal(error.to_string()))?
+            .map_err(ApiError::from_sqlx)?
             .ok_or_else(|| ApiError::not_found("contact not found"))?;
 
     store
@@ -355,13 +355,13 @@ pub async fn remove_contact_from_group(
     let group_framework_id =
         run_timed_query(|| async { sources.get_group_framework_id(group_id.as_str()).await })
             .await
-            .map_err(|error| ApiError::internal(error.to_string()))?
+            .map_err(ApiError::from_sqlx)?
             .ok_or_else(|| ApiError::not_found("group not found"))?;
 
     let contact_framework_id =
         run_timed_query(|| async { sources.get_contact_framework_id(contact_id.as_str()).await })
             .await
-            .map_err(|error| ApiError::internal(error.to_string()))?
+            .map_err(ApiError::from_sqlx)?
             .ok_or_else(|| ApiError::not_found("contact not found"))?;
 
     store

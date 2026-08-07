@@ -58,7 +58,7 @@ pub async fn list_messages(
     let page = MessageRepository::new(pool)
         .list_messages_filtered(&filters, limit, search_cursor, global_cursor)
         .await
-        .map_err(|error| ApiError::internal(error.to_string()))?;
+        .map_err(ApiError::from_sqlx)?;
 
     Ok(Json(message_page_to_dto(page, limit)))
 }
@@ -88,7 +88,7 @@ pub async fn get_message(
     let message = MessageRepository::new(pool)
         .get_message_by_guid(guid.as_str())
         .await
-        .map_err(|error| ApiError::internal(error.to_string()))?
+        .map_err(ApiError::from_sqlx)?
         .ok_or_else(|| ApiError::not_found(format!("message {guid} not found")))?;
 
     Ok(Json(message_detail_to_dto(&message)))
@@ -319,7 +319,7 @@ mod tests {
         )
         .await?;
         assert_eq!(status, StatusCode::BAD_REQUEST);
-        assert_eq!(payload["error"]["code"], "validation_error");
+        assert_eq!(payload["error"]["code"], "invalid_timestamp");
 
         let long_q = "a".repeat(257);
         let (status, _) = response_json(app.clone(), &format!("/v1/messages?q={long_q}")).await?;
@@ -378,12 +378,8 @@ mod tests {
         )
         .await?;
         assert_eq!(status, StatusCode::BAD_REQUEST);
-        assert_eq!(payload["error"]["code"], "validation_error");
-        Ok(())
-    }
+        assert_eq!(payload["error"]["code"], "invalid_cursor");
 
-    #[tokio::test]
-    async fn new_matching_row_visible_without_restart() -> Result<(), Box<dyn std::error::Error>> {
         let fixture = seed_search_fixture().await?;
         let pool = connect_pool(fixture.path()).await?;
         let app = router(AppState::new(Some(pool), None, None, None));

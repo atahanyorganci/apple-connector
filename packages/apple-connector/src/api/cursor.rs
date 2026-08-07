@@ -1,7 +1,10 @@
 use base64::{Engine, engine::general_purpose::URL_SAFE_NO_PAD};
 use serde::{Deserialize, Serialize};
 
-use super::{error::ApiError, params::CURSOR_VERSION};
+use super::{
+    error::{ApiError, ErrorCode},
+    params::CURSOR_VERSION,
+};
 use crate::{
     calendar::EventFiltersSnapshot, messages::search::MessageFiltersSnapshot,
     notes::search::NoteFiltersSnapshot, reminders::ReminderFiltersSnapshot,
@@ -82,10 +85,15 @@ pub struct ChatListCursor {
 }
 
 fn invalid_cursor_key(field: &'static str) -> ApiError {
-    ApiError::validation_with_details(
+    ApiError::with_details(
+        ErrorCode::InvalidCursor,
         "cursor pagination key is invalid",
         serde_json::json!({ "field": field }),
     )
+}
+
+fn invalid_cursor(message: impl Into<String>, details: serde_json::Value) -> ApiError {
+    ApiError::with_details(ErrorCode::InvalidCursor, message, details)
 }
 
 pub trait ValidatedCursor: for<'de> Deserialize<'de> {
@@ -115,7 +123,7 @@ pub fn decode<T: ValidatedCursor>(cursor: &str) -> Result<T, ApiError> {
     let encoded = cursor
         .strip_prefix(&format!("{CURSOR_VERSION}."))
         .ok_or_else(|| {
-            ApiError::validation_with_details(
+            invalid_cursor(
                 format!("cursor must start with `{CURSOR_VERSION}.`"),
                 serde_json::json!({
                     "field": "cursor",
@@ -125,14 +133,14 @@ pub fn decode<T: ValidatedCursor>(cursor: &str) -> Result<T, ApiError> {
         })?;
 
     let bytes = URL_SAFE_NO_PAD.decode(encoded).map_err(|_| {
-        ApiError::validation_with_details(
+        invalid_cursor(
             "cursor is not valid base64url",
             serde_json::json!({ "field": "cursor" }),
         )
     })?;
 
     let payload: T = serde_json::from_slice(&bytes).map_err(|_| {
-        ApiError::validation_with_details(
+        invalid_cursor(
             "cursor payload is invalid",
             serde_json::json!({ "field": "cursor" }),
         )
@@ -147,7 +155,7 @@ pub fn decode_search_cursor(
 ) -> Result<MessageSearchCursor, ApiError> {
     let decoded = decode::<MessageSearchCursor>(cursor)?;
     if decoded.filters != *expected_filters {
-        return Err(ApiError::validation_with_details(
+        return Err(invalid_cursor(
             "cursor does not match the active filters",
             serde_json::json!({ "field": "cursor" }),
         ));
@@ -159,7 +167,7 @@ pub fn decode_global_or_reject_for_filters(cursor: &str) -> Result<GlobalMessage
     let bytes = cursor
         .strip_prefix(&format!("{CURSOR_VERSION}."))
         .ok_or_else(|| {
-            ApiError::validation_with_details(
+            invalid_cursor(
                 format!("cursor must start with `{CURSOR_VERSION}.`"),
                 serde_json::json!({
                     "field": "cursor",
@@ -171,14 +179,14 @@ pub fn decode_global_or_reject_for_filters(cursor: &str) -> Result<GlobalMessage
     let raw = base64::engine::general_purpose::URL_SAFE_NO_PAD
         .decode(bytes)
         .map_err(|_| {
-            ApiError::validation_with_details(
+            invalid_cursor(
                 "cursor is not valid base64url",
                 serde_json::json!({ "field": "cursor" }),
             )
         })?;
 
     if serde_json::from_slice::<MessageSearchCursor>(&raw).is_ok() {
-        return Err(ApiError::validation_with_details(
+        return Err(invalid_cursor(
             "cursor does not match the active filters",
             serde_json::json!({ "field": "cursor" }),
         ));
@@ -193,7 +201,7 @@ pub fn decode_reminder_search_cursor(
 ) -> Result<ReminderSearchCursor, ApiError> {
     let decoded = decode::<ReminderSearchCursor>(cursor)?;
     if decoded.filters != *expected_filters {
-        return Err(ApiError::validation_with_details(
+        return Err(invalid_cursor(
             "cursor does not match the active filters",
             serde_json::json!({ "field": "cursor" }),
         ));
@@ -207,7 +215,7 @@ pub fn decode_note_search_cursor(
 ) -> Result<NoteSearchCursor, ApiError> {
     let decoded = decode::<NoteSearchCursor>(cursor)?;
     if decoded.filters != *expected_filters {
-        return Err(ApiError::validation_with_details(
+        return Err(invalid_cursor(
             "cursor does not match the active filters",
             serde_json::json!({ "field": "cursor" }),
         ));
@@ -420,7 +428,7 @@ pub fn decode_event_search_cursor(
 ) -> Result<EventSearchCursor, ApiError> {
     let decoded = decode::<EventSearchCursor>(cursor)?;
     if decoded.filters != *expected_filters {
-        return Err(ApiError::validation_with_details(
+        return Err(invalid_cursor(
             "cursor does not match the active filters",
             serde_json::json!({ "field": "cursor" }),
         ));

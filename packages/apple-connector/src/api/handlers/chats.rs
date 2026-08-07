@@ -48,7 +48,7 @@ pub async fn list_chats(
     let page = MessageRepository::new(pool)
         .list_chats(limit, cursor)
         .await
-        .map_err(|error| ApiError::internal(error.to_string()))?;
+        .map_err(ApiError::from_sqlx)?;
 
     Ok(Json(ChatPageDto {
         items: page.items.iter().map(chat_summary_to_dto).collect(),
@@ -85,7 +85,7 @@ pub async fn get_chat(
     let chat = MessageRepository::new(pool)
         .get_chat(chat_id.get())
         .await
-        .map_err(|error| ApiError::internal(error.to_string()))?
+        .map_err(ApiError::from_sqlx)?
         .ok_or_else(|| ApiError::not_found(format!("chat {} not found", chat_id.get())))?;
 
     Ok(Json(chat_detail_to_dto(&chat)))
@@ -127,7 +127,7 @@ pub async fn list_chat_messages(
     let page = MessageRepository::new(pool)
         .list_chat_messages(chat_id.get(), limit, cursor)
         .await
-        .map_err(|error| ApiError::internal(error.to_string()))?;
+        .map_err(ApiError::from_sqlx)?;
 
     match page {
         Err(ChatLookupError::NotFound) => Err(ApiError::not_found(format!(

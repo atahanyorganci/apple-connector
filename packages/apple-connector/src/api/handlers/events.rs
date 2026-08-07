@@ -188,7 +188,7 @@ async fn fetch_event_page(
                 .await
         })
         .await
-        .map_err(|error| ApiError::internal(error.to_string()))
+        .map_err(ApiError::from_sqlx)
     } else {
         let cursor = match params.cursor.as_deref() {
             None => None,
@@ -208,7 +208,7 @@ async fn fetch_event_page(
                 .await
         })
         .await
-        .map_err(|error| ApiError::internal(error.to_string()))
+        .map_err(ApiError::from_sqlx)
     }
 }
 
@@ -222,7 +222,7 @@ async fn fetch_event_detail(
             .await
     })
     .await
-    .map_err(|error| ApiError::internal(error.to_string()))?
+    .map_err(ApiError::from_sqlx)?
     .ok_or_else(|| ApiError::not_found("Event not found"))
 }
 
@@ -233,7 +233,7 @@ fn event_detail_json(event: &EventDetail) -> Json<EventDetailDto> {
 fn event_detail_ics(event: &EventDetail) -> Result<Response, ApiError> {
     let interchange: Event = event.into();
     let body = serde_icalendar::to_string(&interchange.to_ics_event())
-        .map_err(|error| ApiError::internal(error.to_string()))?;
+        .map_err(|_| ApiError::internal("serialization failed"))?;
     Ok((
         StatusCode::OK,
         [(axum::http::header::CONTENT_TYPE, ICS_CONTENT_TYPE)],
@@ -252,7 +252,7 @@ fn event_detail_caldav(event: &EventDetail) -> Result<Response, ApiError> {
         event: ics_event,
     };
     let body =
-        serde_caldav::to_string(&object).map_err(|error| ApiError::internal(error.to_string()))?;
+        serde_caldav::to_string(&object).map_err(|_| ApiError::internal("serialization failed"))?;
     Ok((
         StatusCode::OK,
         [(axum::http::header::CONTENT_TYPE, CALDAV_CONTENT_TYPE)],

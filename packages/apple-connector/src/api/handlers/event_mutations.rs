@@ -60,7 +60,7 @@ pub async fn create_event(
             .await
     })
     .await
-    .map_err(|error| ApiError::internal(error.to_string()))?
+    .map_err(ApiError::from_sqlx)?
     .ok_or_else(|| ApiError::not_found("calendar not found"))?;
 
     let saved = eventkit
@@ -106,7 +106,7 @@ pub async fn update_event(
                 .await
         })
         .await
-        .map_err(|error| ApiError::internal(error.to_string()))?
+        .map_err(ApiError::from_sqlx)?
         .ok_or_else(|| ApiError::not_found("calendar not found"))?;
         Some(calendar_hint(metadata))
     } else {
@@ -119,7 +119,7 @@ pub async fn update_event(
             .await
     })
     .await
-    .map_err(|error| ApiError::internal(error.to_string()))?;
+    .map_err(ApiError::from_sqlx)?;
 
     let span = request.span.unwrap_or(EventSpanDto::This);
     let saved = eventkit
@@ -168,7 +168,7 @@ pub async fn delete_event(
             .await
     })
     .await
-    .map_err(|error| ApiError::internal(error.to_string()))?;
+    .map_err(ApiError::from_sqlx)?;
 
     let span = params.span.unwrap_or(EventSpanDto::This);
     eventkit

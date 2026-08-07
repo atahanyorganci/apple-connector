@@ -52,7 +52,7 @@ pub async fn create_reminder(
     let reminder_entity_ids = state
         .cached_reminders_entity_ids()
         .await
-        .map_err(|error| ApiError::internal(error.to_string()))?;
+        .map_err(ApiError::from_sqlx)?;
     let eventkit = require_eventkit_reminders(&state).await?;
     path.validated_key()?;
     let list_id = path.list_id.as_str();
@@ -63,7 +63,7 @@ pub async fn create_reminder(
             .await
     })
     .await
-    .map_err(|error| ApiError::internal(error.to_string()))?
+    .map_err(ApiError::from_sqlx)?
     .ok_or_else(|| ApiError::not_found("reminder list not found"))?;
 
     if metadata.is_smart_list {
@@ -82,7 +82,7 @@ pub async fn create_reminder(
         let entity_ids = state
             .cached_reminders_entity_ids()
             .await
-            .map_err(|error| ApiError::internal(error.to_string()))?;
+            .map_err(ApiError::from_sqlx)?;
         crate::api::hydrate::hydrate_reminder(pool, entity_ids, &saved.external_id).await?
     };
     Ok((mutation_status(response.sync_pending, true), Json(response)))
@@ -115,7 +115,7 @@ pub async fn update_reminder(
     let reminder_entity_ids = state
         .cached_reminders_entity_ids()
         .await
-        .map_err(|error| ApiError::internal(error.to_string()))?;
+        .map_err(ApiError::from_sqlx)?;
     let eventkit = require_eventkit_reminders(&state).await?;
     let reminder_id = path.validated()?;
 
@@ -126,7 +126,7 @@ pub async fn update_reminder(
                 .await
         })
         .await
-        .map_err(|error| ApiError::internal(error.to_string()))?
+        .map_err(ApiError::from_sqlx)?
         .ok_or_else(|| ApiError::not_found("reminder list not found"))?;
         if metadata.is_smart_list {
             return Err(ApiError::forbidden("cannot write to smart reminder lists"));
@@ -142,7 +142,7 @@ pub async fn update_reminder(
             .await
     })
     .await
-    .map_err(|error| ApiError::internal(error.to_string()))?;
+    .map_err(ApiError::from_sqlx)?;
 
     let saved = eventkit
         .update_reminder(
@@ -157,7 +157,7 @@ pub async fn update_reminder(
         let entity_ids = state
             .cached_reminders_entity_ids()
             .await
-            .map_err(|error| ApiError::internal(error.to_string()))?;
+            .map_err(ApiError::from_sqlx)?;
         crate::api::hydrate::hydrate_reminder(pool, entity_ids, &saved.external_id).await?
     };
     Ok((
@@ -188,7 +188,7 @@ pub async fn delete_reminder(
     let reminder_entity_ids = state
         .cached_reminders_entity_ids()
         .await
-        .map_err(|error| ApiError::internal(error.to_string()))?;
+        .map_err(ApiError::from_sqlx)?;
     let eventkit = require_eventkit_reminders(&state).await?;
     let reminder_id = path.validated()?;
     let external_id = run_timed_query(|| async {
@@ -197,7 +197,7 @@ pub async fn delete_reminder(
             .await
     })
     .await
-    .map_err(|error| ApiError::internal(error.to_string()))?;
+    .map_err(ApiError::from_sqlx)?;
 
     eventkit
         .delete_reminder(reminder_id.as_str(), external_id.as_deref())

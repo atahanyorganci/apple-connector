@@ -7,7 +7,7 @@ use utoipa::{IntoParams, ToSchema};
 
 use super::{
     dto::pagination::{DEFAULT_PAGE_LIMIT, MAX_PAGE_LIMIT},
-    error::ApiError,
+    error::{ApiError, ErrorCode},
 };
 use crate::apple_types::{
     AttachmentId, CalendarAttachmentId, CalendarId, ChatId, ContactId, ContainerId, EventId,
@@ -16,7 +16,27 @@ use crate::apple_types::{
 };
 
 fn id_validation_error(error: IdValidationError) -> ApiError {
-    ApiError::validation_with_details(error.message, serde_json::json!({ "field": error.kind }))
+    ApiError::with_details(
+        ErrorCode::InvalidParameter,
+        error.message,
+        serde_json::json!({ "field": error.kind }),
+    )
+}
+
+fn invalid_limit(message: impl Into<String>, details: serde_json::Value) -> ApiError {
+    ApiError::with_details(ErrorCode::InvalidLimit, message, details)
+}
+
+fn invalid_cursor(message: impl Into<String>, details: serde_json::Value) -> ApiError {
+    ApiError::with_details(ErrorCode::InvalidCursor, message, details)
+}
+
+fn invalid_timestamp(message: impl Into<String>, details: serde_json::Value) -> ApiError {
+    ApiError::with_details(ErrorCode::InvalidTimestamp, message, details)
+}
+
+fn invalid_parameter(message: impl Into<String>, details: serde_json::Value) -> ApiError {
+    ApiError::with_details(ErrorCode::InvalidParameter, message, details)
 }
 
 pub const CURSOR_VERSION: &str = "v1";
@@ -38,7 +58,7 @@ impl PageParams {
     pub fn validated_limit(&self) -> Result<u32, ApiError> {
         let limit = self.limit.unwrap_or(DEFAULT_PAGE_LIMIT);
         if !(1..=MAX_PAGE_LIMIT).contains(&limit) {
-            return Err(ApiError::validation_with_details(
+            return Err(invalid_limit(
                 format!("limit must be between 1 and {MAX_PAGE_LIMIT}"),
                 serde_json::json!({
                     "field": "limit",
@@ -55,7 +75,7 @@ impl PageParams {
         match &self.cursor {
             None => Ok(None),
             Some(cursor) if cursor.starts_with(&format!("{CURSOR_VERSION}.")) => Ok(Some(cursor)),
-            Some(_) => Err(ApiError::validation_with_details(
+            Some(_) => Err(invalid_cursor(
                 format!("cursor must start with `{CURSOR_VERSION}.`"),
                 serde_json::json!({
                     "field": "cursor",
@@ -182,7 +202,7 @@ impl MessageListParams {
     pub fn validated_limit(&self) -> Result<u32, ApiError> {
         let limit = self.limit.unwrap_or(DEFAULT_PAGE_LIMIT);
         if !(1..=MAX_PAGE_LIMIT).contains(&limit) {
-            return Err(ApiError::validation_with_details(
+            return Err(invalid_limit(
                 format!("limit must be between 1 and {MAX_PAGE_LIMIT}"),
                 serde_json::json!({
                     "field": "limit",
@@ -199,7 +219,7 @@ impl MessageListParams {
         match &self.cursor {
             None => Ok(None),
             Some(cursor) if cursor.starts_with(&format!("{CURSOR_VERSION}.")) => Ok(Some(cursor)),
-            Some(_) => Err(ApiError::validation_with_details(
+            Some(_) => Err(invalid_cursor(
                 format!("cursor must start with `{CURSOR_VERSION}.`"),
                 serde_json::json!({
                     "field": "cursor",
@@ -213,7 +233,7 @@ impl MessageListParams {
         let q = match self.q.as_deref().map(str::trim) {
             None | Some("") => None,
             Some(query) if query.len() > MAX_SEARCH_QUERY_LEN => {
-                return Err(ApiError::validation_with_details(
+                return Err(invalid_parameter(
                     format!("q must be at most {MAX_SEARCH_QUERY_LEN} characters"),
                     serde_json::json!({
                         "field": "q",
@@ -235,7 +255,7 @@ impl MessageListParams {
         if let (Some(before), Some(after)) = (before, after)
             && before <= after
         {
-            return Err(ApiError::validation_with_details(
+            return Err(invalid_timestamp(
                 "before must be later than after",
                 serde_json::json!({
                     "field": "before",
@@ -454,7 +474,7 @@ impl ReminderListKey {
     pub fn parse(raw: &str) -> Result<Self, ApiError> {
         if let Ok(row_id) = raw.parse::<i64>() {
             if row_id <= 0 {
-                return Err(ApiError::validation_with_details(
+                return Err(invalid_parameter(
                     "list_id must be a positive integer or UUID",
                     serde_json::json!({ "field": "list_id" }),
                 ));
@@ -464,7 +484,7 @@ impl ReminderListKey {
         if is_uuid(raw) {
             return Ok(Self::Id(raw.to_lowercase()));
         }
-        Err(ApiError::validation_with_details(
+        Err(invalid_parameter(
             "list_id must be a positive integer or UUID",
             serde_json::json!({ "field": "list_id" }),
         ))
@@ -535,7 +555,7 @@ impl ReminderListParams {
     pub fn validated_limit(&self) -> Result<u32, ApiError> {
         let limit = self.limit.unwrap_or(DEFAULT_PAGE_LIMIT);
         if !(1..=MAX_PAGE_LIMIT).contains(&limit) {
-            return Err(ApiError::validation_with_details(
+            return Err(invalid_limit(
                 format!("limit must be between 1 and {MAX_PAGE_LIMIT}"),
                 serde_json::json!({
                     "field": "limit",
@@ -552,7 +572,7 @@ impl ReminderListParams {
         match &self.cursor {
             None => Ok(None),
             Some(cursor) if cursor.starts_with(&format!("{CURSOR_VERSION}.")) => Ok(Some(cursor)),
-            Some(_) => Err(ApiError::validation_with_details(
+            Some(_) => Err(invalid_cursor(
                 format!("cursor must start with `{CURSOR_VERSION}.`"),
                 serde_json::json!({
                     "field": "cursor",
@@ -566,7 +586,7 @@ impl ReminderListParams {
         let q = match self.q.as_deref().map(str::trim) {
             None | Some("") => None,
             Some(query) if query.len() > MAX_SEARCH_QUERY_LEN => {
-                return Err(ApiError::validation_with_details(
+                return Err(invalid_parameter(
                     format!("q must be at most {MAX_SEARCH_QUERY_LEN} characters"),
                     serde_json::json!({
                         "field": "q",
@@ -582,7 +602,7 @@ impl ReminderListParams {
             Some(value) => match value.parse::<i64>() {
                 Ok(row_id) if row_id > 0 => Some(crate::reminders::ListIdFilter::RowId(row_id)),
                 Ok(_) => {
-                    return Err(ApiError::validation_with_details(
+                    return Err(invalid_parameter(
                         "list_id must be a positive integer or UUID",
                         serde_json::json!({ "field": "list_id" }),
                     ));
@@ -591,7 +611,7 @@ impl ReminderListParams {
                     Some(crate::reminders::ListIdFilter::Uuid(value.to_lowercase()))
                 }
                 Err(_) => {
-                    return Err(ApiError::validation_with_details(
+                    return Err(invalid_parameter(
                         "list_id must be a positive integer or UUID",
                         serde_json::json!({ "field": "list_id" }),
                     ));
@@ -631,14 +651,14 @@ impl NoteFolderKey {
     pub fn parse(raw: &str) -> Result<Self, ApiError> {
         let raw = raw.trim();
         if raw.is_empty() {
-            return Err(ApiError::validation_with_details(
+            return Err(invalid_parameter(
                 "folder_id must be a positive integer or Notes folder identifier",
                 serde_json::json!({ "field": "folder_id" }),
             ));
         }
         if let Ok(row_id) = raw.parse::<i64>() {
             if row_id <= 0 {
-                return Err(ApiError::validation_with_details(
+                return Err(invalid_parameter(
                     "folder_id must be a positive integer or Notes folder identifier",
                     serde_json::json!({ "field": "folder_id" }),
                 ));
@@ -710,7 +730,7 @@ impl NoteListParams {
     pub fn validated_limit(&self) -> Result<u32, ApiError> {
         let limit = self.limit.unwrap_or(DEFAULT_PAGE_LIMIT);
         if !(1..=MAX_PAGE_LIMIT).contains(&limit) {
-            return Err(ApiError::validation_with_details(
+            return Err(invalid_limit(
                 format!("limit must be between 1 and {MAX_PAGE_LIMIT}"),
                 serde_json::json!({
                     "field": "limit",
@@ -727,7 +747,7 @@ impl NoteListParams {
         match &self.cursor {
             None => Ok(None),
             Some(cursor) if cursor.starts_with(&format!("{CURSOR_VERSION}.")) => Ok(Some(cursor)),
-            Some(_) => Err(ApiError::validation_with_details(
+            Some(_) => Err(invalid_cursor(
                 format!("cursor must start with `{CURSOR_VERSION}.`"),
                 serde_json::json!({
                     "field": "cursor",
@@ -741,7 +761,7 @@ impl NoteListParams {
         let q = match self.q.as_deref().map(str::trim) {
             None | Some("") => None,
             Some(query) if query.len() > MAX_SEARCH_QUERY_LEN => {
-                return Err(ApiError::validation_with_details(
+                return Err(invalid_parameter(
                     format!("q must be at most {MAX_SEARCH_QUERY_LEN} characters"),
                     serde_json::json!({
                         "field": "q",
@@ -757,7 +777,7 @@ impl NoteListParams {
             Some(value) => match value.parse::<i64>() {
                 Ok(row_id) if row_id > 0 => Some(crate::notes::FolderIdFilter::RowId(row_id)),
                 Ok(_) => {
-                    return Err(ApiError::validation_with_details(
+                    return Err(invalid_parameter(
                         "folder_id must be a positive integer or Notes folder identifier",
                         serde_json::json!({ "field": "folder_id" }),
                     ));
@@ -772,7 +792,7 @@ impl NoteListParams {
         if let (Some(before), Some(after)) = (modified_before, modified_after)
             && before <= after
         {
-            return Err(ApiError::validation_with_details(
+            return Err(invalid_timestamp(
                 "modified_before must be later than modified_after",
                 serde_json::json!({
                     "field": "modified_before",
@@ -818,7 +838,7 @@ impl EventListParams {
     pub fn validated_limit(&self) -> Result<u32, ApiError> {
         let limit = self.limit.unwrap_or(DEFAULT_PAGE_LIMIT);
         if !(1..=MAX_PAGE_LIMIT).contains(&limit) {
-            return Err(ApiError::validation_with_details(
+            return Err(invalid_limit(
                 format!("limit must be between 1 and {MAX_PAGE_LIMIT}"),
                 serde_json::json!({
                     "field": "limit",
@@ -835,7 +855,7 @@ impl EventListParams {
         match &self.cursor {
             None => Ok(None),
             Some(cursor) if cursor.starts_with(&format!("{CURSOR_VERSION}.")) => Ok(Some(cursor)),
-            Some(_) => Err(ApiError::validation_with_details(
+            Some(_) => Err(invalid_cursor(
                 format!("cursor must start with `{CURSOR_VERSION}.`"),
                 serde_json::json!({
                     "field": "cursor",
@@ -849,7 +869,7 @@ impl EventListParams {
         let q = match self.q.as_deref().map(str::trim) {
             None | Some("") => None,
             Some(query) if query.len() > MAX_SEARCH_QUERY_LEN => {
-                return Err(ApiError::validation_with_details(
+                return Err(invalid_parameter(
                     format!("q must be at most {MAX_SEARCH_QUERY_LEN} characters"),
                     serde_json::json!({
                         "field": "q",
@@ -863,7 +883,7 @@ impl EventListParams {
         if let (Some(start), Some(end)) = (self.start, self.end)
             && start > end
         {
-            return Err(ApiError::validation_with_details(
+            return Err(invalid_timestamp(
                 "start must be before or equal to end",
                 serde_json::json!({
                     "field": "start",
@@ -994,7 +1014,7 @@ impl ContactListParams {
     pub fn validated_limit(&self) -> Result<u32, ApiError> {
         let limit = self.limit.unwrap_or(DEFAULT_PAGE_LIMIT);
         if !(1..=MAX_PAGE_LIMIT).contains(&limit) {
-            return Err(ApiError::validation_with_details(
+            return Err(invalid_limit(
                 format!("limit must be between 1 and {MAX_PAGE_LIMIT}"),
                 serde_json::json!({
                     "field": "limit",
@@ -1011,7 +1031,7 @@ impl ContactListParams {
         match &self.cursor {
             None => Ok(None),
             Some(cursor) if cursor.starts_with(&format!("{CURSOR_VERSION}.")) => Ok(Some(cursor)),
-            Some(_) => Err(ApiError::validation_with_details(
+            Some(_) => Err(invalid_cursor(
                 format!("cursor must start with `{CURSOR_VERSION}.`"),
                 serde_json::json!({
                     "field": "cursor",
@@ -1023,19 +1043,17 @@ impl ContactListParams {
 
     pub fn validated_search_query(&self) -> Result<String, ApiError> {
         match self.q.as_deref().map(str::trim) {
-            None | Some("") => Err(ApiError::validation_with_details(
+            None | Some("") => Err(invalid_parameter(
                 "q is required",
                 serde_json::json!({ "field": "q" }),
             )),
-            Some(query) if query.len() > MAX_SEARCH_QUERY_LEN => {
-                Err(ApiError::validation_with_details(
-                    format!("q must be at most {MAX_SEARCH_QUERY_LEN} characters"),
-                    serde_json::json!({
-                        "field": "q",
-                        "maximum": MAX_SEARCH_QUERY_LEN,
-                    }),
-                ))
-            }
+            Some(query) if query.len() > MAX_SEARCH_QUERY_LEN => Err(invalid_parameter(
+                format!("q must be at most {MAX_SEARCH_QUERY_LEN} characters"),
+                serde_json::json!({
+                    "field": "q",
+                    "maximum": MAX_SEARCH_QUERY_LEN,
+                }),
+            )),
             Some(query) => Ok(query.to_owned()),
         }
     }
@@ -1044,7 +1062,7 @@ impl ContactListParams {
         let q = match self.q.as_deref().map(str::trim) {
             None | Some("") => None,
             Some(query) if query.len() > MAX_SEARCH_QUERY_LEN => {
-                return Err(ApiError::validation_with_details(
+                return Err(invalid_parameter(
                     format!("q must be at most {MAX_SEARCH_QUERY_LEN} characters"),
                     serde_json::json!({
                         "field": "q",

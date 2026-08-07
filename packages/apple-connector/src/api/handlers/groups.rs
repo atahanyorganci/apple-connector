@@ -45,7 +45,7 @@ pub async fn list_groups(
         .transpose()?;
     let page = run_timed_query(|| async { sources.list_groups(limit, cursor).await })
         .await
-        .map_err(|error| ApiError::internal(error.to_string()))?;
+        .map_err(ApiError::from_sqlx)?;
     Ok(Json(group_page_to_dto(
         page.items,
         page.has_more,
@@ -75,7 +75,7 @@ pub async fn get_group(
     let sources = require_contacts_sources(&state.contacts_sources)?;
     let group = run_timed_query(|| async { sources.get_group(group_id.as_str()).await })
         .await
-        .map_err(|error| ApiError::internal(error.to_string()))?
+        .map_err(ApiError::from_sqlx)?
         .ok_or_else(|| ApiError::not_found("Group not found"))?;
     Ok(Json(group_detail_to_dto(&group)))
 }
@@ -131,7 +131,7 @@ pub async fn list_group_contacts_vcard(
     let details = sources
         .hydrate_contact_summaries(page.items)
         .await
-        .map_err(|error| ApiError::internal(error.to_string()))?;
+        .map_err(ApiError::from_sqlx)?;
     contact_page_vcard(&details)
 }
 
@@ -160,7 +160,7 @@ pub async fn list_group_contacts_carddav(
     let details = sources
         .hydrate_contact_summaries(page.items)
         .await
-        .map_err(|error| ApiError::internal(error.to_string()))?;
+        .map_err(ApiError::from_sqlx)?;
     contact_page_carddav(&details)
 }
 
@@ -173,7 +173,7 @@ async fn fetch_group_contact_page(
     params.validated_cursor()?;
     let group = run_timed_query(|| async { sources.get_group(group_id).await })
         .await
-        .map_err(|error| ApiError::internal(error.to_string()))?
+        .map_err(ApiError::from_sqlx)?
         .ok_or_else(|| ApiError::not_found("Group not found"))?;
     let _ = group;
     let cursor = params
@@ -183,5 +183,5 @@ async fn fetch_group_contact_page(
         .transpose()?;
     run_timed_query(|| async { sources.list_group_contacts(group_id, limit, cursor).await })
         .await
-        .map_err(|error| ApiError::internal(error.to_string()))
+        .map_err(ApiError::from_sqlx)
 }

@@ -16,7 +16,7 @@ pub(crate) fn require_messages_db(
     pool: &Option<SqlitePool>,
 ) -> Result<&SqlitePool, crate::api::error::ApiError> {
     pool.as_ref().ok_or_else(|| {
-        crate::api::error::ApiError::service_unavailable("Messages database is unavailable")
+        crate::api::error::ApiError::new(crate::api::error::ErrorCode::MessagesDatabaseUnavailable)
     })
 }
 
@@ -25,7 +25,7 @@ pub(crate) fn require_reminders_db(
     pool: &Option<SqlitePool>,
 ) -> Result<&SqlitePool, crate::api::error::ApiError> {
     pool.as_ref().ok_or_else(|| {
-        crate::api::error::ApiError::service_unavailable("Reminders database is unavailable")
+        crate::api::error::ApiError::new(crate::api::error::ErrorCode::RemindersDatabaseUnavailable)
     })
 }
 
@@ -33,7 +33,7 @@ pub(crate) fn require_calendar_db(
     pool: &Option<SqlitePool>,
 ) -> Result<&SqlitePool, crate::api::error::ApiError> {
     pool.as_ref().ok_or_else(|| {
-        crate::api::error::ApiError::service_unavailable("Calendar database is unavailable")
+        crate::api::error::ApiError::new(crate::api::error::ErrorCode::CalendarDatabaseUnavailable)
     })
 }
 
@@ -41,7 +41,7 @@ pub(crate) fn require_notes_db(
     pool: &Option<SqlitePool>,
 ) -> Result<&SqlitePool, crate::api::error::ApiError> {
     pool.as_ref().ok_or_else(|| {
-        crate::api::error::ApiError::service_unavailable("Notes database is unavailable")
+        crate::api::error::ApiError::new(crate::api::error::ErrorCode::NotesDatabaseUnavailable)
     })
 }
 

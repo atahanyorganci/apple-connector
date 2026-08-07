@@ -97,13 +97,8 @@ async fn integration_health_and_unavailable_errors() -> Result<(), Box<dyn std::
 
     let (status, payload) = response_json(unavailable_app, "/v1/messages").await?;
     assert_eq!(status, StatusCode::SERVICE_UNAVAILABLE);
-    assert_eq!(payload["error"]["code"], "service_unavailable");
-    Ok(())
-}
+    assert_eq!(payload["error"]["code"], "messages_database_unavailable");
 
-#[tokio::test]
-async fn integration_pagination_search_and_live_updates() -> Result<(), Box<dyn std::error::Error>>
-{
     let fixture = seeded_search_fixture().await?;
     let pool = connect_pool(fixture.path()).await?;
     let app = router(AppState::new(Some(pool), None, None, None));

@@ -12,8 +12,8 @@ pub(crate) fn require_contacts_sources(
     sources: &ContactsSources,
 ) -> Result<&ContactsSources, ApiError> {
     if sources.is_empty() {
-        return Err(ApiError::service_unavailable(
-            "Contacts databases are unavailable",
+        return Err(ApiError::new(
+            crate::api::error::ErrorCode::ContactsDatabaseUnavailable,
         ));
     }
     Ok(sources)
