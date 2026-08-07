@@ -4,7 +4,7 @@ use sqlx::SqlitePool;
 use thiserror::Error;
 use tracing::debug;
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone)]
 pub struct EntityIds {
     pub alarm: i64,
     pub alarm_date_trigger: i64,

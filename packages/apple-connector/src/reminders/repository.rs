@@ -463,7 +463,7 @@ impl<'a> ReminderRepository<'a> {
         reminder_row_ids: Vec<i64>,
         entity_ids: &EntityIds,
     ) -> Result<HashMap<i64, Vec<String>>, sqlx::Error> {
-        if reminder_row_ids.is_empty() || entity_ids.hashtag == 0 {
+        if reminder_row_ids.is_empty() {
             return Ok(HashMap::new());
         }
 

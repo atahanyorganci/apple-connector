@@ -141,9 +141,14 @@ impl AppState {
 }
 
 impl AppState {
-    pub async fn warm_entity_id_caches(&self) {
-        let _ = self.cached_reminders_entity_ids().await;
-        let _ = self.cached_notes_entity_ids().await;
+    pub async fn warm_entity_id_caches(&self) -> Result<(), sqlx::Error> {
+        if self.reminders_db.is_some() {
+            self.cached_reminders_entity_ids().await?;
+        }
+        if self.notes_db.is_some() {
+            self.cached_notes_entity_ids().await?;
+        }
+        Ok(())
     }
 
     pub async fn cached_reminders_entity_ids(

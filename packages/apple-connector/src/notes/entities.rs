@@ -6,7 +6,7 @@ use tracing::debug;
 
 use super::queries::fetch_entity_name_rows;
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone)]
 pub struct EntityIds {
     pub note: i64,
     pub folder: i64,

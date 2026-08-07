@@ -433,7 +433,7 @@ impl<'a> NoteRepository<'a> {
         note_row_ids: Vec<i64>,
         entity_ids: &EntityIds,
     ) -> Result<HashMap<i64, bool>, sqlx::Error> {
-        if note_row_ids.is_empty() || entity_ids.attachment == 0 {
+        if note_row_ids.is_empty() {
             return Ok(HashMap::new());
         }
 

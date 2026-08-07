@@ -183,7 +183,10 @@ pub async fn run(cli: Cli) -> Result<(), Box<dyn Error>> {
         eventkit,
         contacts_store,
     );
-    state.warm_entity_id_caches().await;
+    state
+        .warm_entity_id_caches()
+        .await
+        .map_err(|error| IoError::other(format!("entity metadata warmup failed: {error}")))?;
     let app = router(state);
     let address: SocketAddr = cli
         .socket_addr()
