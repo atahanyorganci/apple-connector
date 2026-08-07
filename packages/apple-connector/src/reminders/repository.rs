@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, sync::Arc};
 
 use sqlx::SqlitePool;
 
@@ -12,11 +12,11 @@ use super::{
     model::{Reminder, ReminderAttachment, ReminderList, ReminderSummary, Section},
     queries::{
         fetch_attachment_by_uuid, fetch_attachments_for_reminder, fetch_filtered_reminders,
-        fetch_list_by_row_id, fetch_list_by_uuid, fetch_list_membership_data,
+        fetch_list_by_row_id, fetch_list_by_uuid, fetch_list_membership_data_batch,
         fetch_list_resolve_metadata, fetch_lists_page, fetch_objects_for_reminder,
         fetch_recurrence_objects_for_reminder, fetch_reminder_by_uuid, fetch_reminder_external_id,
         fetch_reminder_uuid_for_row, fetch_sections_for_list, fetch_subtasks_for_parent,
-        fetch_tags_for_reminder_ids,
+        fetch_tags_for_reminder_ids, list_exists,
     },
     row::{ListRow, ReminderRow},
     search::ReminderFilters,
@@ -26,6 +26,7 @@ use crate::{
     api::cursor::{
         GlobalReminderCursor, ListCursor, ListReminderCursor, ReminderSearchCursor, encode,
     },
+    apple_types::SectionId,
     sqlx_util::json_ids,
 };
 
@@ -51,11 +52,29 @@ pub enum ListLookupError {
 
 pub struct ReminderRepository<'a> {
     pool: &'a SqlitePool,
+    entity_ids: Option<Arc<EntityIds>>,
 }
 
 impl<'a> ReminderRepository<'a> {
     pub fn new(pool: &'a SqlitePool) -> Self {
-        Self { pool }
+        Self {
+            pool,
+            entity_ids: None,
+        }
+    }
+
+    pub fn with_entity_ids(pool: &'a SqlitePool, entity_ids: Arc<EntityIds>) -> Self {
+        Self {
+            pool,
+            entity_ids: Some(entity_ids),
+        }
+    }
+
+    async fn entity_ids(&self) -> Result<Arc<EntityIds>, sqlx::Error> {
+        if let Some(entity_ids) = &self.entity_ids {
+            return Ok(Arc::clone(entity_ids));
+        }
+        load_entity_ids(self.pool).await.map(Arc::new)
     }
 
     pub async fn list_lists(
@@ -71,7 +90,7 @@ impl<'a> ReminderRepository<'a> {
         limit: u32,
         cursor: Option<ListCursor>,
     ) -> Result<Page<ReminderList>, sqlx::Error> {
-        let entity_ids = load_entity_ids(self.pool).await?;
+        let entity_ids = self.entity_ids().await?;
         let fetch_limit = i64::from(limit) + 1;
 
         let rows =
@@ -98,7 +117,7 @@ impl<'a> ReminderRepository<'a> {
     }
 
     pub async fn get_list(&self, list_row_id: i64) -> Result<Option<ReminderList>, sqlx::Error> {
-        let entity_ids = load_entity_ids(self.pool).await?;
+        let entity_ids = self.entity_ids().await?;
         let row: Option<ListRow> = fetch_list_by_row_id(self.pool, list_row_id).await?;
         let Some(row) = row else {
             return Ok(None);
@@ -119,7 +138,7 @@ impl<'a> ReminderRepository<'a> {
     }
 
     pub async fn get_list_by_uuid(&self, id: &str) -> Result<Option<ReminderList>, sqlx::Error> {
-        let entity_ids = load_entity_ids(self.pool).await?;
+        let entity_ids = self.entity_ids().await?;
         let row: Option<ListRow> = fetch_list_by_uuid(self.pool, &id.to_lowercase()).await?;
         let Some(row) = row else {
             return Ok(None);
@@ -160,7 +179,7 @@ impl<'a> ReminderRepository<'a> {
         include_tags: bool,
         section_map: Option<&HashMap<i64, HashMap<String, String>>>,
     ) -> Result<Page<ReminderSummary>, sqlx::Error> {
-        let entity_ids = load_entity_ids(self.pool).await?;
+        let entity_ids = self.entity_ids().await?;
         let fetch_limit = i64::from(limit) + 1;
         let mut effective_filters = filters.clone();
         if !include_subtasks && effective_filters.top_level_only.is_none() {
@@ -210,8 +229,9 @@ impl<'a> ReminderRepository<'a> {
             .map(|row| {
                 let section_id = section_map
                     .and_then(|maps| maps.get(&row.list_row_id))
-                    .and_then(|map| map.get(&row.id.to_lowercase()))
-                    .cloned();
+                    .and_then(|map| map.get(&row.id.as_str().to_lowercase()))
+                    .cloned()
+                    .map(SectionId::new);
                 let tags = tags_by_reminder
                     .get(&row.row_id)
                     .cloned()
@@ -236,7 +256,7 @@ impl<'a> ReminderRepository<'a> {
         include_subtasks: bool,
         include_tags: bool,
     ) -> Result<Result<Page<ReminderSummary>, ListLookupError>, sqlx::Error> {
-        if self.get_list(list_row_id).await?.is_none() {
+        if !list_exists(self.pool, list_row_id).await? {
             return Ok(Err(ListLookupError::NotFound));
         }
 
@@ -282,7 +302,7 @@ impl<'a> ReminderRepository<'a> {
     }
 
     pub async fn get_reminder(&self, id: &str) -> Result<Option<Reminder>, sqlx::Error> {
-        let entity_ids = load_entity_ids(self.pool).await?;
+        let entity_ids = self.entity_ids().await?;
         let row: Option<ReminderRow> =
             fetch_reminder_by_uuid(self.pool, &id.to_lowercase()).await?;
         let Some(row) = row else {
@@ -358,8 +378,9 @@ impl<'a> ReminderRepository<'a> {
             .await?;
         let section_id = section_map
             .get(&row.list_row_id)
-            .and_then(|map| map.get(&row.id.to_lowercase()))
-            .cloned();
+            .and_then(|map| map.get(&row.id.as_str().to_lowercase()))
+            .cloned()
+            .map(SectionId::new);
 
         let subtasks = if include_subtasks {
             self.fetch_subtasks(row.row_id, entity_ids).await?
@@ -400,10 +421,20 @@ impl<'a> ReminderRepository<'a> {
         &self,
         list_row_ids: &[i64],
     ) -> Result<HashMap<i64, HashMap<String, String>>, sqlx::Error> {
+        if list_row_ids.is_empty() {
+            return Ok(HashMap::new());
+        }
+
+        let rows = fetch_list_membership_data_batch(self.pool, &json_ids(list_row_ids)).await?;
         let mut maps = HashMap::new();
+        for row in rows {
+            maps.insert(
+                row.list_row_id,
+                build_section_map(row.membership_data.as_deref()),
+            );
+        }
         for list_row_id in list_row_ids {
-            let membership = fetch_list_membership_data(self.pool, *list_row_id).await?;
-            maps.insert(*list_row_id, build_section_map(membership.as_deref()));
+            maps.entry(*list_row_id).or_insert_with(HashMap::new);
         }
         Ok(maps)
     }
@@ -522,8 +553,32 @@ mod tests {
             .get_reminder("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb")
             .await?
             .ok_or("reminder not found")?;
-        assert_eq!(detail.title, "Fixture Reminder");
+        assert_eq!(detail.title.as_deref(), Some("Fixture Reminder"));
         assert!(!detail.subtasks.is_empty());
+        Ok(())
+    }
+    #[tokio::test]
+    async fn list_page_uses_bounded_queries() -> Result<(), Box<dyn std::error::Error>> {
+        use std::sync::Arc;
+
+        use crate::{db::query_budget, reminders::entities::load_entity_ids};
+
+        let fixture = RemindersFixtureDb::seeded().await?;
+        let pool = connect_pool(fixture.path()).await?;
+        let entity_ids = Arc::new(load_entity_ids(&pool).await?);
+        let repo = ReminderRepository::with_entity_ids(&pool, entity_ids);
+
+        query_budget::reset();
+        let page = repo
+            .list_list_reminders(1, &Default::default(), 50, None, false, false)
+            .await?
+            .map_err(|error| format!("{error:?}"))?;
+        assert!(!page.items.is_empty());
+        assert!(
+            query_budget::get() <= 4,
+            "expected bounded list page queries, got {}",
+            query_budget::get()
+        );
         Ok(())
     }
 }

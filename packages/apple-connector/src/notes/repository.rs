@@ -1,4 +1,7 @@
-use std::collections::{HashMap, HashSet};
+use std::{
+    collections::{HashMap, HashSet},
+    sync::Arc,
+};
 
 use sqlx::SqlitePool;
 
@@ -35,11 +38,29 @@ pub enum FolderLookupError {
 
 pub struct NoteRepository<'a> {
     pool: &'a SqlitePool,
+    entity_ids: Option<Arc<EntityIds>>,
 }
 
 impl<'a> NoteRepository<'a> {
     pub fn new(pool: &'a SqlitePool) -> Self {
-        Self { pool }
+        Self {
+            pool,
+            entity_ids: None,
+        }
+    }
+
+    pub fn with_entity_ids(pool: &'a SqlitePool, entity_ids: Arc<EntityIds>) -> Self {
+        Self {
+            pool,
+            entity_ids: Some(entity_ids),
+        }
+    }
+
+    async fn entity_ids(&self) -> Result<Arc<EntityIds>, sqlx::Error> {
+        if let Some(entity_ids) = &self.entity_ids {
+            return Ok(Arc::clone(entity_ids));
+        }
+        load_entity_ids(self.pool).await.map(Arc::new)
     }
 
     pub async fn list_folders(
@@ -57,7 +78,7 @@ impl<'a> NoteRepository<'a> {
         cursor: Option<FolderListCursor>,
         include_deleted: bool,
     ) -> Result<Page<NoteFolder>, sqlx::Error> {
-        let entity_ids = load_entity_ids(self.pool).await?;
+        let entity_ids = self.entity_ids().await?;
         let fetch_limit = i64::from(limit) + 1;
 
         let rows = list_folders(
@@ -87,13 +108,13 @@ impl<'a> NoteRepository<'a> {
     }
 
     pub async fn get_folder(&self, folder_row_id: i64) -> Result<Option<NoteFolder>, sqlx::Error> {
-        let entity_ids = load_entity_ids(self.pool).await?;
+        let entity_ids = self.entity_ids().await?;
         let row = get_folder_by_row_id(self.pool, entity_ids.folder, folder_row_id).await?;
         Ok(row.map(folder_from_row))
     }
 
     pub async fn get_folder_by_id(&self, id: &str) -> Result<Option<NoteFolder>, sqlx::Error> {
-        let entity_ids = load_entity_ids(self.pool).await?;
+        let entity_ids = self.entity_ids().await?;
         let row =
             get_folder_by_identifier(self.pool, entity_ids.folder, &id.to_lowercase()).await?;
         Ok(row.map(folder_from_row))
@@ -158,7 +179,7 @@ impl<'a> NoteRepository<'a> {
         limit: u32,
         cursor: Option<GlobalNoteCursor>,
     ) -> Result<Page<NoteSummary>, sqlx::Error> {
-        let entity_ids = load_entity_ids(self.pool).await?;
+        let entity_ids = self.entity_ids().await?;
         let fetch_limit = i64::from(limit) + 1;
         let binds = filters.bind_values(
             &entity_ids,
@@ -214,7 +235,7 @@ impl<'a> NoteRepository<'a> {
     }
 
     pub async fn get_note(&self, id: &str) -> Result<Option<NoteDetail>, sqlx::Error> {
-        let entity_ids = load_entity_ids(self.pool).await?;
+        let entity_ids = self.entity_ids().await?;
         let row = get_note_by_identifier(self.pool, entity_ids.note, &id.to_lowercase()).await?;
         let Some(row) = row else {
             return Ok(None);
@@ -248,7 +269,7 @@ impl<'a> NoteRepository<'a> {
             });
         };
         let sql_filters = metadata_filters(filters);
-        let entity_ids = load_entity_ids(self.pool).await?;
+        let entity_ids = self.entity_ids().await?;
         let mut matching_rows = Vec::new();
         let mut scanned = 0_u32;
         let mut scan_position = cursor.map(|value| (value.modified_at, value.row_id));
@@ -391,7 +412,7 @@ impl<'a> NoteRepository<'a> {
         &self,
         note_row_id: i64,
     ) -> Result<Vec<NoteAttachment>, sqlx::Error> {
-        let entity_ids = load_entity_ids(self.pool).await?;
+        let entity_ids = self.entity_ids().await?;
         let rows = list_attachments_for_note(self.pool, entity_ids.attachment, note_row_id).await?;
         Ok(rows.into_iter().map(attachment_from_row).collect())
     }
@@ -400,7 +421,7 @@ impl<'a> NoteRepository<'a> {
         &self,
         id: &str,
     ) -> Result<Option<NoteAttachment>, sqlx::Error> {
-        let entity_ids = load_entity_ids(self.pool).await?;
+        let entity_ids = self.entity_ids().await?;
         let row =
             get_attachment_by_identifier(self.pool, entity_ids.attachment, &id.to_lowercase())
                 .await?;

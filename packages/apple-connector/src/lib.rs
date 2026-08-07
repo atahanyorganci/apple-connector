@@ -170,7 +170,7 @@ pub async fn run(cli: Cli) -> Result<(), Box<dyn Error>> {
             None
         }
     };
-    let app = router(AppState::with_attachment_roots(
+    let state = AppState::with_attachment_roots(
         messages_db,
         reminders_db,
         notes_db,
@@ -182,7 +182,9 @@ pub async fn run(cli: Cli) -> Result<(), Box<dyn Error>> {
         calendar_attachment_root,
         eventkit,
         contacts_store,
-    ));
+    );
+    state.warm_entity_id_caches().await;
+    let app = router(state);
     let address: SocketAddr = cli
         .socket_addr()
         .parse()

@@ -4,11 +4,13 @@ use apple_contacts::ContactsStore;
 use apple_eventkit::EventKitStore;
 use axum::{Router, middleware::from_fn};
 use sqlx::SqlitePool;
+use tokio::sync::OnceCell;
 use utoipa::{OpenApi, openapi::OpenApi as OpenApiSpec};
 use utoipa_axum::{router::OpenApiRouter, routes};
 use utoipa_scalar::{Scalar, Servable};
 
 use super::{
+    blocking_io::BlockingIoPool,
     doc::ApiDoc,
     middleware::{method_not_allowed, not_found, request_timeout, security_headers, trace_request},
 };
@@ -27,7 +29,10 @@ pub struct AppState {
     pub calendar_attachment_root: Arc<PathBuf>,
     pub eventkit: Option<Arc<EventKitStore>>,
     pub contacts_store: Option<Arc<ContactsStore>>,
+    pub blocking_io: BlockingIoPool,
     pub openapi: Arc<OpenApiSpec>,
+    pub reminders_entity_ids: Arc<OnceCell<Arc<crate::reminders::entities::EntityIds>>>,
+    pub notes_entity_ids: Arc<OnceCell<Arc<crate::notes::entities::EntityIds>>>,
 }
 
 impl AppState {
@@ -127,8 +132,70 @@ impl AppState {
             calendar_attachment_root: Arc::new(calendar_attachment_root),
             eventkit,
             contacts_store,
+            blocking_io: BlockingIoPool::new(),
             openapi,
+            reminders_entity_ids: Arc::new(OnceCell::new()),
+            notes_entity_ids: Arc::new(OnceCell::new()),
         }
+    }
+}
+
+impl AppState {
+    pub async fn warm_entity_id_caches(&self) {
+        let _ = self.cached_reminders_entity_ids().await;
+        let _ = self.cached_notes_entity_ids().await;
+    }
+
+    pub async fn cached_reminders_entity_ids(
+        &self,
+    ) -> Result<Arc<crate::reminders::entities::EntityIds>, sqlx::Error> {
+        let pool = self
+            .reminders_db
+            .as_ref()
+            .ok_or_else(|| sqlx::Error::Configuration("reminders database unavailable".into()))?;
+        self.reminders_entity_ids
+            .get_or_try_init(|| async {
+                crate::reminders::entities::load_entity_ids(pool)
+                    .await
+                    .map(Arc::new)
+            })
+            .await
+            .map(Arc::clone)
+    }
+
+    pub async fn cached_notes_entity_ids(
+        &self,
+    ) -> Result<Arc<crate::notes::entities::EntityIds>, sqlx::Error> {
+        let pool = self
+            .notes_db
+            .as_ref()
+            .ok_or_else(|| sqlx::Error::Configuration("notes database unavailable".into()))?;
+        self.notes_entity_ids
+            .get_or_try_init(|| async {
+                crate::notes::entities::load_entity_ids(pool)
+                    .await
+                    .map(Arc::new)
+            })
+            .await
+            .map(Arc::clone)
+    }
+
+    pub async fn reminder_repository<'a>(
+        &'a self,
+        pool: &'a SqlitePool,
+    ) -> Result<crate::reminders::repository::ReminderRepository<'a>, sqlx::Error> {
+        let entity_ids = self.cached_reminders_entity_ids().await?;
+        Ok(crate::reminders::repository::ReminderRepository::with_entity_ids(pool, entity_ids))
+    }
+
+    pub async fn note_repository<'a>(
+        &'a self,
+        pool: &'a SqlitePool,
+    ) -> Result<crate::notes::repository::NoteRepository<'a>, sqlx::Error> {
+        let entity_ids = self.cached_notes_entity_ids().await?;
+        Ok(crate::notes::repository::NoteRepository::with_entity_ids(
+            pool, entity_ids,
+        ))
     }
 }
 

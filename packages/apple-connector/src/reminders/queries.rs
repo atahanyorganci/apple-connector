@@ -1,5 +1,13 @@
 //! Compile-time checked reminder queries.
 
+#[cfg(test)]
+fn record_test_query() {
+    crate::db::query_budget::bump();
+}
+
+#[cfg(not(test))]
+fn record_test_query() {}
+
 use sqlx::{SqliteExecutor, SqlitePool};
 
 use super::{
@@ -36,7 +44,7 @@ where
           l.ZSHAREDOWNERNAME AS shared_owner_name,
           l.ZSHAREDOWNERADDRESS AS shared_owner_address,
           l.ZFILTERDATA AS "filter_data: Vec<u8>",
-          l.ZMEMBERSHIPSOFREMINDERSINSECTIONSASDATA AS "membership_data: Vec<u8>",
+          l.ZMEMBERSHIPSOFREMINDERSINSECTIONSASDATA AS "membership_data?: Vec<u8>",
           CAST(NULL AS REAL) AS "last_modified_date: f64"
         FROM ZREMCDBASELIST l
         WHERE l.ZMARKEDFORDELETION = 0
@@ -80,7 +88,7 @@ where
           l.ZSHAREDOWNERNAME AS shared_owner_name,
           l.ZSHAREDOWNERADDRESS AS shared_owner_address,
           l.ZFILTERDATA AS "filter_data: Vec<u8>",
-          l.ZMEMBERSHIPSOFREMINDERSINSECTIONSASDATA AS "membership_data: Vec<u8>",
+          l.ZMEMBERSHIPSOFREMINDERSINSECTIONSASDATA AS "membership_data?: Vec<u8>",
           CAST(NULL AS REAL) AS "last_modified_date: f64"
         FROM ZREMCDBASELIST l
         WHERE l.ZMARKEDFORDELETION = 0
@@ -120,7 +128,7 @@ where
           l.ZSHAREDOWNERNAME AS shared_owner_name,
           l.ZSHAREDOWNERADDRESS AS shared_owner_address,
           l.ZFILTERDATA AS "filter_data: Vec<u8>",
-          l.ZMEMBERSHIPSOFREMINDERSINSECTIONSASDATA AS "membership_data: Vec<u8>",
+          l.ZMEMBERSHIPSOFREMINDERSINSECTIONSASDATA AS "membership_data?: Vec<u8>",
           CAST(NULL AS REAL) AS "last_modified_date: f64"
         FROM ZREMCDBASELIST l
         WHERE l.ZMARKEDFORDELETION = 0
@@ -762,6 +770,7 @@ pub async fn fetch_reminder_external_id(
     .flatten())
 }
 
+#[allow(dead_code)]
 pub async fn fetch_list_membership_data<'e, E>(
     executor: E,
     list_row_id: i64,
@@ -771,7 +780,7 @@ where
 {
     Ok(sqlx::query_scalar!(
         r#"
-        SELECT ZMEMBERSHIPSOFREMINDERSINSECTIONSASDATA AS "membership_data: Vec<u8>"
+        SELECT ZMEMBERSHIPSOFREMINDERSINSECTIONSASDATA AS "membership_data?: Vec<u8>"
         FROM ZREMCDBASELIST
         WHERE Z_PK = ?
           AND ZMARKEDFORDELETION = 0
@@ -781,4 +790,54 @@ where
     .fetch_optional(executor)
     .await?
     .flatten())
+}
+
+#[derive(Debug, Clone, sqlx::FromRow)]
+pub struct ListMembershipRow {
+    pub list_row_id: i64,
+    pub membership_data: Option<Vec<u8>>,
+}
+
+pub async fn list_exists<'e, E>(executor: E, list_row_id: i64) -> Result<bool, sqlx::Error>
+where
+    E: SqliteExecutor<'e>,
+{
+    record_test_query();
+    sqlx::query_scalar!(
+        r#"
+        SELECT EXISTS(
+            SELECT 1
+            FROM ZREMCDBASELIST
+            WHERE Z_PK = ?1
+              AND ZMARKEDFORDELETION = 0
+        ) AS "exists!: bool"
+        "#,
+        list_row_id,
+    )
+    .fetch_one(executor)
+    .await
+}
+
+pub async fn fetch_list_membership_data_batch<'e, E>(
+    executor: E,
+    list_row_ids_json: &str,
+) -> Result<Vec<ListMembershipRow>, sqlx::Error>
+where
+    E: SqliteExecutor<'e>,
+{
+    record_test_query();
+    sqlx::query_as!(
+        ListMembershipRow,
+        r#"
+        SELECT
+            Z_PK AS "list_row_id!",
+            ZMEMBERSHIPSOFREMINDERSINSECTIONSASDATA AS "membership_data?: Vec<u8>"
+        FROM ZREMCDBASELIST
+        WHERE Z_PK IN (SELECT value FROM json_each(?1))
+          AND ZMARKEDFORDELETION = 0
+        "#,
+        list_row_ids_json,
+    )
+    .fetch_all(executor)
+    .await
 }
