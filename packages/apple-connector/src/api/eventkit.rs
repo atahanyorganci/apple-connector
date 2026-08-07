@@ -3,7 +3,9 @@ use std::sync::Arc;
 use apple_eventkit::{AuthStatus, EventKitStore};
 
 use crate::api::{
-    dto::common::EventKitAuthStatusDto, error::ApiError, eventkit_convert::map_eventkit_error,
+    dto::common::EventKitAuthStatusDto,
+    error::{ApiError, ErrorCode},
+    eventkit_convert::map_eventkit_error,
     router::AppState,
 };
 
@@ -19,7 +21,8 @@ pub(crate) async fn require_eventkit_reminders(
     let store = require_eventkit(&state.eventkit)?;
     match store.auth_status().await.reminders {
         AuthStatus::Authorized | AuthStatus::WriteOnly => Ok(store),
-        AuthStatus::Denied | AuthStatus::Restricted => Err(ApiError::forbidden(
+        AuthStatus::Denied | AuthStatus::Restricted => Err(ApiError::with_message(
+            ErrorCode::EventkitAccessDenied,
             "Reminders access denied; grant Reminders permission in System Settings",
         )),
         AuthStatus::NotDetermined => {
@@ -29,12 +32,11 @@ pub(crate) async fn require_eventkit_reminders(
                 .map_err(map_eventkit_error)?;
             match store.auth_status().await.reminders {
                 AuthStatus::Authorized | AuthStatus::WriteOnly => Ok(store),
-                AuthStatus::Denied | AuthStatus::Restricted => Err(ApiError::forbidden(
+                AuthStatus::Denied | AuthStatus::Restricted => Err(ApiError::with_message(
+                    ErrorCode::EventkitAccessDenied,
                     "Reminders access denied; grant Reminders permission in System Settings",
                 )),
-                AuthStatus::NotDetermined => Err(ApiError::service_unavailable(
-                    "Reminders access not granted",
-                )),
+                AuthStatus::NotDetermined => Err(ApiError::eventkit_unavailable()),
                 AuthStatus::Unavailable => Err(ApiError::eventkit_unavailable()),
             }
         }
@@ -48,7 +50,8 @@ pub(crate) async fn require_eventkit_events(
     let store = require_eventkit(&state.eventkit)?;
     match store.auth_status().await.events {
         AuthStatus::Authorized | AuthStatus::WriteOnly => Ok(store),
-        AuthStatus::Denied | AuthStatus::Restricted => Err(ApiError::forbidden(
+        AuthStatus::Denied | AuthStatus::Restricted => Err(ApiError::with_message(
+            ErrorCode::EventkitAccessDenied,
             "Calendar access denied; grant Calendars permission in System Settings",
         )),
         AuthStatus::NotDetermined => {
@@ -58,12 +61,11 @@ pub(crate) async fn require_eventkit_events(
                 .map_err(map_eventkit_error)?;
             match store.auth_status().await.events {
                 AuthStatus::Authorized | AuthStatus::WriteOnly => Ok(store),
-                AuthStatus::Denied | AuthStatus::Restricted => Err(ApiError::forbidden(
+                AuthStatus::Denied | AuthStatus::Restricted => Err(ApiError::with_message(
+                    ErrorCode::EventkitAccessDenied,
                     "Calendar access denied; grant Calendars permission in System Settings",
                 )),
-                AuthStatus::NotDetermined => {
-                    Err(ApiError::service_unavailable("Calendar access not granted"))
-                }
+                AuthStatus::NotDetermined => Err(ApiError::eventkit_unavailable()),
                 AuthStatus::Unavailable => Err(ApiError::eventkit_unavailable()),
             }
         }

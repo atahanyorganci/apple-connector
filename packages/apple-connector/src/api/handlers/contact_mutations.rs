@@ -14,7 +14,7 @@ use crate::{
         dto::contacts::{
             CreateContactRequest, CreateGroupRequest, UpdateContactRequest, UpdateGroupRequest,
         },
-        error::{ApiError, ErrorResponse},
+        error::{ApiError, ErrorCode, ErrorResponse},
         hydrate::{SyncPendingContactDetailDto, SyncPendingGroupDetailDto, mutation_status},
         params::{ContactGroupPath, ContactIdPath, ContainerIdPath, GroupIdPath},
         router::AppState,
@@ -50,10 +50,10 @@ pub async fn create_contact(
         run_timed_query(|| async { sources.get_container(container_id.as_str()).await })
             .await
             .map_err(ApiError::from_sqlx)?
-            .ok_or_else(|| ApiError::not_found("container not found"))?;
+            .ok_or_else(|| ApiError::new(ErrorCode::ContainerNotFound))?;
 
     if container.read_only {
-        return Err(ApiError::forbidden("cannot write to read-only container"));
+        return Err(ApiError::new(ErrorCode::ReadOnlyContainer));
     }
 
     let metadata = run_timed_query(|| async {
@@ -63,7 +63,7 @@ pub async fn create_contact(
     })
     .await
     .map_err(ApiError::from_sqlx)?
-    .ok_or_else(|| ApiError::not_found("container not found"))?;
+    .ok_or_else(|| ApiError::new(ErrorCode::ContainerNotFound))?;
 
     let saved = store
         .create_contact(
@@ -106,7 +106,7 @@ pub async fn update_contact(
         run_timed_query(|| async { sources.get_contact_framework_id(contact_id.as_str()).await })
             .await
             .map_err(ApiError::from_sqlx)?
-            .ok_or_else(|| ApiError::not_found("contact not found"))?;
+            .ok_or_else(|| ApiError::new(ErrorCode::ContactNotFound))?;
 
     let saved = store
         .update_contact(&framework_id, update_contact_input(request))
@@ -146,7 +146,7 @@ pub async fn delete_contact(
         run_timed_query(|| async { sources.get_contact_framework_id(contact_id.as_str()).await })
             .await
             .map_err(ApiError::from_sqlx)?
-            .ok_or_else(|| ApiError::not_found("contact not found"))?;
+            .ok_or_else(|| ApiError::new(ErrorCode::ContactNotFound))?;
 
     store
         .delete_contact(&framework_id)
@@ -184,10 +184,10 @@ pub async fn create_group(
         run_timed_query(|| async { sources.get_container(container_id.as_str()).await })
             .await
             .map_err(ApiError::from_sqlx)?
-            .ok_or_else(|| ApiError::not_found("container not found"))?;
+            .ok_or_else(|| ApiError::new(ErrorCode::ContainerNotFound))?;
 
     if container.read_only {
-        return Err(ApiError::forbidden("cannot write to read-only container"));
+        return Err(ApiError::new(ErrorCode::ReadOnlyContainer));
     }
 
     let metadata = run_timed_query(|| async {
@@ -197,7 +197,7 @@ pub async fn create_group(
     })
     .await
     .map_err(ApiError::from_sqlx)?
-    .ok_or_else(|| ApiError::not_found("container not found"))?;
+    .ok_or_else(|| ApiError::new(ErrorCode::ContainerNotFound))?;
 
     let saved = store
         .create_group(
@@ -240,7 +240,7 @@ pub async fn update_group(
         run_timed_query(|| async { sources.get_group_framework_id(group_id.as_str()).await })
             .await
             .map_err(ApiError::from_sqlx)?
-            .ok_or_else(|| ApiError::not_found("group not found"))?;
+            .ok_or_else(|| ApiError::new(ErrorCode::GroupNotFound))?;
 
     let saved = store
         .update_group(&framework_id, update_group_input(request))
@@ -280,7 +280,7 @@ pub async fn delete_group(
         run_timed_query(|| async { sources.get_group_framework_id(group_id.as_str()).await })
             .await
             .map_err(ApiError::from_sqlx)?
-            .ok_or_else(|| ApiError::not_found("group not found"))?;
+            .ok_or_else(|| ApiError::new(ErrorCode::GroupNotFound))?;
 
     store
         .delete_group(&framework_id)
@@ -315,13 +315,13 @@ pub async fn add_contact_to_group(
         run_timed_query(|| async { sources.get_group_framework_id(group_id.as_str()).await })
             .await
             .map_err(ApiError::from_sqlx)?
-            .ok_or_else(|| ApiError::not_found("group not found"))?;
+            .ok_or_else(|| ApiError::new(ErrorCode::GroupNotFound))?;
 
     let contact_framework_id =
         run_timed_query(|| async { sources.get_contact_framework_id(contact_id.as_str()).await })
             .await
             .map_err(ApiError::from_sqlx)?
-            .ok_or_else(|| ApiError::not_found("contact not found"))?;
+            .ok_or_else(|| ApiError::new(ErrorCode::ContactNotFound))?;
 
     store
         .add_contact_to_group(&contact_framework_id, &group_framework_id)
@@ -356,13 +356,13 @@ pub async fn remove_contact_from_group(
         run_timed_query(|| async { sources.get_group_framework_id(group_id.as_str()).await })
             .await
             .map_err(ApiError::from_sqlx)?
-            .ok_or_else(|| ApiError::not_found("group not found"))?;
+            .ok_or_else(|| ApiError::new(ErrorCode::GroupNotFound))?;
 
     let contact_framework_id =
         run_timed_query(|| async { sources.get_contact_framework_id(contact_id.as_str()).await })
             .await
             .map_err(ApiError::from_sqlx)?
-            .ok_or_else(|| ApiError::not_found("contact not found"))?;
+            .ok_or_else(|| ApiError::new(ErrorCode::ContactNotFound))?;
 
     store
         .remove_contact_from_group(&contact_framework_id, &group_framework_id)

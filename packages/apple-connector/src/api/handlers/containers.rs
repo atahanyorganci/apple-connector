@@ -7,7 +7,7 @@ use crate::{
             ContainerDetailDto, ContainerPageDto,
             contacts_convert::{container_detail_to_dto, container_page_to_dto},
         },
-        error::{ApiError, ErrorResponse},
+        error::{ApiError, ErrorCode, ErrorResponse},
         params::ContainerIdPath,
         router::AppState,
     },
@@ -58,6 +58,6 @@ pub async fn get_container(
         run_timed_query(|| async { sources.get_container(container_id.as_str()).await })
             .await
             .map_err(ApiError::from_sqlx)?
-            .ok_or_else(|| ApiError::not_found("Container not found"))?;
+            .ok_or_else(|| ApiError::new(ErrorCode::ContainerNotFound))?;
     Ok(Json(container_detail_to_dto(&container)))
 }

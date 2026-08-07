@@ -15,7 +15,7 @@ use crate::{
             ContactDetailDto, ContactPageDto,
             contacts_convert::{contact_detail_to_dto, contact_page_to_dto},
         },
-        error::{ApiError, ErrorResponse},
+        error::{ApiError, ErrorCode, ErrorResponse},
         params::{ContactIdPath, ContactListParams},
         router::AppState,
     },
@@ -223,7 +223,7 @@ pub async fn get_contact_photo(
     let photo = run_timed_query(|| async { sources.get_contact_photo(contact_id.as_str()).await })
         .await
         .map_err(ApiError::from_sqlx)?
-        .ok_or_else(|| ApiError::not_found("Contact photo not found"))?;
+        .ok_or_else(|| ApiError::new(ErrorCode::ContactPhotoNotFound))?;
 
     let (bytes, image_type) = photo;
     let content_type = image_type
@@ -263,7 +263,7 @@ async fn fetch_contact_detail(
     run_timed_query(|| async { sources.get_contact(contact_id).await })
         .await
         .map_err(ApiError::from_sqlx)?
-        .ok_or_else(|| ApiError::not_found("Contact not found"))
+        .ok_or_else(|| ApiError::new(ErrorCode::ContactNotFound))
 }
 
 fn mime_from_image_type(image_type: &str) -> &'static str {

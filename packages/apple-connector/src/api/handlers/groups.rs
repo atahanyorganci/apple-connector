@@ -11,7 +11,7 @@ use crate::{
             ContactPageDto, GroupDetailDto, GroupPageDto,
             contacts_convert::{contact_page_to_dto, group_detail_to_dto, group_page_to_dto},
         },
-        error::{ApiError, ErrorResponse},
+        error::{ApiError, ErrorCode, ErrorResponse},
         params::{GroupIdPath, PageParams},
         router::AppState,
     },
@@ -76,7 +76,7 @@ pub async fn get_group(
     let group = run_timed_query(|| async { sources.get_group(group_id.as_str()).await })
         .await
         .map_err(ApiError::from_sqlx)?
-        .ok_or_else(|| ApiError::not_found("Group not found"))?;
+        .ok_or_else(|| ApiError::new(ErrorCode::GroupNotFound))?;
     Ok(Json(group_detail_to_dto(&group)))
 }
 
@@ -174,7 +174,7 @@ async fn fetch_group_contact_page(
     let group = run_timed_query(|| async { sources.get_group(group_id).await })
         .await
         .map_err(ApiError::from_sqlx)?
-        .ok_or_else(|| ApiError::not_found("Group not found"))?;
+        .ok_or_else(|| ApiError::new(ErrorCode::GroupNotFound))?;
     let _ = group;
     let cursor = params
         .cursor

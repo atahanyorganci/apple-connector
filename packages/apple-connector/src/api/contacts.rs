@@ -32,7 +32,8 @@ pub(crate) async fn require_contacts_access(
     match store.auth_status().await {
         apple_contacts::AuthStatus::Authorized | apple_contacts::AuthStatus::Limited => Ok(store),
         apple_contacts::AuthStatus::Denied | apple_contacts::AuthStatus::Restricted => {
-            Err(ApiError::forbidden(
+            Err(ApiError::with_message(
+                crate::api::error::ErrorCode::ContactsAccessDenied,
                 "Contacts access denied; grant Contacts permission in System Settings",
             ))
         }
@@ -46,13 +47,14 @@ pub(crate) async fn require_contacts_access(
                     Ok(store)
                 }
                 apple_contacts::AuthStatus::Denied | apple_contacts::AuthStatus::Restricted => {
-                    Err(ApiError::forbidden(
+                    Err(ApiError::with_message(
+                        crate::api::error::ErrorCode::ContactsAccessDenied,
                         "Contacts access denied; grant Contacts permission in System Settings",
                     ))
                 }
-                apple_contacts::AuthStatus::NotDetermined => {
-                    Err(ApiError::service_unavailable("Contacts access not granted"))
-                }
+                apple_contacts::AuthStatus::NotDetermined => Err(ApiError::new(
+                    crate::api::error::ErrorCode::ContactsUnavailable,
+                )),
                 apple_contacts::AuthStatus::Unavailable => Err(ApiError::contacts_unavailable()),
             }
         }

@@ -13,7 +13,7 @@ use crate::{
             CreateContactRequest, CreateGroupRequest, LabeledStringDto, PostalAddressDto,
             UpdateContactRequest, UpdateGroupRequest,
         },
-        error::ApiError,
+        error::{ApiError, ErrorCode},
     },
     contacts::{Container, ContainerResolveMetadata},
 };
@@ -23,13 +23,15 @@ pub const CARDDAV_CONTENT_TYPE: &str = "application/carddav+xml; charset=utf-8";
 
 pub fn map_contacts_error(error: ContactsError) -> ApiError {
     match error {
-        ContactsError::NotFound => ApiError::not_found("Contacts item not found"),
-        ContactsError::AccessDenied => ApiError::forbidden("Contacts access denied"),
-        ContactsError::ReadOnlyContainer => ApiError::forbidden("target container is read-only"),
-        ContactsError::ValidationFailed(message) => ApiError::unprocessable(message),
+        ContactsError::NotFound => ApiError::new(ErrorCode::ResourceNotFound),
+        ContactsError::AccessDenied => ApiError::new(ErrorCode::ContactsAccessDenied),
+        ContactsError::ReadOnlyContainer => ApiError::new(ErrorCode::ReadOnlyContainer),
+        ContactsError::ValidationFailed(message) => {
+            ApiError::with_message(ErrorCode::UnprocessableEntity, message)
+        }
         ContactsError::UnsupportedPlatform => ApiError::contacts_unavailable(),
-        ContactsError::Framework(message) => ApiError::internal(message),
-        ContactsError::Timeout => ApiError::new(crate::api::error::ErrorCode::GatewayTimeout),
+        ContactsError::Framework(_message) => ApiError::new(ErrorCode::InternalError),
+        ContactsError::Timeout => ApiError::new(ErrorCode::GatewayTimeout),
     }
 }
 
