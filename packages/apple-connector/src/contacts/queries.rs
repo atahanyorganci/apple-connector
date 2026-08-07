@@ -687,10 +687,20 @@ pub struct GroupOwnedRow {
     pub unique_id: String,
 }
 
-const CONTACT_ROW_BY_API_IDS_SQL: &str = r#"
+pub async fn fetch_contacts_by_api_ids<'e, E>(
+    executor: E,
+    contact_ent: i64,
+    api_ids_json: &str,
+) -> Result<Vec<ContactRow>, sqlx::Error>
+where
+    E: SqliteExecutor<'e>,
+{
+    sqlx::query_as!(
+        ContactRow,
+        r#"
         SELECT
-            r.Z_PK AS row_id,
-            r.ZUNIQUEID AS unique_id,
+            r.Z_PK AS "row_id!",
+            r.ZUNIQUEID AS "unique_id!",
             r.ZFIRSTNAME AS first_name,
             r.ZLASTNAME AS last_name,
             r.ZMIDDLENAME AS middle_name,
@@ -701,11 +711,11 @@ const CONTACT_ROW_BY_API_IDS_SQL: &str = r#"
             r.ZNAME AS display_name,
             r.ZCONTAINER AS container_row_id,
             c.ZUNIQUEID AS container_unique_id,
-            CAST(r.ZCREATIONDATE AS REAL) AS creation_date,
-            CAST(r.ZMODIFICATIONDATE AS REAL) AS modification_date,
-            CAST(r.ZBIRTHDAY AS REAL) AS birthday,
+            CAST(r.ZCREATIONDATE AS REAL) AS "creation_date: f64",
+            CAST(r.ZMODIFICATIONDATE AS REAL) AS "modification_date: f64",
+            CAST(r.ZBIRTHDAY AS REAL) AS "birthday: f64",
             n.ZTEXT AS note_text,
-            CASE WHEN l.ZDATA IS NOT NULL OR r.ZIMAGEDATA IS NOT NULL THEN 1 ELSE 0 END AS has_photo
+            CASE WHEN l.ZDATA IS NOT NULL OR r.ZIMAGEDATA IS NOT NULL THEN 1 ELSE 0 END AS "has_photo: i64"
         FROM ZABCDRECORD r
         LEFT JOIN ZABCDRECORD c ON c.Z_PK = r.ZCONTAINER
         LEFT JOIN ZABCDNOTE n ON n.ZCONTACT = r.Z_PK
@@ -714,12 +724,28 @@ const CONTACT_ROW_BY_API_IDS_SQL: &str = r#"
           AND lower(substr(r.ZUNIQUEID, 1, instr(r.ZUNIQUEID, ':') - 1)) IN (
             SELECT lower(value) FROM json_each(?2)
           )
-"#;
+        "#,
+        contact_ent,
+        api_ids_json,
+    )
+    .fetch_all(executor)
+    .await
+}
 
-const CONTACT_ROW_BY_ROW_IDS_SQL: &str = r#"
+pub async fn fetch_contacts_by_row_ids<'e, E>(
+    executor: E,
+    contact_ent: i64,
+    row_ids_json: &str,
+) -> Result<Vec<ContactRow>, sqlx::Error>
+where
+    E: SqliteExecutor<'e>,
+{
+    sqlx::query_as!(
+        ContactRow,
+        r#"
         SELECT
-            r.Z_PK AS row_id,
-            r.ZUNIQUEID AS unique_id,
+            r.Z_PK AS "row_id!",
+            r.ZUNIQUEID AS "unique_id!",
             r.ZFIRSTNAME AS first_name,
             r.ZLASTNAME AS last_name,
             r.ZMIDDLENAME AS middle_name,
@@ -741,36 +767,12 @@ const CONTACT_ROW_BY_ROW_IDS_SQL: &str = r#"
         LEFT JOIN ZABCDLIKENESS l ON l.ZOWNER = r.Z_PK AND l.ZISPRIMARY = 1
         WHERE r.Z_ENT = ?1
           AND r.Z_PK IN (SELECT value FROM json_each(?2))
-"#;
-
-pub async fn fetch_contacts_by_api_ids<'e, E>(
-    executor: E,
-    contact_ent: i64,
-    api_ids_json: &str,
-) -> Result<Vec<ContactRow>, sqlx::Error>
-where
-    E: SqliteExecutor<'e>,
-{
-    sqlx::query_as::<_, ContactRow>(CONTACT_ROW_BY_API_IDS_SQL)
-        .bind(contact_ent)
-        .bind(api_ids_json)
-        .fetch_all(executor)
-        .await
-}
-
-pub async fn fetch_contacts_by_row_ids<'e, E>(
-    executor: E,
-    contact_ent: i64,
-    row_ids_json: &str,
-) -> Result<Vec<ContactRow>, sqlx::Error>
-where
-    E: SqliteExecutor<'e>,
-{
-    sqlx::query_as::<_, ContactRow>(CONTACT_ROW_BY_ROW_IDS_SQL)
-        .bind(contact_ent)
-        .bind(row_ids_json)
-        .fetch_all(executor)
-        .await
+        "#,
+        contact_ent,
+        row_ids_json,
+    )
+    .fetch_all(executor)
+    .await
 }
 
 pub async fn fetch_phones_for_contact_ids<'e, E>(

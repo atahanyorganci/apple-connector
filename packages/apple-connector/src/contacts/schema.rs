@@ -160,4 +160,20 @@ mod tests {
         );
         Ok(())
     }
+
+    #[tokio::test]
+    async fn resolves_remapped_parent_groups_join() -> Result<(), Box<dyn std::error::Error>> {
+        let fixture = ContactsFixtureDb::seeded_with_remapped_entities().await?;
+        let pool = connect_pool(fixture.path()).await?;
+
+        let schema = load_contacts_schema(&pool).await?;
+
+        assert_eq!(schema.entity_ids.contact, 30);
+        assert_eq!(schema.entity_ids.group, 28);
+        assert_eq!(schema.entity_ids.container, 40);
+        assert_eq!(schema.parent_groups.table, "Z_30PARENTGROUPS");
+        assert_eq!(schema.parent_groups.contact_col, "Z_30CONTACTS");
+        assert_eq!(schema.parent_groups.group_col, "Z_28PARENTGROUPS1");
+        Ok(())
+    }
 }

@@ -522,6 +522,57 @@ mod tests {
         Ok(())
     }
     #[tokio::test]
+    async fn remapped_entity_fixture_lists_containers_groups_and_contacts()
+    -> Result<(), Box<dyn std::error::Error>> {
+        let fixture = crate::fixtures::ContactsFixtureDb::seeded_with_remapped_entities().await?;
+        let pool = connect_pool(fixture.path()).await?;
+        let repo = ContactsRepository::new(&pool, SourceId::new("remapped-source"));
+
+        let containers = repo.list_containers().await?;
+        assert!(
+            containers
+                .iter()
+                .any(|c| c.id.as_str() == SEED_CONTAINER_ID)
+        );
+
+        let groups = repo.list_groups(50, None).await?;
+        assert!(groups.items.iter().any(|g| g.id.as_str() == SEED_GROUP_ID));
+
+        let contacts = repo.list_contacts(50, None, &Default::default()).await?;
+        assert!(
+            contacts
+                .items
+                .iter()
+                .any(|c| c.id.as_str() == SEED_CONTACT_ID)
+        );
+
+        let filtered = repo
+            .list_contacts(
+                50,
+                None,
+                &crate::contacts::ContactFilters {
+                    group_id: Some(SEED_GROUP_ID.to_owned()),
+                    ..Default::default()
+                },
+            )
+            .await?;
+        assert!(
+            filtered
+                .items
+                .iter()
+                .any(|c| c.id.as_str() == SEED_CONTACT_ID)
+        );
+
+        let detail = repo
+            .get_contact(SEED_CONTACT_ID)
+            .await?
+            .ok_or("contact not found")?;
+        assert_eq!(detail.first_name.as_deref(), Some("Jane"));
+        assert!(detail.group_ids.iter().any(|g| g.as_str() == SEED_GROUP_ID));
+        Ok(())
+    }
+
+    #[tokio::test]
     async fn hydrate_batch_uses_bounded_queries_for_large_page()
     -> Result<(), Box<dyn std::error::Error>> {
         use crate::db::query_budget;

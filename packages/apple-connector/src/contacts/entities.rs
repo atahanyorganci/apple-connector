@@ -81,4 +81,30 @@ mod tests {
         );
         Ok(())
     }
+
+    #[tokio::test]
+    async fn loads_entity_ids_from_remapped_fixture() -> Result<(), Box<dyn std::error::Error>> {
+        let fixture = ContactsFixtureDb::seeded_with_remapped_entities().await?;
+        let pool = connect_pool(fixture.path()).await?;
+        let ids = load_entity_ids(&pool).await?;
+        assert_eq!(ids.contact, 30);
+        assert_eq!(ids.group, 28);
+        assert_eq!(ids.container, 40);
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn unsupported_schema_fails_explicitly() -> Result<(), Box<dyn std::error::Error>> {
+        let fixture = ContactsFixtureDb::unsupported_schema().await?;
+        let pool = connect_pool(fixture.path()).await?;
+        let error = load_entity_ids(&pool)
+            .await
+            .err()
+            .ok_or("expected error for unsupported schema")?;
+        assert!(
+            error.to_string().contains("no such table"),
+            "unexpected error: {error}"
+        );
+        Ok(())
+    }
 }

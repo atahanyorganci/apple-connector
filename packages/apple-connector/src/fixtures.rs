@@ -355,6 +355,39 @@ impl ContactsFixtureDb {
         Ok(fixture)
     }
 
+    /// Seeded fixture with Core Data entity ids remapped to an alternate
+    /// layout (contact=30, group=28, container=40) and the `parentGroups`
+    /// join table renamed to match (`Z_30PARENTGROUPS` with columns
+    /// `Z_30CONTACTS` / `Z_28PARENTGROUPS1`), for exercising discovery
+    /// against a store that differs from the fixture's native numbering.
+    pub async fn seeded_with_remapped_entities() -> io::Result<Self> {
+        let fixture = Self::seeded().await?;
+        remap_contact_entities(fixture.path()).await?;
+        Ok(fixture)
+    }
+
+    /// Fixture with a completely unrelated schema (no `Z_PRIMARYKEY` table
+    /// at all), for exercising explicit failure against unsupported stores.
+    pub async fn unsupported_schema() -> io::Result<Self> {
+        let temp_dir = TempDir::new()?;
+        let path = temp_dir.path().join("AddressBook-v22.abcddb");
+        let options = SqliteConnectOptions::new()
+            .filename(&path)
+            .create_if_missing(true);
+        let mut connection = SqliteConnection::connect_with(&options)
+            .await
+            .map_err(io::Error::other)?;
+        sqlx::raw_sql("CREATE TABLE UNRELATED_TABLE (ID INTEGER PRIMARY KEY)")
+            .execute(&mut connection)
+            .await
+            .map_err(io::Error::other)?;
+        connection.close().await.ok();
+        Ok(Self {
+            _temp_dir: temp_dir,
+            path,
+        })
+    }
+
     pub fn path(&self) -> &Path {
         &self.path
     }
@@ -438,6 +471,46 @@ async fn drop_parent_groups_join(path: &Path) -> io::Result<()> {
         .execute(&mut connection)
         .await
         .map_err(io::Error::other)?;
+
+    connection.close().await.ok();
+    Ok(())
+}
+
+/// Renumbers the seeded fixture's contact/group/container entity ids to an
+/// alternate layout (22->30, 19->28, 25->40) and renames the `parentGroups`
+/// join table to match, so tests can exercise discovery against a store
+/// whose Core Data numbering differs from the fixture's native one.
+async fn remap_contact_entities(path: &Path) -> io::Result<()> {
+    let options = SqliteConnectOptions::new()
+        .filename(path)
+        .read_only(false)
+        .create_if_missing(false);
+
+    let mut connection = SqliteConnection::connect_with(&options)
+        .await
+        .map_err(io::Error::other)?;
+
+    sqlx::raw_sql(
+        r#"
+        UPDATE Z_PRIMARYKEY SET Z_ENT = 30 WHERE Z_ENT = 22;
+        UPDATE Z_PRIMARYKEY SET Z_ENT = 28 WHERE Z_ENT = 19;
+        UPDATE Z_PRIMARYKEY SET Z_ENT = 40 WHERE Z_ENT = 25;
+        UPDATE ZABCDRECORD SET Z_ENT = 30 WHERE Z_ENT = 22;
+        UPDATE ZABCDRECORD SET Z_ENT = 28 WHERE Z_ENT = 19;
+        UPDATE ZABCDRECORD SET Z_ENT = 40 WHERE Z_ENT = 25;
+        CREATE TABLE Z_30PARENTGROUPS (
+          Z_30CONTACTS INTEGER,
+          Z_28PARENTGROUPS1 INTEGER,
+          PRIMARY KEY (Z_30CONTACTS, Z_28PARENTGROUPS1)
+        );
+        INSERT INTO Z_30PARENTGROUPS (Z_30CONTACTS, Z_28PARENTGROUPS1)
+          SELECT Z_22CONTACTS, Z_19PARENTGROUPS1 FROM Z_22PARENTGROUPS;
+        DROP TABLE Z_22PARENTGROUPS;
+        "#,
+    )
+    .execute(&mut connection)
+    .await
+    .map_err(io::Error::other)?;
 
     connection.close().await.ok();
     Ok(())

@@ -454,6 +454,23 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn caches_schema_for_remapped_entity_layout() -> Result<(), Box<dyn std::error::Error>> {
+        let fixture = crate::fixtures::ContactsFixtureDb::seeded_with_remapped_entities().await?;
+        let pool = connect_pool(fixture.path()).await?;
+        let source_id = SourceId::new("remapped-source");
+        let sources = ContactsSources::new(HashMap::from([(source_id.clone(), pool)]));
+
+        sources.warm_schemas().await?;
+
+        let schema = sources.cached_schema(&source_id).await?;
+        assert_eq!(schema.entity_ids.contact, 30);
+        assert_eq!(schema.entity_ids.group, 28);
+        assert_eq!(schema.entity_ids.container, 40);
+        assert_eq!(schema.parent_groups.table, "Z_30PARENTGROUPS");
+        Ok(())
+    }
+
+    #[tokio::test]
     async fn warm_schemas_fails_explicitly_for_misconfigured_source()
     -> Result<(), Box<dyn std::error::Error>> {
         let fixture = ContactsFixtureDb::seeded_without_parent_groups_join().await?;
