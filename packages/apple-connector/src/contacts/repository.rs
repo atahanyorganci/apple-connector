@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, sync::Arc};
 
 use sqlx::SqlitePool;
 
@@ -7,6 +7,7 @@ use super::{
         ContactRelatedRows, contact_detail_from_row, contact_summary_from_row, container_from_row,
         group_from_row,
     },
+    entities::{EntityIds, load_entity_ids},
     model::{ContactDetail, ContactGroup, ContactSummary, Container},
     queries::{
         AddressOwnedRow, EmailOwnedRow, GroupOwnedRow, PhoneOwnedRow, SocialOwnedRow, UrlOwnedRow,
@@ -54,11 +55,35 @@ pub struct GroupResolveMetadata {
 pub struct ContactsRepository<'a> {
     pool: &'a SqlitePool,
     source_id: SourceId,
+    entity_ids: Option<Arc<EntityIds>>,
 }
 
 impl<'a> ContactsRepository<'a> {
     pub fn new(pool: &'a SqlitePool, source_id: SourceId) -> Self {
-        Self { pool, source_id }
+        Self {
+            pool,
+            source_id,
+            entity_ids: None,
+        }
+    }
+
+    pub fn with_entity_ids(
+        pool: &'a SqlitePool,
+        source_id: SourceId,
+        entity_ids: Arc<EntityIds>,
+    ) -> Self {
+        Self {
+            pool,
+            source_id,
+            entity_ids: Some(entity_ids),
+        }
+    }
+
+    async fn entity_ids(&self) -> Result<Arc<EntityIds>, sqlx::Error> {
+        if let Some(entity_ids) = &self.entity_ids {
+            return Ok(Arc::clone(entity_ids));
+        }
+        load_entity_ids(self.pool).await.map(Arc::new)
     }
 
     pub fn source_id(&self) -> &SourceId {
@@ -66,7 +91,8 @@ impl<'a> ContactsRepository<'a> {
     }
 
     pub async fn list_containers(&self) -> Result<Vec<Container>, sqlx::Error> {
-        let rows = fetch_containers(self.pool).await?;
+        let entity_ids = self.entity_ids().await?;
+        let rows = fetch_containers(self.pool, entity_ids.container).await?;
         Ok(rows
             .into_iter()
             .map(|row| container_from_row(row, self.source_id.clone()))
@@ -77,7 +103,8 @@ impl<'a> ContactsRepository<'a> {
         &self,
         container_id: &str,
     ) -> Result<Option<Container>, sqlx::Error> {
-        let row = fetch_container_by_api_id(self.pool, container_id).await?;
+        let entity_ids = self.entity_ids().await?;
+        let row = fetch_container_by_api_id(self.pool, entity_ids.container, container_id).await?;
         Ok(row.map(|row| container_from_row(row, self.source_id.clone())))
     }
 
@@ -86,8 +113,15 @@ impl<'a> ContactsRepository<'a> {
         limit: u32,
         cursor: Option<ContactListCursor>,
     ) -> Result<Page<ContactGroup>, sqlx::Error> {
+        let entity_ids = self.entity_ids().await?;
         let fetch_limit = i64::from(limit) + 1;
-        let rows = fetch_groups(self.pool, cursor.map(|value| value.row_id), fetch_limit).await?;
+        let rows = fetch_groups(
+            self.pool,
+            entity_ids.group,
+            cursor.map(|value| value.row_id),
+            fetch_limit,
+        )
+        .await?;
         Ok(split_page_skipping(
             rows,
             limit,
@@ -100,7 +134,8 @@ impl<'a> ContactsRepository<'a> {
     }
 
     pub async fn get_group(&self, group_id: &str) -> Result<Option<ContactGroup>, sqlx::Error> {
-        let row = fetch_group_by_api_id(self.pool, group_id).await?;
+        let entity_ids = self.entity_ids().await?;
+        let row = fetch_group_by_api_id(self.pool, entity_ids.group, group_id).await?;
         Ok(row.map(|row| group_from_row(row, self.source_id.clone())))
     }
 
@@ -110,9 +145,10 @@ impl<'a> ContactsRepository<'a> {
         cursor: Option<ContactListCursor>,
         filters: &ContactFilters,
     ) -> Result<Page<ContactSummary>, sqlx::Error> {
+        let entity_ids = self.entity_ids().await?;
         let fetch_limit = i64::from(limit) + 1;
         let binds = filters.bind_values(cursor.map(|value| value.row_id), fetch_limit);
-        let rows = fetch_filtered_contacts(self.pool, &binds).await?;
+        let rows = fetch_filtered_contacts(self.pool, entity_ids.contact, &binds).await?;
         Ok(split_page_skipping(
             rows,
             limit,
@@ -130,9 +166,11 @@ impl<'a> ContactsRepository<'a> {
         limit: u32,
         cursor: Option<GroupContactCursor>,
     ) -> Result<Page<ContactSummary>, sqlx::Error> {
+        let entity_ids = self.entity_ids().await?;
         let fetch_limit = i64::from(limit) + 1;
         let rows = fetch_group_contacts(
             self.pool,
+            entity_ids.contact,
             group_id,
             cursor.map(|value| value.row_id),
             fetch_limit,
@@ -153,7 +191,8 @@ impl<'a> ContactsRepository<'a> {
         &self,
         contact_id: &str,
     ) -> Result<Option<ContactDetail>, sqlx::Error> {
-        let row = fetch_contact_by_api_id(self.pool, contact_id).await?;
+        let entity_ids = self.entity_ids().await?;
+        let row = fetch_contact_by_api_id(self.pool, entity_ids.contact, contact_id).await?;
         let Some(row) = row else {
             return Ok(None);
         };
@@ -164,7 +203,9 @@ impl<'a> ContactsRepository<'a> {
         &self,
         contact_id: &str,
     ) -> Result<Option<(Vec<u8>, Option<String>)>, sqlx::Error> {
-        let row = fetch_contact_photo(self.pool, &format!("{contact_id}:")).await?;
+        let entity_ids = self.entity_ids().await?;
+        let row =
+            fetch_contact_photo(self.pool, entity_ids.contact, &format!("{contact_id}:")).await?;
         Ok(row.and_then(|row| row.photo_data.map(|data| (data, row.image_type))))
     }
 
@@ -172,8 +213,10 @@ impl<'a> ContactsRepository<'a> {
         &self,
         container_id: &str,
     ) -> Result<Option<ContainerResolveMetadata>, sqlx::Error> {
+        let entity_ids = self.entity_ids().await?;
         let api_id = api_id_from_unique_id(container_id);
-        let row = fetch_container_resolve_metadata(self.pool, &api_id).await?;
+        let row =
+            fetch_container_resolve_metadata(self.pool, entity_ids.container, &api_id).await?;
         Ok(row.map(|row| ContainerResolveMetadata {
             api_id: row.api_id.unwrap_or(api_id),
             external_id: row.external_id,
@@ -186,8 +229,9 @@ impl<'a> ContactsRepository<'a> {
         &self,
         group_id: &str,
     ) -> Result<Option<GroupResolveMetadata>, sqlx::Error> {
+        let entity_ids = self.entity_ids().await?;
         let api_id = api_id_from_unique_id(group_id);
-        let row = fetch_group_resolve_metadata(self.pool, &api_id).await?;
+        let row = fetch_group_resolve_metadata(self.pool, entity_ids.group, &api_id).await?;
         Ok(row.map(|row| GroupResolveMetadata {
             api_id: row.api_id.unwrap_or(api_id),
             name: row.name,
@@ -200,16 +244,18 @@ impl<'a> ContactsRepository<'a> {
         &self,
         contact_id: &str,
     ) -> Result<Option<String>, sqlx::Error> {
+        let entity_ids = self.entity_ids().await?;
         let api_id = api_id_from_unique_id(contact_id);
-        fetch_contact_external_id(self.pool, &api_id).await
+        fetch_contact_external_id(self.pool, entity_ids.contact, &api_id).await
     }
 
     pub async fn get_group_external_id(
         &self,
         group_id: &str,
     ) -> Result<Option<String>, sqlx::Error> {
+        let entity_ids = self.entity_ids().await?;
         let api_id = api_id_from_unique_id(group_id);
-        fetch_group_external_id(self.pool, &api_id).await
+        fetch_group_external_id(self.pool, entity_ids.group, &api_id).await
     }
 
     pub async fn hydrate_contacts_batch(
@@ -219,9 +265,11 @@ impl<'a> ContactsRepository<'a> {
         if rows.is_empty() {
             return Ok(Vec::new());
         }
+        let entity_ids = self.entity_ids().await?;
 
         let row_ids: Vec<i64> = rows.iter().map(|row| row.row_id).collect();
-        let fetched = fetch_contacts_by_row_ids(self.pool, &json_ids(&row_ids)).await?;
+        let fetched =
+            fetch_contacts_by_row_ids(self.pool, entity_ids.contact, &json_ids(&row_ids)).await?;
         let mut by_row_id: std::collections::HashMap<i64, super::row::ContactRow> =
             fetched.into_iter().map(|row| (row.row_id, row)).collect();
         let rows: Vec<super::row::ContactRow> = row_ids
@@ -449,8 +497,10 @@ mod tests {
         let fixture = ContactsFixtureDb::seeded_with_batch_contacts(200).await?;
         let pool = connect_pool(fixture.path()).await?;
         let repo = ContactsRepository::new(&pool, SourceId::new("fixture-source"));
+        let entity_ids = crate::contacts::load_entity_ids(&pool).await?;
         let rows = crate::contacts::queries::fetch_contacts_by_row_ids(
             &pool,
+            entity_ids.contact,
             &crate::sqlx_util::json_ids(&(100..300).collect::<Vec<_>>()),
         )
         .await?;

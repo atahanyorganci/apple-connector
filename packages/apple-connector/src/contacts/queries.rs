@@ -1,6 +1,6 @@
 //! Compile-time checked AddressBook queries.
 
-use sqlx::{SqliteExecutor, SqlitePool};
+use sqlx::SqliteExecutor;
 
 #[cfg(test)]
 fn record_test_query() {
@@ -24,7 +24,10 @@ pub struct EntityNameRow {
     pub name: String,
 }
 
-pub async fn fetch_entity_name_rows(pool: &SqlitePool) -> Result<Vec<EntityNameRow>, sqlx::Error> {
+pub async fn fetch_entity_name_rows<'e, E>(executor: E) -> Result<Vec<EntityNameRow>, sqlx::Error>
+where
+    E: SqliteExecutor<'e>,
+{
     sqlx::query_as!(
         EntityNameRow,
         r#"
@@ -37,11 +40,14 @@ pub async fn fetch_entity_name_rows(pool: &SqlitePool) -> Result<Vec<EntityNameR
         )
         "#,
     )
-    .fetch_all(pool)
+    .fetch_all(executor)
     .await
 }
 
-pub async fn fetch_containers<'e, E>(executor: E) -> Result<Vec<ContainerRow>, sqlx::Error>
+pub async fn fetch_containers<'e, E>(
+    executor: E,
+    container_ent: i64,
+) -> Result<Vec<ContainerRow>, sqlx::Error>
 where
     E: SqliteExecutor<'e>,
 {
@@ -54,8 +60,9 @@ where
             r.ZNAME AS name,
             r.ZTYPE AS container_type
         FROM ZABCDRECORD r
-        WHERE r.Z_ENT = 25
-        "#
+        WHERE r.Z_ENT = ?1
+        "#,
+        container_ent,
     )
     .fetch_all(executor)
     .await
@@ -63,6 +70,7 @@ where
 
 pub async fn fetch_container_by_api_id<'e, E>(
     executor: E,
+    container_ent: i64,
     container_id: &str,
 ) -> Result<Option<ContainerRow>, sqlx::Error>
 where
@@ -77,9 +85,10 @@ where
             r.ZNAME AS name,
             r.ZTYPE AS container_type
         FROM ZABCDRECORD r
-        WHERE r.Z_ENT = 25
-          AND lower(substr(r.ZUNIQUEID, 1, instr(r.ZUNIQUEID, ':') - 1)) = lower(?1)
+        WHERE r.Z_ENT = ?1
+          AND lower(substr(r.ZUNIQUEID, 1, instr(r.ZUNIQUEID, ':') - 1)) = lower(?2)
         "#,
+        container_ent,
         container_id,
     )
     .fetch_optional(executor)
@@ -88,6 +97,7 @@ where
 
 pub async fn fetch_groups<'e, E>(
     executor: E,
+    group_ent: i64,
     cursor_row_id: Option<i64>,
     limit: i64,
 ) -> Result<Vec<GroupRow>, sqlx::Error>
@@ -106,11 +116,12 @@ where
             r.ZTYPE AS group_type
         FROM ZABCDRECORD r
         LEFT JOIN ZABCDRECORD c ON c.Z_PK = r.ZCONTAINER
-        WHERE r.Z_ENT = 19
-          AND (?1 IS NULL OR r.Z_PK < ?1)
+        WHERE r.Z_ENT = ?1
+          AND (?2 IS NULL OR r.Z_PK < ?2)
         ORDER BY r.Z_PK DESC
-        LIMIT ?2
+        LIMIT ?3
         "#,
+        group_ent,
         cursor_row_id,
         limit,
     )
@@ -120,6 +131,7 @@ where
 
 pub async fn fetch_group_by_api_id<'e, E>(
     executor: E,
+    group_ent: i64,
     group_id: &str,
 ) -> Result<Option<GroupRow>, sqlx::Error>
 where
@@ -137,9 +149,10 @@ where
             r.ZTYPE AS group_type
         FROM ZABCDRECORD r
         LEFT JOIN ZABCDRECORD c ON c.Z_PK = r.ZCONTAINER
-        WHERE r.Z_ENT = 19
-          AND lower(substr(r.ZUNIQUEID, 1, instr(r.ZUNIQUEID, ':') - 1)) = lower(?1)
+        WHERE r.Z_ENT = ?1
+          AND lower(substr(r.ZUNIQUEID, 1, instr(r.ZUNIQUEID, ':') - 1)) = lower(?2)
         "#,
+        group_ent,
         group_id,
     )
     .fetch_optional(executor)
@@ -148,6 +161,7 @@ where
 
 pub async fn fetch_filtered_contacts<'e, E>(
     executor: E,
+    contact_ent: i64,
     binds: &ContactFilterBinds,
 ) -> Result<Vec<ContactRow>, sqlx::Error>
 where
@@ -178,33 +192,34 @@ where
         LEFT JOIN ZABCDRECORD c ON c.Z_PK = r.ZCONTAINER
         LEFT JOIN ZABCDNOTE n ON n.ZCONTACT = r.Z_PK
         LEFT JOIN ZABCDLIKENESS l ON l.ZOWNER = r.Z_PK AND l.ZISPRIMARY = 1
-        WHERE r.Z_ENT = 22
+        WHERE r.Z_ENT = ?1
           AND (
-            ?1 IS NULL
+            ?2 IS NULL
             OR (
-                r.ZFIRSTNAME LIKE ?1
-                OR r.ZLASTNAME LIKE ?1
-                OR r.ZORGANIZATION LIKE ?1
-                OR r.ZNAME LIKE ?1
+                r.ZFIRSTNAME LIKE ?2
+                OR r.ZLASTNAME LIKE ?2
+                OR r.ZORGANIZATION LIKE ?2
+                OR r.ZNAME LIKE ?2
             )
           )
           AND (
-            ?2 IS NULL
-            OR lower(substr(c.ZUNIQUEID, 1, instr(c.ZUNIQUEID, ':') - 1)) = lower(?2)
+            ?3 IS NULL
+            OR lower(substr(c.ZUNIQUEID, 1, instr(c.ZUNIQUEID, ':') - 1)) = lower(?3)
           )
           AND (
-            ?3 IS NULL
+            ?4 IS NULL
             OR r.Z_PK IN (
                 SELECT pg.Z_22CONTACTS
                 FROM Z_22PARENTGROUPS pg
                 JOIN ZABCDRECORD g ON g.Z_PK = pg.Z_19PARENTGROUPS1
-                WHERE lower(substr(g.ZUNIQUEID, 1, instr(g.ZUNIQUEID, ':') - 1)) = lower(?3)
+                WHERE lower(substr(g.ZUNIQUEID, 1, instr(g.ZUNIQUEID, ':') - 1)) = lower(?4)
             )
           )
-          AND (?4 IS NULL OR r.Z_PK < ?4)
+          AND (?5 IS NULL OR r.Z_PK < ?5)
         ORDER BY r.Z_PK DESC
-        LIMIT ?5
+        LIMIT ?6
         "#,
+        contact_ent,
         binds.q_pattern,
         binds.container_id,
         binds.group_id,
@@ -217,6 +232,7 @@ where
 
 pub async fn fetch_group_contacts<'e, E>(
     executor: E,
+    contact_ent: i64,
     group_id: &str,
     cursor_row_id: Option<i64>,
     limit: i64,
@@ -249,17 +265,18 @@ where
         LEFT JOIN ZABCDRECORD c ON c.Z_PK = r.ZCONTAINER
         LEFT JOIN ZABCDNOTE n ON n.ZCONTACT = r.Z_PK
         LEFT JOIN ZABCDLIKENESS l ON l.ZOWNER = r.Z_PK AND l.ZISPRIMARY = 1
-        WHERE r.Z_ENT = 22
+        WHERE r.Z_ENT = ?1
           AND r.Z_PK IN (
               SELECT pg.Z_22CONTACTS
               FROM Z_22PARENTGROUPS pg
               JOIN ZABCDRECORD g ON g.Z_PK = pg.Z_19PARENTGROUPS1
-              WHERE lower(substr(g.ZUNIQUEID, 1, instr(g.ZUNIQUEID, ':') - 1)) = lower(?1)
+              WHERE lower(substr(g.ZUNIQUEID, 1, instr(g.ZUNIQUEID, ':') - 1)) = lower(?2)
           )
-          AND (?2 IS NULL OR r.Z_PK < ?2)
+          AND (?3 IS NULL OR r.Z_PK < ?3)
         ORDER BY r.Z_PK DESC
-        LIMIT ?3
+        LIMIT ?4
         "#,
+        contact_ent,
         group_id,
         cursor_row_id,
         limit,
@@ -270,6 +287,7 @@ where
 
 pub async fn fetch_contact_by_api_id<'e, E>(
     executor: E,
+    contact_ent: i64,
     contact_id: &str,
 ) -> Result<Option<ContactRow>, sqlx::Error>
 where
@@ -300,9 +318,10 @@ where
         LEFT JOIN ZABCDRECORD c ON c.Z_PK = r.ZCONTAINER
         LEFT JOIN ZABCDNOTE n ON n.ZCONTACT = r.Z_PK
         LEFT JOIN ZABCDLIKENESS l ON l.ZOWNER = r.Z_PK AND l.ZISPRIMARY = 1
-        WHERE r.Z_ENT = 22
-          AND lower(substr(r.ZUNIQUEID, 1, instr(r.ZUNIQUEID, ':') - 1)) = lower(?1)
+        WHERE r.Z_ENT = ?1
+          AND lower(substr(r.ZUNIQUEID, 1, instr(r.ZUNIQUEID, ':') - 1)) = lower(?2)
         "#,
+        contact_ent,
         contact_id,
     )
     .fetch_optional(executor)
@@ -311,6 +330,7 @@ where
 
 pub async fn fetch_contact_photo<'e, E>(
     executor: E,
+    contact_ent: i64,
     contact_id_prefix: &str,
 ) -> Result<Option<PhotoRow>, sqlx::Error>
 where
@@ -324,10 +344,11 @@ where
             r.ZIMAGETYPE AS image_type
         FROM ZABCDRECORD r
         LEFT JOIN ZABCDLIKENESS l ON l.ZOWNER = r.Z_PK AND l.ZISPRIMARY = 1
-        WHERE r.Z_ENT = 22
-          AND lower(r.ZUNIQUEID) LIKE lower(?1) || '%'
+        WHERE r.Z_ENT = ?1
+          AND lower(r.ZUNIQUEID) LIKE lower(?2) || '%'
         LIMIT 1
         "#,
+        contact_ent,
         contact_id_prefix,
     )
     .fetch_optional(executor)
@@ -336,6 +357,7 @@ where
 
 pub async fn fetch_container_resolve_metadata<'e, E>(
     executor: E,
+    container_ent: i64,
     api_id: &str,
 ) -> Result<Option<ContainerResolveRow>, sqlx::Error>
 where
@@ -350,9 +372,10 @@ where
             r.ZNAME AS name,
             r.ZTYPE AS container_type
         FROM ZABCDRECORD r
-        WHERE r.Z_ENT = 25
-          AND lower(substr(r.ZUNIQUEID, 1, instr(r.ZUNIQUEID, ':') - 1)) = lower(?1)
+        WHERE r.Z_ENT = ?1
+          AND lower(substr(r.ZUNIQUEID, 1, instr(r.ZUNIQUEID, ':') - 1)) = lower(?2)
         "#,
+        container_ent,
         api_id,
     )
     .fetch_optional(executor)
@@ -361,6 +384,7 @@ where
 
 pub async fn fetch_group_resolve_metadata<'e, E>(
     executor: E,
+    group_ent: i64,
     api_id: &str,
 ) -> Result<Option<GroupResolveRow>, sqlx::Error>
 where
@@ -375,9 +399,10 @@ where
             r.ZTYPE AS group_type,
             r.ZCONTAINER AS container_id
         FROM ZABCDRECORD r
-        WHERE r.Z_ENT = 19
-          AND lower(substr(r.ZUNIQUEID, 1, instr(r.ZUNIQUEID, ':') - 1)) = lower(?1)
+        WHERE r.Z_ENT = ?1
+          AND lower(substr(r.ZUNIQUEID, 1, instr(r.ZUNIQUEID, ':') - 1)) = lower(?2)
         "#,
+        group_ent,
         api_id,
     )
     .fetch_optional(executor)
@@ -386,6 +411,7 @@ where
 
 pub async fn fetch_contact_external_id<'e, E>(
     executor: E,
+    contact_ent: i64,
     api_id: &str,
 ) -> Result<Option<String>, sqlx::Error>
 where
@@ -395,9 +421,10 @@ where
         r#"
         SELECT r.ZUNIQUEID AS "unique_id!: String"
         FROM ZABCDRECORD r
-        WHERE r.Z_ENT = 22
-          AND lower(substr(r.ZUNIQUEID, 1, instr(r.ZUNIQUEID, ':') - 1)) = lower(?1)
+        WHERE r.Z_ENT = ?1
+          AND lower(substr(r.ZUNIQUEID, 1, instr(r.ZUNIQUEID, ':') - 1)) = lower(?2)
         "#,
+        contact_ent,
         api_id,
     )
     .fetch_optional(executor)
@@ -406,6 +433,7 @@ where
 
 pub async fn fetch_group_external_id<'e, E>(
     executor: E,
+    group_ent: i64,
     api_id: &str,
 ) -> Result<Option<String>, sqlx::Error>
 where
@@ -415,9 +443,10 @@ where
         r#"
         SELECT r.ZUNIQUEID AS "unique_id!: String"
         FROM ZABCDRECORD r
-        WHERE r.Z_ENT = 19
-          AND lower(substr(r.ZUNIQUEID, 1, instr(r.ZUNIQUEID, ':') - 1)) = lower(?1)
+        WHERE r.Z_ENT = ?1
+          AND lower(substr(r.ZUNIQUEID, 1, instr(r.ZUNIQUEID, ':') - 1)) = lower(?2)
         "#,
+        group_ent,
         api_id,
     )
     .fetch_optional(executor)
@@ -666,9 +695,9 @@ const CONTACT_ROW_BY_API_IDS_SQL: &str = r#"
         LEFT JOIN ZABCDRECORD c ON c.Z_PK = r.ZCONTAINER
         LEFT JOIN ZABCDNOTE n ON n.ZCONTACT = r.Z_PK
         LEFT JOIN ZABCDLIKENESS l ON l.ZOWNER = r.Z_PK AND l.ZISPRIMARY = 1
-        WHERE r.Z_ENT = 22
+        WHERE r.Z_ENT = ?1
           AND lower(substr(r.ZUNIQUEID, 1, instr(r.ZUNIQUEID, ':') - 1)) IN (
-            SELECT lower(value) FROM json_each(?1)
+            SELECT lower(value) FROM json_each(?2)
           )
 "#;
 
@@ -695,18 +724,20 @@ const CONTACT_ROW_BY_ROW_IDS_SQL: &str = r#"
         LEFT JOIN ZABCDRECORD c ON c.Z_PK = r.ZCONTAINER
         LEFT JOIN ZABCDNOTE n ON n.ZCONTACT = r.Z_PK
         LEFT JOIN ZABCDLIKENESS l ON l.ZOWNER = r.Z_PK AND l.ZISPRIMARY = 1
-        WHERE r.Z_ENT = 22
-          AND r.Z_PK IN (SELECT value FROM json_each(?1))
+        WHERE r.Z_ENT = ?1
+          AND r.Z_PK IN (SELECT value FROM json_each(?2))
 "#;
 
 pub async fn fetch_contacts_by_api_ids<'e, E>(
     executor: E,
+    contact_ent: i64,
     api_ids_json: &str,
 ) -> Result<Vec<ContactRow>, sqlx::Error>
 where
     E: SqliteExecutor<'e>,
 {
     sqlx::query_as::<_, ContactRow>(CONTACT_ROW_BY_API_IDS_SQL)
+        .bind(contact_ent)
         .bind(api_ids_json)
         .fetch_all(executor)
         .await
@@ -714,12 +745,14 @@ where
 
 pub async fn fetch_contacts_by_row_ids<'e, E>(
     executor: E,
+    contact_ent: i64,
     row_ids_json: &str,
 ) -> Result<Vec<ContactRow>, sqlx::Error>
 where
     E: SqliteExecutor<'e>,
 {
     sqlx::query_as::<_, ContactRow>(CONTACT_ROW_BY_ROW_IDS_SQL)
+        .bind(contact_ent)
         .bind(row_ids_json)
         .fetch_all(executor)
         .await

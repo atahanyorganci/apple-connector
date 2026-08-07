@@ -217,7 +217,7 @@ impl ContactsSources {
     ) -> Result<Vec<ContactDetail>, sqlx::Error> {
         use std::collections::HashMap;
 
-        use super::queries::fetch_contacts_by_api_ids;
+        use super::{entities::load_entity_ids, queries::fetch_contacts_by_api_ids};
         use crate::{contacts::row::api_id_from_unique_id, sqlx_util::json_strings};
 
         if summaries.is_empty() {
@@ -239,8 +239,10 @@ impl ContactsSources {
                 continue;
             };
             let repo = ContactsRepository::new(pool, source_id.clone());
+            let entity_ids = load_entity_ids(pool).await?;
             let api_ids: Vec<&str> = group.iter().map(|summary| summary.id.as_str()).collect();
-            let rows = fetch_contacts_by_api_ids(pool, &json_strings(&api_ids)).await?;
+            let rows = fetch_contacts_by_api_ids(pool, entity_ids.contact, &json_strings(&api_ids))
+                .await?;
             let mut rows_by_api_id: HashMap<String, super::row::ContactRow> = HashMap::new();
             for row in rows {
                 rows_by_api_id.insert(api_id_from_unique_id(&row.unique_id), row);

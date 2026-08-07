@@ -155,12 +155,15 @@ async fn count_contacts(path: &Path) -> Result<i64, DiscoveryError> {
         .await
         .map_err(|error| DiscoveryError::Connect(error.to_string()))?;
 
+    let contact_ent = contact_entity_id(&mut connection).await?;
+
     let count = sqlx::query_scalar!(
         r#"
         SELECT COUNT(*)
         FROM ZABCDRECORD
-        WHERE Z_ENT = 22
-        "#
+        WHERE Z_ENT = ?1
+        "#,
+        contact_ent,
     )
     .fetch_one(&mut connection)
     .await
@@ -168,6 +171,18 @@ async fn count_contacts(path: &Path) -> Result<i64, DiscoveryError> {
 
     connection.close().await.ok();
     Ok(count)
+}
+
+async fn contact_entity_id(connection: &mut sqlx::SqliteConnection) -> Result<i64, DiscoveryError> {
+    let rows = super::queries::fetch_entity_name_rows(&mut *connection)
+        .await
+        .map_err(|error| DiscoveryError::Connect(error.to_string()))?;
+    rows.into_iter()
+        .find(|row| row.name == "ABCDContact")
+        .map(|row| row.ent)
+        .ok_or_else(|| {
+            DiscoveryError::Connect("missing Z_PRIMARYKEY entity: ABCDContact".to_owned())
+        })
 }
 
 #[cfg(test)]

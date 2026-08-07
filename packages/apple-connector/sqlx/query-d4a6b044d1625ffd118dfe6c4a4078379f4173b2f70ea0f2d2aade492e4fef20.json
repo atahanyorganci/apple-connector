@@ -1,0 +1,26 @@
+{
+  "db_name": "SQLite",
+  "query": "\n        SELECT r.ZUNIQUEID AS \"unique_id!: String\"\n        FROM ZABCDRECORD r\n        WHERE r.Z_ENT = ?1\n          AND lower(substr(r.ZUNIQUEID, 1, instr(r.ZUNIQUEID, ':') - 1)) = lower(?2)\n        ",
+  "describe": {
+    "columns": [
+      {
+        "name": "unique_id!: String",
+        "ordinal": 0,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "ZABCDRECORD",
+            "name": "ZUNIQUEID"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 2
+    },
+    "nullable": [
+      true
+    ]
+  },
+  "hash": "d4a6b044d1625ffd118dfe6c4a4078379f4173b2f70ea0f2d2aade492e4fef20"
+}

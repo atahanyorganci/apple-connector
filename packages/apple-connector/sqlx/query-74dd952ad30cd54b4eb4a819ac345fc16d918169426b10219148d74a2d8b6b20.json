@@ -1,0 +1,62 @@
+{
+  "db_name": "SQLite",
+  "query": "\n        SELECT\n            r.Z_PK AS \"row_id!\",\n            r.ZUNIQUEID AS \"unique_id!\",\n            r.ZNAME AS name,\n            r.ZTYPE AS container_type\n        FROM ZABCDRECORD r\n        WHERE r.Z_ENT = ?1\n        ",
+  "describe": {
+    "columns": [
+      {
+        "name": "row_id!",
+        "ordinal": 0,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "ZABCDRECORD",
+            "name": "Z_PK"
+          }
+        }
+      },
+      {
+        "name": "unique_id!",
+        "ordinal": 1,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "ZABCDRECORD",
+            "name": "ZUNIQUEID"
+          }
+        }
+      },
+      {
+        "name": "name",
+        "ordinal": 2,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "ZABCDRECORD",
+            "name": "ZNAME"
+          }
+        }
+      },
+      {
+        "name": "container_type",
+        "ordinal": 3,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "ZABCDRECORD",
+            "name": "ZTYPE"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false,
+      true,
+      true,
+      true
+    ]
+  },
+  "hash": "74dd952ad30cd54b4eb4a819ac345fc16d918169426b10219148d74a2d8b6b20"
+}
