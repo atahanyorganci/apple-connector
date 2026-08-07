@@ -91,13 +91,54 @@ impl Modify for SecurityAddon {
     }
 }
 
+struct ErrorCatalogAddon;
+
+impl Modify for ErrorCatalogAddon {
+    fn modify(&self, openapi: &mut utoipa::openapi::OpenApi) {
+        use utoipa::openapi::{RefOr, Schema};
+
+        let components = openapi.components.get_or_insert_with(Default::default);
+        let catalog = ErrorCode::all()
+            .iter()
+            .map(|code| {
+                format!(
+                    "- `{}` → HTTP {} — {}",
+                    code.as_str(),
+                    code.http_status().as_u16(),
+                    code.default_message()
+                )
+            })
+            .collect::<Vec<_>>()
+            .join("\n");
+        let description = format!(
+            "Stable snake_case API error identifiers. HTTP status is derived from the code.\n\n{catalog}"
+        );
+
+        if let Some(RefOr::T(Schema::Object(obj))) = components.schemas.get_mut("ErrorCode") {
+            obj.description = Some(description);
+        }
+
+        if let Some(RefOr::T(Schema::Object(obj))) = components.schemas.get_mut("ErrorResponse") {
+            obj.example = Some(serde_json::json!({
+                "error": {
+                    "code": "invalid_limit",
+                    "message": "limit must be between 1 and 200",
+                    "details": { "field": "limit", "minimum": 1, "maximum": 200 }
+                }
+            }));
+        }
+    }
+}
+
 #[derive(OpenApi)]
 #[openapi(
-    modifiers(&SecurityAddon),
+    modifiers(&SecurityAddon, &ErrorCatalogAddon),
     info(
         title = "Apple Connector API",
         version = "1.0.0",
         description = "Hybrid HTTP API for Messages.app, Reminders.app, Notes.app, Calendar.app, and Contacts.\n\n\
+            **Pre-1.0:** This API is unstable. Breaking changes are allowed without deprecation shims. \
+            Prefer fail-fast validation and typed `error.code` values over coerced inputs.\n\n\
             **Reads** use live SQLite connections (requires Full Disk Access).\n\n\
             **Writes** for Reminders, Calendar events, and Contacts use EventKit / Contacts framework \
             (requires Reminders, Calendars, and Contacts permissions in System Settings). Unsupported \
@@ -107,6 +148,10 @@ impl Modify for SecurityAddon {
             poll the resource by ID.\n\n\
             Pagination uses keyset cursors only (default limit 50, maximum 200, newest first). \
             Offsets are not supported.\n\n\
+            **Errors:** Failed requests return JSON `{ \"error\": { \"code\", \"message\", \"details?\" } }` \
+            where `code` is a stable snake_case `ErrorCode`. HTTP status is derived from the code \
+            (see `components.schemas.ErrorCode` and `docs/errors.md`). Internal backend details are \
+            never returned to clients.\n\n\
             Authentication, TLS, and network exposure controls are expected to be enforced by an \
             external reverse proxy or firewall. This service does not implement authentication or TLS."
     ),
@@ -583,5 +628,88 @@ mod tests {
             .map(|(_, _, operation_id)| operation_id)
             .collect();
         assert_eq!(operation_ids.len(), contract::operations(&spec).len());
+    }
+
+    #[test]
+    fn error_code_schema_lists_every_variant() -> Result<(), Box<dyn std::error::Error>> {
+        use crate::api::error::ErrorCode;
+
+        let spec = build_spec();
+        let json = serde_json::to_value(&spec)?;
+        let schema = &json["components"]["schemas"]["ErrorCode"];
+        let variants = schema["enum"]
+            .as_array()
+            .or_else(|| schema["oneOf"].as_array())
+            .ok_or("ErrorCode schema should enumerate variants")?;
+        let documented: BTreeSet<String> = variants
+            .iter()
+            .filter_map(|value| {
+                value.as_str().map(str::to_owned).or_else(|| {
+                    value
+                        .get("const")
+                        .and_then(|c| c.as_str())
+                        .map(str::to_owned)
+                })
+            })
+            .collect();
+        for code in ErrorCode::all() {
+            assert!(
+                documented.contains(code.as_str()),
+                "OpenAPI ErrorCode missing `{}`",
+                code.as_str()
+            );
+        }
+        assert_eq!(documented.len(), ErrorCode::all().len());
+
+        let description = spec.info.description.as_deref().unwrap_or("");
+        assert!(
+            description.contains("Pre-1.0"),
+            "info.description should state pre-1.0 semantics"
+        );
+        assert!(
+            description.contains("error.code"),
+            "info.description should document error envelope"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn error_responses_reference_error_response_schema() -> Result<(), Box<dyn std::error::Error>> {
+        let spec = build_spec();
+        let json = serde_json::to_value(&spec)?;
+        let paths = json["paths"].as_object().ok_or("paths")?;
+        for (path, item) in paths {
+            let item = item.as_object().ok_or("path item")?;
+            for (method, operation) in item {
+                if matches!(
+                    method.as_str(),
+                    "parameters" | "summary" | "description" | "servers"
+                ) {
+                    continue;
+                }
+                let Some(responses) = operation.get("responses").and_then(|v| v.as_object()) else {
+                    continue;
+                };
+                for (status, response) in responses {
+                    let Ok(code) = status.parse::<u16>() else {
+                        continue;
+                    };
+                    if !(400..600).contains(&code) {
+                        continue;
+                    }
+                    if status == "503" && path == "/healthz" {
+                        // healthz returns HealthStatusDto on 503
+                        continue;
+                    }
+                    let body = serde_json::to_string(response)?;
+                    assert!(
+                        body.contains("ErrorResponse")
+                            || body.contains("#/components/schemas/ErrorResponse"),
+                        "{method} {path} status {status} should reference ErrorResponse"
+                    );
+                }
+            }
+        }
+        Ok(())
     }
 }
