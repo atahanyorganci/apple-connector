@@ -54,7 +54,7 @@ pub fn group_summary_to_dto(group: &ContactGroup) -> GroupSummaryDto {
     GroupSummaryDto {
         id: GroupId::new(group.id.as_str()),
         source_id: group.source_id.clone(),
-        container_id: ContainerId::new(group.container_id.as_str()),
+        container_id: group.container_id.clone(),
         name: group.name.clone(),
         is_smart_group: group.is_smart_group,
         is_subscribed: group.is_subscribed,
@@ -80,7 +80,7 @@ pub fn contact_summary_to_dto(contact: &ContactSummary) -> ContactSummaryDto {
     ContactSummaryDto {
         id: ContactId::new(contact.id.as_str()),
         source_id: contact.source_id.clone(),
-        container_id: ContainerId::new(contact.container_id.as_str()),
+        container_id: contact.container_id.clone(),
         display_name: contact.display_name.clone(),
         first_name: contact.first_name.clone(),
         last_name: contact.last_name.clone(),
@@ -128,7 +128,7 @@ pub fn contact_detail_to_dto(contact: &ContactDetail) -> ContactDetailDto {
 
 fn contact_phone_to_dto(phone: &ContactPhone) -> ContactPhoneDto {
     ContactPhoneDto {
-        id: phone.id.clone(),
+        id: phone.id.as_str().to_owned(),
         label: phone.label.clone(),
         number: phone.number.clone(),
         is_primary: phone.is_primary,
@@ -137,7 +137,7 @@ fn contact_phone_to_dto(phone: &ContactPhone) -> ContactPhoneDto {
 
 fn contact_email_to_dto(email: &ContactEmail) -> ContactEmailDto {
     ContactEmailDto {
-        id: email.id.clone(),
+        id: email.id.as_str().to_owned(),
         label: email.label.clone(),
         address: email.address.clone(),
         is_primary: email.is_primary,
@@ -146,7 +146,7 @@ fn contact_email_to_dto(email: &ContactEmail) -> ContactEmailDto {
 
 fn contact_address_to_dto(address: &ContactAddress) -> ContactAddressDto {
     ContactAddressDto {
-        id: address.id.clone(),
+        id: address.id.as_str().to_owned(),
         label: address.label.clone(),
         street: address.street.clone(),
         city: address.city.clone(),
@@ -159,7 +159,7 @@ fn contact_address_to_dto(address: &ContactAddress) -> ContactAddressDto {
 
 fn contact_url_to_dto(url: &ContactUrl) -> ContactUrlDto {
     ContactUrlDto {
-        id: url.id.clone(),
+        id: url.id.as_str().to_owned(),
         label: url.label.clone(),
         url: url.url.clone(),
         is_primary: url.is_primary,
@@ -168,7 +168,7 @@ fn contact_url_to_dto(url: &ContactUrl) -> ContactUrlDto {
 
 fn contact_social_profile_to_dto(profile: &ContactSocialProfile) -> ContactSocialProfileDto {
     ContactSocialProfileDto {
-        id: profile.id.clone(),
+        id: profile.id.as_str().to_owned(),
         label: profile.label.clone(),
         service: profile.service.clone(),
         username: profile.username.clone(),

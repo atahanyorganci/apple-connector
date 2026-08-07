@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use axum::{
     Json,
     extract::{Query, State},
@@ -37,6 +39,11 @@ pub async fn list_note_folders(
     Query(page): Query<PageParams>,
 ) -> Result<Json<NoteFolderPageDto>, ApiError> {
     let pool = require_notes_db(&state.notes_db)?;
+
+    let note_entity_ids = state
+        .cached_notes_entity_ids()
+        .await
+        .map_err(|error| ApiError::internal(error.to_string()))?;
     let limit = validate_page(&page)?;
     let cursor = page
         .validated_cursor()?
@@ -44,7 +51,7 @@ pub async fn list_note_folders(
         .transpose()?;
 
     let page = run_timed_query(|| async {
-        NoteRepository::new(pool)
+        NoteRepository::with_entity_ids(pool, Arc::clone(&note_entity_ids))
             .list_folders(limit, cursor, false)
             .await
     })
@@ -74,21 +81,31 @@ pub async fn list_note_folders(
 )]
 pub async fn get_note_folder(
     State(state): State<AppState>,
-    axum::extract::Path(NoteFolderIdPath { folder_id }): axum::extract::Path<NoteFolderIdPath>,
+    axum::extract::Path(path): axum::extract::Path<NoteFolderIdPath>,
 ) -> Result<Json<NoteFolderDetailDto>, ApiError> {
     let pool = require_notes_db(&state.notes_db)?;
-    let key = NoteFolderKey::parse(&folder_id)?;
+
+    let note_entity_ids = state
+        .cached_notes_entity_ids()
+        .await
+        .map_err(|error| ApiError::internal(error.to_string()))?;
+    let key = path.validated_key()?;
+    let folder_id = path.folder_id;
     let folder = match key {
-        NoteFolderKey::Row(row_id) => {
-            run_timed_query(|| async { NoteRepository::new(pool).get_folder(row_id).await })
+        NoteFolderKey::Row(row_id) => run_timed_query(|| async {
+            NoteRepository::with_entity_ids(pool, Arc::clone(&note_entity_ids))
+                .get_folder(row_id)
                 .await
-                .map_err(|error| ApiError::internal(error.to_string()))?
-        }
-        NoteFolderKey::Id(id) => {
-            run_timed_query(|| async { NoteRepository::new(pool).get_folder_by_id(&id).await })
+        })
+        .await
+        .map_err(|error| ApiError::internal(error.to_string()))?,
+        NoteFolderKey::Id(id) => run_timed_query(|| async {
+            NoteRepository::with_entity_ids(pool, Arc::clone(&note_entity_ids))
+                .get_folder_by_id(&id)
                 .await
-                .map_err(|error| ApiError::internal(error.to_string()))?
-        }
+        })
+        .await
+        .map_err(|error| ApiError::internal(error.to_string()))?,
     }
     .ok_or_else(|| ApiError::not_found(format!("note folder {folder_id} not found")))?;
 
@@ -110,20 +127,26 @@ pub async fn get_note_folder(
 )]
 pub async fn list_folder_notes(
     State(state): State<AppState>,
-    axum::extract::Path(NoteFolderIdPath { folder_id }): axum::extract::Path<NoteFolderIdPath>,
+    axum::extract::Path(path): axum::extract::Path<NoteFolderIdPath>,
     Query(params): Query<NoteListParams>,
 ) -> Result<Json<NotePageDto>, ApiError> {
     let pool = require_notes_db(&state.notes_db)?;
-    let key = NoteFolderKey::parse(&folder_id)?;
+
+    let note_entity_ids = state
+        .cached_notes_entity_ids()
+        .await
+        .map_err(|error| ApiError::internal(error.to_string()))?;
+    let key = path.validated_key()?;
+    let folder_id = path.folder_id;
     let folder_row_id = match &key {
         NoteFolderKey::Row(row_id) => *row_id,
         NoteFolderKey::Id(id) => {
-            let folder = NoteRepository::new(pool)
+            let folder = NoteRepository::with_entity_ids(pool, Arc::clone(&note_entity_ids))
                 .get_folder_by_id(id)
                 .await
                 .map_err(|error| ApiError::internal(error.to_string()))?
                 .ok_or_else(|| ApiError::not_found(format!("note folder {folder_id} not found")))?;
-            folder.row_id
+            folder.row_id.get()
         }
     };
 
@@ -150,7 +173,7 @@ pub async fn list_folder_notes(
             .map(|value| decode_note_search_cursor(value, &filter_snapshot))
             .transpose()?;
         Ok(run_timed_query(|| async {
-            NoteRepository::new(pool)
+            NoteRepository::with_entity_ids(pool, Arc::clone(&note_entity_ids))
                 .search_notes(&filters, limit, search_cursor)
                 .await
         })
@@ -158,7 +181,7 @@ pub async fn list_folder_notes(
         .map_err(|error| ApiError::internal(error.to_string()))?)
     } else {
         run_timed_query(|| async {
-            NoteRepository::new(pool)
+            NoteRepository::with_entity_ids(pool, Arc::clone(&note_entity_ids))
                 .list_notes_in_folder(folder_row_id, &filters, limit, cursor)
                 .await
         })

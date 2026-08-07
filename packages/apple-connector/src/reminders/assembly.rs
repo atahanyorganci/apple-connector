@@ -3,11 +3,14 @@ use std::collections::HashMap;
 use super::{
     entities::{EntityIds, is_alarm_ent},
     model::{
-        Alarm, AlarmKind, AttachmentKind, Due, ListKind, Priority, RecurrenceRule, Reminder,
+        Alarm, AlarmKind, AttachmentKind, Due, ListKind, RecurrenceRule, Reminder,
         ReminderAttachment, ReminderList, ReminderSummary, Section, SmartFilter,
     },
     row::{AttachmentRow, ListRow, ObjectRow, ReminderRow, parse_core_data_timestamp},
     sections::{decode_smart_filter, parse_section_memberships},
+};
+use crate::apple_types::{
+    ReminderAttachmentId, ReminderId, ReminderListId, ReminderPriority, RowId, SectionId,
 };
 
 pub fn list_kind_from_ent(
@@ -24,9 +27,9 @@ pub fn list_kind_from_ent(
 
 pub fn list_from_row(row: ListRow, sections: Vec<Section>, smart_list_ent: i64) -> ReminderList {
     ReminderList {
-        row_id: row.row_id,
-        id: row.id,
-        name: row.name.unwrap_or_else(|| "Untitled".to_owned()),
+        row_id: RowId::new(row.row_id),
+        id: ReminderListId::new(row.id),
+        name: row.name,
         kind: list_kind_from_ent(row.ent, row.smart_list_type.as_deref(), smart_list_ent),
         smart_list_type: row.smart_list_type,
         sharing_status: row.sharing_status,
@@ -45,21 +48,22 @@ pub fn list_summary_from_row(row: ListRow, smart_list_ent: i64) -> ReminderList 
 
 pub fn reminder_summary_from_row(
     row: ReminderRow,
-    section_id: Option<String>,
+    section_id: Option<SectionId>,
     tags: Vec<String>,
 ) -> ReminderSummary {
     let due = due_from_row(&row);
     ReminderSummary {
-        row_id: row.row_id,
-        id: row.id,
-        title: row.title.unwrap_or_else(|| "Untitled".to_owned()),
+        row_id: RowId::new(row.row_id),
+        id: ReminderId::new(row.id),
+        title: row.title,
         completed: row.completed,
         flagged: row.flagged,
-        priority: Priority::from_raw(row.priority),
-        list_row_id: row.list_row_id,
-        list_id: row.list_id,
+        priority: ReminderPriority::try_new(row.priority)
+            .unwrap_or_else(|_| ReminderPriority::none()),
+        list_row_id: RowId::new(row.list_row_id),
+        list_id: ReminderListId::new(row.list_id),
         list_name: row.list_name.unwrap_or_else(|| "Untitled".to_owned()),
-        parent_id: row.parent_id,
+        parent_id: row.parent_id.map(ReminderId::new),
         section_id,
         due,
         last_modified_at: parse_core_data_timestamp(row.last_modified_date),
@@ -69,7 +73,7 @@ pub fn reminder_summary_from_row(
 
 pub fn reminder_from_row(
     row: ReminderRow,
-    section_id: Option<String>,
+    section_id: Option<SectionId>,
     subtasks: Vec<ReminderSummary>,
     tags: Vec<String>,
     alarms: Vec<Alarm>,
@@ -78,18 +82,19 @@ pub fn reminder_from_row(
 ) -> Reminder {
     let due = due_from_row(&row);
     Reminder {
-        row_id: row.row_id,
-        id: row.id,
-        title: row.title.unwrap_or_else(|| "Untitled".to_owned()),
+        row_id: RowId::new(row.row_id),
+        id: ReminderId::new(row.id),
+        title: row.title,
         notes: row.notes,
         completed: row.completed,
         flagged: row.flagged,
-        priority: Priority::from_raw(row.priority),
-        list_row_id: row.list_row_id,
-        list_id: row.list_id,
+        priority: ReminderPriority::try_new(row.priority)
+            .unwrap_or_else(|_| ReminderPriority::none()),
+        list_row_id: RowId::new(row.list_row_id),
+        list_id: ReminderListId::new(row.list_id),
         list_name: row.list_name.unwrap_or_else(|| "Untitled".to_owned()),
-        parent_row_id: row.parent_row_id,
-        parent_id: row.parent_id,
+        parent_row_id: row.parent_row_id.map(RowId::new),
+        parent_id: row.parent_id.map(ReminderId::new),
         section_id,
         display_order: row.display_order,
         due,
@@ -113,13 +118,13 @@ fn due_from_row(row: &ReminderRow) -> Option<Due> {
 
 pub fn attachment_from_row(row: AttachmentRow) -> ReminderAttachment {
     ReminderAttachment {
-        row_id: row.row_id,
-        id: row.id,
+        row_id: RowId::new(row.row_id),
+        id: ReminderAttachmentId::new(row.id),
         filename: row.filename,
         uti: row.uti,
         sha512: row.sha512,
         kind: attachment_kind_from_raw(row.kind_raw.as_deref()),
-        reminder_row_id: row.reminder_row_id,
+        reminder_row_id: RowId::new(row.reminder_row_id),
         modified_at: parse_core_data_timestamp(row.modified_at),
     }
 }
@@ -148,7 +153,7 @@ pub fn alarm_from_object(row: &ObjectRow, ids: &EntityIds) -> Option<Alarm> {
     };
 
     Some(Alarm {
-        row_id: row.row_id,
+        row_id: RowId::new(row.row_id),
         kind,
         title: row.title.clone(),
         latitude: row.latitude,

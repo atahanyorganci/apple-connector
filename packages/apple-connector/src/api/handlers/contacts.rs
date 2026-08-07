@@ -65,7 +65,10 @@ pub async fn list_contacts_vcard(
 ) -> Result<Response, ApiError> {
     let sources = require_contacts_sources(&state.contacts_sources)?;
     let page = fetch_contact_page(sources, &params).await?;
-    let details = hydrate_contact_summaries(sources, page.items).await?;
+    let details = sources
+        .hydrate_contact_summaries(page.items)
+        .await
+        .map_err(|error| ApiError::internal(error.to_string()))?;
     contact_page_vcard(&details)
 }
 
@@ -88,7 +91,10 @@ pub async fn list_contacts_carddav(
 ) -> Result<Response, ApiError> {
     let sources = require_contacts_sources(&state.contacts_sources)?;
     let page = fetch_contact_page(sources, &params).await?;
-    let details = hydrate_contact_summaries(sources, page.items).await?;
+    let details = sources
+        .hydrate_contact_summaries(page.items)
+        .await
+        .map_err(|error| ApiError::internal(error.to_string()))?;
     contact_page_carddav(&details)
 }
 
@@ -144,7 +150,8 @@ pub async fn get_contact(
     axum::extract::Path(path): axum::extract::Path<ContactIdPath>,
 ) -> Result<Json<ContactDetailDto>, ApiError> {
     let sources = require_contacts_sources(&state.contacts_sources)?;
-    let contact = fetch_contact_detail(sources, path.contact_id.as_str()).await?;
+    let contact_id = path.validated()?;
+    let contact = fetch_contact_detail(sources, contact_id.as_str()).await?;
     Ok(Json(contact_detail_to_dto(&contact)))
 }
 
@@ -166,7 +173,8 @@ pub async fn get_contact_vcard(
     axum::extract::Path(path): axum::extract::Path<ContactIdPath>,
 ) -> Result<Response, ApiError> {
     let sources = require_contacts_sources(&state.contacts_sources)?;
-    let contact = fetch_contact_detail(sources, path.contact_id.as_str()).await?;
+    let contact_id = path.validated()?;
+    let contact = fetch_contact_detail(sources, contact_id.as_str()).await?;
     contact_detail_vcard(&contact)
 }
 
@@ -188,7 +196,8 @@ pub async fn get_contact_carddav(
     axum::extract::Path(path): axum::extract::Path<ContactIdPath>,
 ) -> Result<Response, ApiError> {
     let sources = require_contacts_sources(&state.contacts_sources)?;
-    let contact = fetch_contact_detail(sources, path.contact_id.as_str()).await?;
+    let contact_id = path.validated()?;
+    let contact = fetch_contact_detail(sources, contact_id.as_str()).await?;
     contact_detail_carddav(&contact)
 }
 
@@ -210,11 +219,11 @@ pub async fn get_contact_photo(
     axum::extract::Path(path): axum::extract::Path<ContactIdPath>,
 ) -> Result<Response, ApiError> {
     let sources = require_contacts_sources(&state.contacts_sources)?;
-    let photo =
-        run_timed_query(|| async { sources.get_contact_photo(path.contact_id.as_str()).await })
-            .await
-            .map_err(|error| ApiError::internal(error.to_string()))?
-            .ok_or_else(|| ApiError::not_found("Contact photo not found"))?;
+    let contact_id = path.validated()?;
+    let photo = run_timed_query(|| async { sources.get_contact_photo(contact_id.as_str()).await })
+        .await
+        .map_err(|error| ApiError::internal(error.to_string()))?
+        .ok_or_else(|| ApiError::not_found("Contact photo not found"))?;
 
     let (bytes, image_type) = photo;
     let content_type = image_type
@@ -255,17 +264,6 @@ async fn fetch_contact_detail(
         .await
         .map_err(|error| ApiError::internal(error.to_string()))?
         .ok_or_else(|| ApiError::not_found("Contact not found"))
-}
-
-async fn hydrate_contact_summaries(
-    sources: &crate::contacts::ContactsSources,
-    summaries: Vec<ContactSummary>,
-) -> Result<Vec<crate::contacts::ContactDetail>, ApiError> {
-    let mut details = Vec::with_capacity(summaries.len());
-    for summary in summaries {
-        details.push(fetch_contact_detail(sources, summary.id.as_str()).await?);
-    }
-    Ok(details)
 }
 
 fn mime_from_image_type(image_type: &str) -> &'static str {

@@ -16,6 +16,7 @@ use crate::{
         },
         error::ApiError,
     },
+    apple_types::ReminderPriority,
     calendar::CalendarResolveMetadata,
     reminders::ReminderListResolveMetadata,
 };
@@ -36,6 +37,7 @@ pub fn map_eventkit_error(error: EventKitError) -> ApiError {
 }
 
 pub fn validate_create_reminder(request: &CreateReminderRequest) -> Result<(), ApiError> {
+    validate_reminder_priority(request.priority)?;
     reject_unsupported_reminder_fields(
         request.section_id.is_some(),
         request.parent_id.is_some(),
@@ -46,6 +48,7 @@ pub fn validate_create_reminder(request: &CreateReminderRequest) -> Result<(), A
 }
 
 pub fn validate_update_reminder(request: &UpdateReminderRequest) -> Result<(), ApiError> {
+    validate_reminder_priority(request.priority)?;
     reject_unsupported_reminder_fields(
         request.section_id.is_some(),
         request.parent_id.is_some(),
@@ -53,6 +56,14 @@ pub fn validate_update_reminder(request: &UpdateReminderRequest) -> Result<(), A
         !request.attachments.is_empty(),
         request.flagged.is_some(),
     )
+}
+
+fn validate_reminder_priority(priority: Option<i64>) -> Result<(), ApiError> {
+    if let Some(value) = priority {
+        ReminderPriority::try_new(value)
+            .map_err(|error| ApiError::unprocessable(error.to_string()))?;
+    }
+    Ok(())
 }
 
 fn reject_unsupported_reminder_fields(

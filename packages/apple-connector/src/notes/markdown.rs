@@ -53,15 +53,15 @@ impl From<&FolderKind> for NoteContentsFolderKind {
 
 pub fn preamble_from_note(summary: &NoteSummary, tags: Vec<String>) -> NoteContentsPreamble {
     let folder = summary.folder_id.as_ref().map(|id| NoteContentsFolder {
-        id: id.clone(),
+        id: id.as_str().to_owned(),
         name: summary.folder_name.clone(),
         kind: NoteContentsFolderKind::from(&summary.folder_kind),
     });
 
     NoteContentsPreamble {
         schema_version: NOTE_CONTENTS_SCHEMA_VERSION,
-        id: summary.id.clone(),
-        title: summary.title.clone(),
+        id: summary.id.as_str().to_owned(),
+        title: summary.title.as_deref().unwrap_or("Untitled").to_owned(),
         folder,
         tags,
         created_at: summary.created_at.map(|ts| ts.timestamp()),

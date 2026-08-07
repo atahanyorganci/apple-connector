@@ -9,12 +9,16 @@ use super::{
     },
 };
 use crate::{
-    apple_types::{ReminderAttachmentId, ReminderId, ReminderListId, SectionId},
+    apple_types::ReminderId,
     reminders::{
         Alarm, AlarmKind, AttachmentKind, ListKind, Reminder, ReminderAttachment, ReminderList,
         ReminderSummary, Section, SmartFilter,
     },
 };
+
+fn display_name(name: &Option<String>) -> String {
+    name.as_deref().unwrap_or("Untitled").to_owned()
+}
 
 pub fn reminder_list_page_to_dto(
     items: Vec<ReminderList>,
@@ -50,9 +54,9 @@ pub fn reminder_page_to_dto(
 
 pub fn reminder_list_summary_to_dto(list: &ReminderList) -> ReminderListSummaryDto {
     ReminderListSummaryDto {
-        id: ReminderListId::new(list.id.clone()),
-        row_id: list.row_id,
-        name: list.name.clone(),
+        id: list.id.clone(),
+        row_id: list.row_id.get(),
+        name: display_name(&list.name),
         kind: list_kind_to_dto(list.kind.clone()),
         smart_list_type: list.smart_list_type.clone(),
     }
@@ -60,9 +64,9 @@ pub fn reminder_list_summary_to_dto(list: &ReminderList) -> ReminderListSummaryD
 
 pub fn reminder_list_detail_to_dto(list: &ReminderList) -> ReminderListDetailDto {
     ReminderListDetailDto {
-        id: ReminderListId::new(list.id.clone()),
-        row_id: list.row_id,
-        name: list.name.clone(),
+        id: list.id.clone(),
+        row_id: list.row_id.get(),
+        name: display_name(&list.name),
         kind: list_kind_to_dto(list.kind.clone()),
         smart_list_type: list.smart_list_type.clone(),
         sharing_status: list.sharing_status,
@@ -77,17 +81,17 @@ pub fn reminder_list_detail_to_dto(list: &ReminderList) -> ReminderListDetailDto
 
 pub fn reminder_summary_to_dto(reminder: &ReminderSummary) -> ReminderSummaryDto {
     ReminderSummaryDto {
-        id: ReminderId::new(reminder.id.clone()),
-        row_id: reminder.row_id,
-        title: reminder.title.clone(),
+        id: reminder.id.clone(),
+        row_id: reminder.row_id.get(),
+        title: display_name(&reminder.title),
         completed: reminder.completed,
         flagged: reminder.flagged,
         priority: priority_to_raw(&reminder.priority),
-        list_id: ReminderListId::new(reminder.list_id.clone()),
-        list_row_id: reminder.list_row_id,
+        list_id: reminder.list_id.clone(),
+        list_row_id: reminder.list_row_id.get(),
         list_name: reminder.list_name.clone(),
-        parent_id: reminder.parent_id.clone().map(ReminderId::new),
-        section_id: reminder.section_id.clone().map(SectionId::new),
+        parent_id: reminder.parent_id.clone(),
+        section_id: reminder.section_id.clone(),
         due: reminder.due.as_ref().map(due_to_dto),
         last_modified_at: reminder.last_modified_at.map(timestamp_to_unix),
         tags: reminder.tags.clone(),
@@ -96,18 +100,18 @@ pub fn reminder_summary_to_dto(reminder: &ReminderSummary) -> ReminderSummaryDto
 
 pub fn reminder_detail_to_dto(reminder: &Reminder) -> ReminderDetailDto {
     ReminderDetailDto {
-        id: ReminderId::new(reminder.id.clone()),
-        row_id: reminder.row_id,
-        title: reminder.title.clone(),
+        id: reminder.id.clone(),
+        row_id: reminder.row_id.get(),
+        title: display_name(&reminder.title),
         notes: reminder.notes.clone(),
         completed: reminder.completed,
         flagged: reminder.flagged,
         priority: priority_to_raw(&reminder.priority),
-        list_id: ReminderListId::new(reminder.list_id.clone()),
-        list_row_id: reminder.list_row_id,
+        list_id: reminder.list_id.clone(),
+        list_row_id: reminder.list_row_id.get(),
         list_name: reminder.list_name.clone(),
-        parent_id: reminder.parent_id.clone().map(ReminderId::new),
-        section_id: reminder.section_id.clone().map(SectionId::new),
+        parent_id: reminder.parent_id.clone(),
+        section_id: reminder.section_id.clone(),
         due: reminder.due.as_ref().map(due_to_dto),
         completion_at: reminder.completion_at.map(timestamp_to_unix),
         created_at: reminder.created_at.map(timestamp_to_unix),
@@ -133,8 +137,8 @@ pub fn reminder_attachment_detail_to_dto(
     reminder_id: String,
 ) -> ReminderAttachmentDetailDto {
     ReminderAttachmentDetailDto {
-        id: ReminderAttachmentId::new(attachment.id.clone()),
-        row_id: attachment.row_id,
+        id: attachment.id.clone(),
+        row_id: attachment.row_id.get(),
         filename: attachment.filename.clone(),
         uti: attachment.uti.clone(),
         sha512: attachment.sha512.clone(),
@@ -146,7 +150,7 @@ pub fn reminder_attachment_detail_to_dto(
 
 fn section_to_dto(section: &Section) -> SectionSummaryDto {
     SectionSummaryDto {
-        id: SectionId::new(section.id.clone()),
+        id: section.id.clone(),
         display_name: section.display_name.clone(),
         canonical_name: section.canonical_name.clone(),
     }
@@ -166,13 +170,8 @@ fn smart_filter_to_dto(filter: &SmartFilter) -> SmartFilterDto {
     }
 }
 
-fn priority_to_raw(priority: &crate::reminders::Priority) -> i64 {
-    match priority {
-        crate::reminders::Priority::None => 0,
-        crate::reminders::Priority::Low => 9,
-        crate::reminders::Priority::Medium => 5,
-        crate::reminders::Priority::High => 1,
-    }
+fn priority_to_raw(priority: &crate::apple_types::ReminderPriority) -> i64 {
+    priority.raw()
 }
 
 fn alarm_to_dto(alarm: &Alarm) -> AlarmDto {
@@ -209,8 +208,8 @@ fn reminder_attachment_summary_to_dto(
     attachment: &ReminderAttachment,
 ) -> ReminderAttachmentSummaryDto {
     ReminderAttachmentSummaryDto {
-        id: ReminderAttachmentId::new(attachment.id.clone()),
-        row_id: attachment.row_id,
+        id: attachment.id.clone(),
+        row_id: attachment.row_id.get(),
         filename: attachment.filename.clone(),
         uti: attachment.uti.clone(),
         sha512: attachment.sha512.clone(),

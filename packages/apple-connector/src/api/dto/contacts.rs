@@ -24,7 +24,8 @@ pub struct ContainerPageDto {
 pub struct GroupSummaryDto {
     pub id: GroupId,
     pub source_id: SourceId,
-    pub container_id: ContainerId,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub container_id: Option<ContainerId>,
     pub name: Option<String>,
     pub is_smart_group: bool,
     pub is_subscribed: bool,
@@ -42,7 +43,8 @@ pub struct GroupPageDto {
 pub struct ContactSummaryDto {
     pub id: ContactId,
     pub source_id: SourceId,
-    pub container_id: ContainerId,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub container_id: Option<ContainerId>,
     pub display_name: Option<String>,
     pub first_name: Option<String>,
     pub last_name: Option<String>,

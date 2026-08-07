@@ -34,10 +34,11 @@ pub async fn get_event_attachment_content(
     State(state): State<AppState>,
     axum::extract::Path(path): axum::extract::Path<EventAttachmentIdPath>,
 ) -> Result<Response, ApiError> {
+    let (event_id, attachment_id) = path.validated()?;
     let pool = require_calendar_db(&state.calendar_db)?;
     let attachment = run_timed_query(|| async {
         CalendarRepository::new(pool)
-            .get_attachment(path.event_id.as_str(), path.attachment_id.as_str())
+            .get_attachment(event_id.as_str(), attachment_id.as_str())
             .await
     })
     .await

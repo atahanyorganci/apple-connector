@@ -3,16 +3,17 @@ use super::{
     model::{FolderKind, NoteAttachment, NoteBody, NoteDetail, NoteFolder, NoteSummary},
     row::{AttachmentRow, FolderRow, NoteDetailRow, NoteRow, parse_core_data_timestamp},
 };
+use crate::apple_types::{NoteAttachmentId, NoteFolderId, NoteId, RowId};
 
 pub fn folder_from_row(row: FolderRow) -> NoteFolder {
     NoteFolder {
-        row_id: row.row_id,
-        id: row.id,
-        title: row.title.unwrap_or_else(|| "Untitled".to_owned()),
+        row_id: RowId::new(row.row_id),
+        id: NoteFolderId::new(row.id),
+        title: row.title,
         kind: FolderKind::from_raw(row.folder_type),
-        parent_row_id: row.parent_row_id,
-        parent_id: row.parent_id,
-        account_row_id: row.account_row_id,
+        parent_row_id: row.parent_row_id.map(RowId::new),
+        parent_id: row.parent_id.map(NoteFolderId::new),
+        account_row_id: row.account_row_id.map(RowId::new),
         account_id: row.account_id,
         modified_at: parse_core_data_timestamp(row.modified_at),
     }
@@ -20,12 +21,12 @@ pub fn folder_from_row(row: FolderRow) -> NoteFolder {
 
 pub fn note_summary_from_row(row: NoteRow, has_attachments: bool) -> NoteSummary {
     NoteSummary {
-        row_id: row.row_id,
-        id: row.id,
-        title: row.title.unwrap_or_else(|| "Untitled".to_owned()),
+        row_id: RowId::new(row.row_id),
+        id: NoteId::new(row.id),
+        title: row.title,
         snippet: row.snippet,
-        folder_row_id: row.folder_row_id,
-        folder_id: row.folder_id,
+        folder_row_id: row.folder_row_id.map(RowId::new),
+        folder_id: row.folder_id.map(NoteFolderId::new),
         folder_name: row.folder_name,
         folder_kind: FolderKind::from_raw(row.folder_type),
         is_pinned: row.is_pinned,
@@ -64,12 +65,12 @@ pub fn note_detail_from_row(row: NoteDetailRow, has_attachments: bool) -> NoteDe
 
 pub fn attachment_from_row(row: AttachmentRow) -> NoteAttachment {
     NoteAttachment {
-        row_id: row.row_id,
-        id: row.id,
+        row_id: RowId::new(row.row_id),
+        id: NoteAttachmentId::new(row.id),
         filename: row.filename,
         uti: row.uti,
-        note_row_id: row.note_row_id,
-        note_id: row.note_id,
+        note_row_id: RowId::new(row.note_row_id),
+        note_id: NoteId::new(row.note_id),
         file_size: row.file_size,
         account_id: row.account_id,
         modified_at: parse_core_data_timestamp(row.modified_at),

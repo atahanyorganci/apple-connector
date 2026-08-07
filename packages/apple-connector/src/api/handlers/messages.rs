@@ -81,11 +81,12 @@ pub async fn list_messages(
 )]
 pub async fn get_message(
     State(state): State<AppState>,
-    axum::extract::Path(MessageGuidPath { guid }): axum::extract::Path<MessageGuidPath>,
+    axum::extract::Path(path): axum::extract::Path<MessageGuidPath>,
 ) -> Result<Json<MessageDetailDto>, ApiError> {
+    let guid = path.validated()?;
     let pool = require_messages_db(&state.messages_db)?;
     let message = MessageRepository::new(pool)
-        .get_message_by_guid(&guid)
+        .get_message_by_guid(guid.as_str())
         .await
         .map_err(|error| ApiError::internal(error.to_string()))?
         .ok_or_else(|| ApiError::not_found(format!("message {guid} not found")))?;

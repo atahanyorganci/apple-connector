@@ -87,7 +87,7 @@ pub fn transport_to_dto(transport: &Transport) -> TransportDto {
 
 pub fn handle_to_dto(handle: &Handle) -> HandleDto {
     HandleDto {
-        id: handle.id.clone(),
+        id: handle.id.as_str().to_owned(),
         service: handle.service.clone(),
     }
 }

@@ -78,14 +78,15 @@ pub async fn list_chats(
 )]
 pub async fn get_chat(
     State(state): State<AppState>,
-    axum::extract::Path(ChatIdPath { chat_id }): axum::extract::Path<ChatIdPath>,
+    axum::extract::Path(path): axum::extract::Path<ChatIdPath>,
 ) -> Result<Json<ChatDetailDto>, ApiError> {
+    let chat_id = path.validated()?;
     let pool = require_messages_db(&state.messages_db)?;
     let chat = MessageRepository::new(pool)
-        .get_chat(chat_id)
+        .get_chat(chat_id.get())
         .await
         .map_err(|error| ApiError::internal(error.to_string()))?
-        .ok_or_else(|| ApiError::not_found(format!("chat {chat_id} not found")))?;
+        .ok_or_else(|| ApiError::not_found(format!("chat {} not found", chat_id.get())))?;
 
     Ok(Json(chat_detail_to_dto(&chat)))
 }
@@ -112,9 +113,10 @@ pub async fn get_chat(
 )]
 pub async fn list_chat_messages(
     State(state): State<AppState>,
-    axum::extract::Path(ChatIdPath { chat_id }): axum::extract::Path<ChatIdPath>,
+    axum::extract::Path(path): axum::extract::Path<ChatIdPath>,
     Query(page): Query<PageParams>,
 ) -> Result<Json<MessagePageDto>, ApiError> {
+    let chat_id = path.validated()?;
     let pool = require_messages_db(&state.messages_db)?;
     let limit = validate_page(&page)?;
     let cursor = page
@@ -123,14 +125,15 @@ pub async fn list_chat_messages(
         .transpose()?;
 
     let page = MessageRepository::new(pool)
-        .list_chat_messages(chat_id, limit, cursor)
+        .list_chat_messages(chat_id.get(), limit, cursor)
         .await
         .map_err(|error| ApiError::internal(error.to_string()))?;
 
     match page {
-        Err(ChatLookupError::NotFound) => {
-            Err(ApiError::not_found(format!("chat {chat_id} not found")))
-        }
+        Err(ChatLookupError::NotFound) => Err(ApiError::not_found(format!(
+            "chat {} not found",
+            chat_id.get()
+        ))),
         Ok(page) => Ok(Json(message_page_to_dto(page, limit))),
     }
 }

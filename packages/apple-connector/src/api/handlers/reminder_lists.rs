@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use axum::{
     Json,
     extract::{Query, State},
@@ -39,19 +41,20 @@ pub async fn list_reminder_lists(
     Query(page): Query<PageParams>,
 ) -> Result<Json<ReminderListPageDto>, ApiError> {
     let pool = require_reminders_db(&state.reminders_db)?;
+    let reminder_entity_ids = state
+        .cached_reminders_entity_ids()
+        .await
+        .map_err(|error| ApiError::internal(error.to_string()))?;
     let limit = validate_page(&page)?;
     let cursor = page
         .validated_cursor()?
         .map(decode::<ListCursor>)
         .transpose()?;
 
-    let page = run_timed_query(|| async {
-        ReminderRepository::new(pool)
-            .list_lists(limit, cursor)
-            .await
-    })
-    .await
-    .map_err(|error| ApiError::internal(error.to_string()))?;
+    let repo = ReminderRepository::with_entity_ids(pool, Arc::clone(&reminder_entity_ids));
+    let page = run_timed_query(|| async { repo.list_lists(limit, cursor).await })
+        .await
+        .map_err(|error| ApiError::internal(error.to_string()))?;
 
     Ok(Json(reminder_list_page_to_dto(
         page.items,
@@ -76,15 +79,20 @@ pub async fn list_reminder_lists(
 )]
 pub async fn get_reminder_list(
     State(state): State<AppState>,
-    axum::extract::Path(ReminderListIdPath { list_id }): axum::extract::Path<ReminderListIdPath>,
+    axum::extract::Path(path): axum::extract::Path<ReminderListIdPath>,
 ) -> Result<Json<ReminderListDetailDto>, ApiError> {
     let pool = require_reminders_db(&state.reminders_db)?;
-    let key = ReminderListKey::parse(&list_id)?;
-    let list =
-        run_timed_query(|| async { ReminderRepository::new(pool).get_list_by_key(&key).await })
-            .await
-            .map_err(|error| ApiError::internal(error.to_string()))?
-            .ok_or_else(|| ApiError::not_found(format!("reminder list {list_id} not found")))?;
+    let reminder_entity_ids = state
+        .cached_reminders_entity_ids()
+        .await
+        .map_err(|error| ApiError::internal(error.to_string()))?;
+    let list_id = path.list_id.clone();
+    let key = path.validated_key()?;
+    let repo = ReminderRepository::with_entity_ids(pool, Arc::clone(&reminder_entity_ids));
+    let list = run_timed_query(|| async { repo.get_list_by_key(&key).await })
+        .await
+        .map_err(|error| ApiError::internal(error.to_string()))?
+        .ok_or_else(|| ApiError::not_found(format!("reminder list {list_id} not found")))?;
 
     Ok(Json(reminder_list_detail_to_dto(&list)))
 }
@@ -104,20 +112,29 @@ pub async fn get_reminder_list(
 )]
 pub async fn list_reminder_list_reminders(
     State(state): State<AppState>,
-    axum::extract::Path(ReminderListIdPath { list_id }): axum::extract::Path<ReminderListIdPath>,
+    axum::extract::Path(path): axum::extract::Path<ReminderListIdPath>,
     Query(params): Query<ReminderListParams>,
 ) -> Result<Json<ReminderPageDto>, ApiError> {
     let pool = require_reminders_db(&state.reminders_db)?;
-    let key = ReminderListKey::parse(&list_id)?;
+    let reminder_entity_ids = state
+        .cached_reminders_entity_ids()
+        .await
+        .map_err(|error| ApiError::internal(error.to_string()))?;
+    let list_id = path.list_id.clone();
+    let key = path.validated_key()?;
     let list_row_id = match &key {
         ReminderListKey::Row(row_id) => *row_id,
         ReminderListKey::Id(id) => {
-            let list = ReminderRepository::new(pool)
+            let repo = state
+                .reminder_repository(pool)
+                .await
+                .map_err(|error| ApiError::internal(error.to_string()))?;
+            let list = repo
                 .get_list_by_uuid(id)
                 .await
                 .map_err(|error| ApiError::internal(error.to_string()))?
                 .ok_or_else(|| ApiError::not_found(format!("reminder list {list_id} not found")))?;
-            list.row_id
+            list.row_id.get()
         }
     };
 
@@ -141,17 +158,17 @@ pub async fn list_reminder_list_reminders(
         Some(value) => Some(decode::<ListReminderCursor>(value)?),
     };
 
+    let repo = ReminderRepository::with_entity_ids(pool, Arc::clone(&reminder_entity_ids));
     let page = run_timed_query(|| async {
-        ReminderRepository::new(pool)
-            .list_list_reminders(
-                list_row_id,
-                &filters,
-                limit,
-                cursor,
-                include_subtasks,
-                include_tags,
-            )
-            .await
+        repo.list_list_reminders(
+            list_row_id,
+            &filters,
+            limit,
+            cursor,
+            include_subtasks,
+            include_tags,
+        )
+        .await
     })
     .await
     .map_err(|error| ApiError::internal(error.to_string()))?;

@@ -13,7 +13,7 @@ use super::{
     message::{MessageDetailDto, MessageSummaryDto},
 };
 use crate::{
-    apple_types::{AttachmentId, ChatId, MessageId},
+    apple_types::ChatId,
     messages::{
         AppBalloon, AppBalloonKind, Attachment, AttachmentKind, AttributedBodyDecodeError, Chat,
         GroupActionKind, GroupEvent, Message, MessageBody, MessageContent, Reaction,
@@ -24,7 +24,7 @@ use crate::{
 
 pub fn chat_summary_to_dto(chat: &Chat) -> ChatSummaryDto {
     ChatSummaryDto {
-        id: ChatId::new(chat.row_id),
+        id: ChatId::new(chat.row_id.get()),
         guid: chat.guid.clone(),
         display_name: chat.display_name.clone(),
         is_group: chat.is_group,
@@ -35,7 +35,7 @@ pub fn chat_summary_to_dto(chat: &Chat) -> ChatSummaryDto {
 
 pub fn chat_detail_to_dto(chat: &Chat) -> ChatDetailDto {
     ChatDetailDto {
-        id: ChatId::new(chat.row_id),
+        id: ChatId::new(chat.row_id.get()),
         guid: chat.guid.clone(),
         identifier: chat.identifier.clone(),
         display_name: chat.display_name.clone(),
@@ -48,7 +48,7 @@ pub fn chat_detail_to_dto(chat: &Chat) -> ChatDetailDto {
 
 pub fn message_summary_to_dto(message: &Message) -> MessageSummaryDto {
     MessageSummaryDto {
-        guid: MessageId::new(message.envelope.guid.clone()),
+        guid: message.envelope.guid.clone(),
         direction: direction_to_dto(message.envelope.direction),
         transport: transport_to_dto(&message.envelope.transport),
         sent_at: message.envelope.sent_at.map(timestamp_to_unix),
@@ -59,7 +59,7 @@ pub fn message_summary_to_dto(message: &Message) -> MessageSummaryDto {
 
 pub fn message_detail_to_dto(message: &Message) -> MessageDetailDto {
     MessageDetailDto {
-        guid: MessageId::new(message.envelope.guid.clone()),
+        guid: message.envelope.guid.clone(),
         direction: direction_to_dto(message.envelope.direction),
         transport: transport_to_dto(&message.envelope.transport),
         sent_at: message.envelope.sent_at.map(timestamp_to_unix),
@@ -67,26 +67,17 @@ pub fn message_detail_to_dto(message: &Message) -> MessageDetailDto {
         edited_at: message.envelope.edited_at.map(timestamp_to_unix),
         retracted_at: message.envelope.retracted_at.map(timestamp_to_unix),
         sender: message.envelope.sender.as_ref().map(handle_to_dto),
-        reply_to_guid: message.envelope.reply_to_guid.clone().map(MessageId::new),
-        thread_originator_guid: message
-            .envelope
-            .thread_originator_guid
-            .clone()
-            .map(MessageId::new),
-        chat_ids: message
-            .envelope
-            .chat_ids
-            .iter()
-            .map(|id| ChatId::new(*id))
-            .collect(),
+        reply_to_guid: message.envelope.reply_to_guid.clone(),
+        thread_originator_guid: message.envelope.thread_originator_guid.clone(),
+        chat_ids: message.envelope.chat_ids.clone(),
         content: content_to_dto(&message.content),
     }
 }
 
 pub fn attachment_summary_to_dto(attachment: &Attachment) -> AttachmentSummaryDto {
     AttachmentSummaryDto {
-        guid: AttachmentId::new(attachment.guid.clone()),
-        original_guid: AttachmentId::new(attachment.original_guid.clone()),
+        guid: attachment.guid.clone(),
+        original_guid: attachment.original_guid.clone(),
         mime_type: attachment.mime_type.clone(),
         uti: attachment.uti.clone(),
         transfer_name: attachment.transfer_name.clone(),
@@ -95,15 +86,15 @@ pub fn attachment_summary_to_dto(attachment: &Attachment) -> AttachmentSummaryDt
         transfer_complete: attachment.transfer_complete,
         present_on_disk: attachment.present_on_disk,
         hide_attachment: attachment.hide_attachment,
-        metadata_url: attachment_metadata_url(&attachment.guid),
-        content_url: attachment_content_url(&attachment.guid),
+        metadata_url: attachment_metadata_url(attachment.guid.as_str()),
+        content_url: attachment_content_url(attachment.guid.as_str()),
     }
 }
 
 pub fn attachment_detail_to_dto(attachment: &Attachment) -> AttachmentDetailDto {
     AttachmentDetailDto {
-        guid: AttachmentId::new(attachment.guid.clone()),
-        original_guid: AttachmentId::new(attachment.original_guid.clone()),
+        guid: attachment.guid.clone(),
+        original_guid: attachment.original_guid.clone(),
         mime_type: attachment.mime_type.clone(),
         uti: attachment.uti.clone(),
         transfer_name: attachment.transfer_name.clone(),
@@ -113,8 +104,8 @@ pub fn attachment_detail_to_dto(attachment: &Attachment) -> AttachmentDetailDto 
         present_on_disk: attachment.present_on_disk,
         hide_attachment: attachment.hide_attachment,
         emoji_description: attachment.emoji_description.clone(),
-        metadata_url: attachment_metadata_url(&attachment.guid),
-        content_url: attachment_content_url(&attachment.guid),
+        metadata_url: attachment_metadata_url(attachment.guid.as_str()),
+        content_url: attachment_content_url(attachment.guid.as_str()),
     }
 }
 
@@ -184,7 +175,7 @@ fn text_to_dto(text: &TextMessage) -> TextContentDto {
 
 fn reaction_to_dto(reaction: &Reaction) -> ReactionContentDto {
     ReactionContentDto {
-        target_guid: reaction.target_guid.clone().map(MessageId::new),
+        target_guid: reaction.target_guid.clone(),
         kind: match &reaction.kind {
             ReactionKind::Tapback(tapback, action) => ReactionKindDto::Tapback {
                 tapback: tapback_to_dto(*tapback),
@@ -295,6 +286,7 @@ fn attributed_body_error_to_dto(error: AttributedBodyDecodeError) -> AttributedB
             AttributedBodyErrorDto::NotAttributedString
         }
         AttributedBodyDecodeError::MissingText => AttributedBodyErrorDto::MissingText,
+        AttributedBodyDecodeError::PayloadTooLarge => AttributedBodyErrorDto::PayloadTooLarge,
     }
 }
 
@@ -349,6 +341,7 @@ fn opaque_payload(payload: Option<&[u8]>) -> OpaquePayloadDto {
 mod tests {
     use super::*;
     use crate::{
+        apple_types::AttachmentId,
         fixtures::FixtureDb,
         messages::{Attachment, AttachmentKind, load_chats},
     };
@@ -376,8 +369,8 @@ mod tests {
     #[test]
     fn attachment_dto_omits_local_paths() -> Result<(), Box<dyn std::error::Error>> {
         let attachment = Attachment {
-            guid: "at-guid".to_owned(),
-            original_guid: "at-guid".to_owned(),
+            guid: AttachmentId::new("at-guid"),
+            original_guid: AttachmentId::new("at-guid"),
             filename: Some("~/Library/Messages/Attachments/at/file.jpg".to_owned()),
             resolved_path: Some("/Users/test/Library/Messages/Attachments/at/file.jpg".to_owned()),
             uti: Some("public.jpeg".to_owned()),

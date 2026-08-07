@@ -1,5 +1,7 @@
 use chrono::{DateTime, Utc};
 
+use crate::apple_types::{NoteAttachmentId, NoteFolderId, NoteId, RowId};
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum FolderKind {
     Standard,
@@ -69,26 +71,26 @@ pub struct EmbeddedObject {
 
 #[derive(Debug, Clone)]
 pub struct NoteFolder {
-    pub row_id: i64,
-    pub id: String,
-    pub title: String,
+    pub row_id: RowId,
+    pub id: NoteFolderId,
+    pub title: Option<String>,
     pub kind: FolderKind,
-    pub parent_row_id: Option<i64>,
-    pub parent_id: Option<String>,
+    pub parent_row_id: Option<RowId>,
+    pub parent_id: Option<NoteFolderId>,
     #[allow(dead_code)]
-    pub account_row_id: Option<i64>,
+    pub account_row_id: Option<RowId>,
     pub account_id: Option<String>,
     pub modified_at: Option<DateTime<Utc>>,
 }
 
 #[derive(Debug, Clone)]
 pub struct NoteSummary {
-    pub row_id: i64,
-    pub id: String,
-    pub title: String,
+    pub row_id: RowId,
+    pub id: NoteId,
+    pub title: Option<String>,
     pub snippet: Option<String>,
-    pub folder_row_id: Option<i64>,
-    pub folder_id: Option<String>,
+    pub folder_row_id: Option<RowId>,
+    pub folder_id: Option<NoteFolderId>,
     pub folder_name: Option<String>,
     pub folder_kind: FolderKind,
     pub is_pinned: bool,
@@ -108,13 +110,13 @@ pub struct NoteDetail {
 
 #[derive(Debug, Clone)]
 pub struct NoteAttachment {
-    pub row_id: i64,
-    pub id: String,
+    pub row_id: RowId,
+    pub id: NoteAttachmentId,
     pub filename: Option<String>,
     pub uti: Option<String>,
     #[allow(dead_code)]
-    pub note_row_id: i64,
-    pub note_id: String,
+    pub note_row_id: RowId,
+    pub note_id: NoteId,
     pub file_size: Option<i64>,
     pub account_id: Option<String>,
     pub modified_at: Option<DateTime<Utc>>,

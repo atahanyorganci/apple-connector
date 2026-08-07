@@ -71,8 +71,9 @@ pub async fn get_group(
     State(state): State<AppState>,
     axum::extract::Path(path): axum::extract::Path<GroupIdPath>,
 ) -> Result<Json<GroupDetailDto>, ApiError> {
+    let group_id = path.validated()?;
     let sources = require_contacts_sources(&state.contacts_sources)?;
-    let group = run_timed_query(|| async { sources.get_group(path.group_id.as_str()).await })
+    let group = run_timed_query(|| async { sources.get_group(group_id.as_str()).await })
         .await
         .map_err(|error| ApiError::internal(error.to_string()))?
         .ok_or_else(|| ApiError::not_found("Group not found"))?;
@@ -100,7 +101,8 @@ pub async fn list_group_contacts(
     Query(params): Query<PageParams>,
 ) -> Result<Json<ContactPageDto>, ApiError> {
     let sources = require_contacts_sources(&state.contacts_sources)?;
-    let page = fetch_group_contact_page(sources, path.group_id.as_str(), &params).await?;
+    let group_id = path.validated()?;
+    let page = fetch_group_contact_page(sources, group_id.as_str(), &params).await?;
     Ok(Json(contact_page_to_dto(page, params.validated_limit()?)))
 }
 
@@ -124,8 +126,12 @@ pub async fn list_group_contacts_vcard(
     Query(params): Query<PageParams>,
 ) -> Result<Response, ApiError> {
     let sources = require_contacts_sources(&state.contacts_sources)?;
-    let page = fetch_group_contact_page(sources, path.group_id.as_str(), &params).await?;
-    let details = hydrate_contact_summaries(sources, page.items).await?;
+    let group_id = path.validated()?;
+    let page = fetch_group_contact_page(sources, group_id.as_str(), &params).await?;
+    let details = sources
+        .hydrate_contact_summaries(page.items)
+        .await
+        .map_err(|error| ApiError::internal(error.to_string()))?;
     contact_page_vcard(&details)
 }
 
@@ -149,8 +155,12 @@ pub async fn list_group_contacts_carddav(
     Query(params): Query<PageParams>,
 ) -> Result<Response, ApiError> {
     let sources = require_contacts_sources(&state.contacts_sources)?;
-    let page = fetch_group_contact_page(sources, path.group_id.as_str(), &params).await?;
-    let details = hydrate_contact_summaries(sources, page.items).await?;
+    let group_id = path.validated()?;
+    let page = fetch_group_contact_page(sources, group_id.as_str(), &params).await?;
+    let details = sources
+        .hydrate_contact_summaries(page.items)
+        .await
+        .map_err(|error| ApiError::internal(error.to_string()))?;
     contact_page_carddav(&details)
 }
 
@@ -174,19 +184,4 @@ async fn fetch_group_contact_page(
     run_timed_query(|| async { sources.list_group_contacts(group_id, limit, cursor).await })
         .await
         .map_err(|error| ApiError::internal(error.to_string()))
-}
-
-async fn hydrate_contact_summaries(
-    sources: &crate::contacts::ContactsSources,
-    summaries: Vec<crate::contacts::ContactSummary>,
-) -> Result<Vec<crate::contacts::ContactDetail>, ApiError> {
-    let mut details = Vec::with_capacity(summaries.len());
-    for summary in summaries {
-        let contact = run_timed_query(|| async { sources.get_contact(summary.id.as_str()).await })
-            .await
-            .map_err(|error| ApiError::internal(error.to_string()))?
-            .ok_or_else(|| ApiError::not_found("Contact not found"))?;
-        details.push(contact);
-    }
-    Ok(details)
 }

@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use axum::{
     Json,
     extract::{Path, State},
@@ -45,11 +47,17 @@ pub async fn create_reminder(
 ) -> Result<(StatusCode, Json<SyncPendingReminderDetailDto>), ApiError> {
     validate_create_reminder(&request)?;
     let pool = require_reminders_db(&state.reminders_db)?;
+
+    let reminder_entity_ids = state
+        .cached_reminders_entity_ids()
+        .await
+        .map_err(|error| ApiError::internal(error.to_string()))?;
     let eventkit = require_eventkit_reminders(&state).await?;
+    path.validated_key()?;
     let list_id = path.list_id.as_str();
 
     let metadata = run_timed_query(|| async {
-        ReminderRepository::new(pool)
+        ReminderRepository::with_entity_ids(pool, Arc::clone(&reminder_entity_ids))
             .get_list_resolve_metadata(list_id)
             .await
     })
@@ -66,7 +74,13 @@ pub async fn create_reminder(
         .await
         .map_err(map_eventkit_error)?;
 
-    let response = crate::api::hydrate::hydrate_reminder(pool, &saved.external_id).await?;
+    let response = {
+        let entity_ids = state
+            .cached_reminders_entity_ids()
+            .await
+            .map_err(|error| ApiError::internal(error.to_string()))?;
+        crate::api::hydrate::hydrate_reminder(pool, entity_ids, &saved.external_id).await?
+    };
     Ok((StatusCode::CREATED, Json(response)))
 }
 
@@ -92,12 +106,17 @@ pub async fn update_reminder(
 ) -> Result<Json<SyncPendingReminderDetailDto>, ApiError> {
     validate_update_reminder(&request)?;
     let pool = require_reminders_db(&state.reminders_db)?;
+
+    let reminder_entity_ids = state
+        .cached_reminders_entity_ids()
+        .await
+        .map_err(|error| ApiError::internal(error.to_string()))?;
     let eventkit = require_eventkit_reminders(&state).await?;
-    let reminder_id = path.reminder_id.as_str();
+    let reminder_id = path.validated()?;
 
     let list_hint = if let Some(list_id) = request.list_id.as_ref() {
         let metadata = run_timed_query(|| async {
-            ReminderRepository::new(pool)
+            ReminderRepository::with_entity_ids(pool, Arc::clone(&reminder_entity_ids))
                 .get_list_resolve_metadata(list_id.as_str())
                 .await
         })
@@ -113,8 +132,8 @@ pub async fn update_reminder(
     };
 
     let external_id = run_timed_query(|| async {
-        ReminderRepository::new(pool)
-            .get_reminder_external_id(reminder_id)
+        ReminderRepository::with_entity_ids(pool, Arc::clone(&reminder_entity_ids))
+            .get_reminder_external_id(reminder_id.as_str())
             .await
     })
     .await
@@ -122,14 +141,20 @@ pub async fn update_reminder(
 
     let saved = eventkit
         .update_reminder(
-            reminder_id,
+            reminder_id.as_str(),
             external_id.as_deref(),
             update_reminder_input(request, list_hint),
         )
         .await
         .map_err(map_eventkit_error)?;
 
-    let response = crate::api::hydrate::hydrate_reminder(pool, &saved.external_id).await?;
+    let response = {
+        let entity_ids = state
+            .cached_reminders_entity_ids()
+            .await
+            .map_err(|error| ApiError::internal(error.to_string()))?;
+        crate::api::hydrate::hydrate_reminder(pool, entity_ids, &saved.external_id).await?
+    };
     Ok(Json(response))
 }
 
@@ -151,18 +176,23 @@ pub async fn delete_reminder(
     Path(path): Path<ReminderIdPath>,
 ) -> Result<StatusCode, ApiError> {
     let pool = require_reminders_db(&state.reminders_db)?;
+
+    let reminder_entity_ids = state
+        .cached_reminders_entity_ids()
+        .await
+        .map_err(|error| ApiError::internal(error.to_string()))?;
     let eventkit = require_eventkit_reminders(&state).await?;
-    let reminder_id = path.reminder_id.as_str();
+    let reminder_id = path.validated()?;
     let external_id = run_timed_query(|| async {
-        ReminderRepository::new(pool)
-            .get_reminder_external_id(reminder_id)
+        ReminderRepository::with_entity_ids(pool, Arc::clone(&reminder_entity_ids))
+            .get_reminder_external_id(reminder_id.as_str())
             .await
     })
     .await
     .map_err(|error| ApiError::internal(error.to_string()))?;
 
     eventkit
-        .delete_reminder(reminder_id, external_id.as_deref())
+        .delete_reminder(reminder_id.as_str(), external_id.as_deref())
         .await
         .map_err(map_eventkit_error)?;
 

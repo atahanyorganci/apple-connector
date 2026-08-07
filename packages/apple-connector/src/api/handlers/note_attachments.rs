@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use axum::{
     Json,
     body::Body,
@@ -18,9 +20,10 @@ use crate::{
     },
     db::run_timed_query,
     messages::attachment_path::{
-        content_disposition, file_validators, resolve_content_type, sanitize_download_filename,
+        content_disposition, file_validators_async, resolve_content_type,
+        sanitize_download_filename,
     },
-    notes::{NoteAttachment, NoteRepository, attachment_path::validate_attachment_path},
+    notes::{NoteAttachment, NoteRepository, attachment_path::validate_attachment_path_async},
 };
 
 /// Get note attachment metadata
@@ -38,9 +41,10 @@ use crate::{
 )]
 pub async fn get_note_attachment(
     State(state): State<AppState>,
-    axum::extract::Path(NoteAttachmentIdPath { id }): axum::extract::Path<NoteAttachmentIdPath>,
+    axum::extract::Path(path): axum::extract::Path<NoteAttachmentIdPath>,
 ) -> Result<Json<NoteAttachmentDetailDto>, ApiError> {
-    let attachment = resolve_attachment(&state, &id).await?;
+    let id = path.validated()?;
+    let attachment = resolve_attachment(&state, id.as_str()).await?;
     Ok(Json(note_attachment_detail_to_dto(&attachment)))
 }
 
@@ -59,11 +63,12 @@ pub async fn get_note_attachment(
 )]
 pub async fn get_note_attachment_content(
     State(state): State<AppState>,
-    axum::extract::Path(NoteAttachmentIdPath { id }): axum::extract::Path<NoteAttachmentIdPath>,
+    axum::extract::Path(path): axum::extract::Path<NoteAttachmentIdPath>,
     headers: axum::http::HeaderMap,
 ) -> Result<Response, ApiError> {
-    let (_, path) = resolve_attachment_path(&state, &id).await?;
-    serve_bytes(path, headers, Method::GET).await
+    let id = path.validated()?;
+    let (_, file_path) = resolve_attachment_path(&state, id.as_str()).await?;
+    serve_bytes(&state, file_path, headers, Method::GET).await
 }
 
 /// Head note attachment content
@@ -80,19 +85,29 @@ pub async fn get_note_attachment_content(
 )]
 pub async fn head_note_attachment_content(
     State(state): State<AppState>,
-    axum::extract::Path(NoteAttachmentIdPath { id }): axum::extract::Path<NoteAttachmentIdPath>,
+    axum::extract::Path(path): axum::extract::Path<NoteAttachmentIdPath>,
     headers: axum::http::HeaderMap,
 ) -> Result<Response, ApiError> {
-    let (_, path) = resolve_attachment_path(&state, &id).await?;
-    serve_bytes(path, headers, Method::HEAD).await
+    let id = path.validated()?;
+    let (_, file_path) = resolve_attachment_path(&state, id.as_str()).await?;
+    serve_bytes(&state, file_path, headers, Method::HEAD).await
 }
 
 async fn resolve_attachment(state: &AppState, id: &str) -> Result<NoteAttachment, ApiError> {
     let pool = require_notes_db(&state.notes_db)?;
-    run_timed_query(|| async { NoteRepository::new(pool).get_attachment_by_id(id).await })
+
+    let note_entity_ids = state
+        .cached_notes_entity_ids()
         .await
-        .map_err(|error| ApiError::internal(error.to_string()))?
-        .ok_or_else(|| ApiError::not_found(format!("note attachment {id} not found")))
+        .map_err(|error| ApiError::internal(error.to_string()))?;
+    run_timed_query(|| async {
+        NoteRepository::with_entity_ids(pool, Arc::clone(&note_entity_ids))
+            .get_attachment_by_id(id)
+            .await
+    })
+    .await
+    .map_err(|error| ApiError::internal(error.to_string()))?
+    .ok_or_else(|| ApiError::not_found(format!("note attachment {id} not found")))
 }
 
 async fn resolve_attachment_path(
@@ -102,21 +117,28 @@ async fn resolve_attachment_path(
     let attachment = resolve_attachment(state, id).await?;
     let account_id = attachment
         .account_id
-        .as_deref()
+        .clone()
         .ok_or_else(|| ApiError::not_found(format!("note attachment {id} not found")))?;
     let filename = attachment
         .filename
-        .as_deref()
+        .clone()
         .ok_or_else(|| ApiError::not_found(format!("note attachment {id} not found")))?;
 
-    let validated =
-        validate_attachment_path(state.notes_attachment_root.as_ref(), account_id, filename)
-            .map_err(|_| ApiError::not_found(format!("note attachment {id} not found")))?;
+    let validated = validate_attachment_path_async(
+        &state.blocking_io,
+        state.notes_attachment_root.as_ref().clone(),
+        account_id,
+        filename,
+    )
+    .await
+    .map_err(|_| ApiError::internal("blocking attachment validation failed"))?
+    .map_err(|_| ApiError::not_found(format!("note attachment {id} not found")))?;
 
     Ok((attachment, validated.canonical_path))
 }
 
 async fn serve_bytes(
+    state: &AppState,
     path: std::path::PathBuf,
     headers: axum::http::HeaderMap,
     method: Method,
@@ -130,7 +152,9 @@ async fn serve_bytes(
         request.headers_mut().insert(header::RANGE, range.clone());
     }
 
-    let validators = file_validators(&path)
+    let validators = file_validators_async(&state.blocking_io, path.clone())
+        .await
+        .map_err(|_| ApiError::internal("blocking attachment metadata read failed"))?
         .map_err(|_| ApiError::not_found("note attachment is not available"))?;
     let filename = path
         .file_name()

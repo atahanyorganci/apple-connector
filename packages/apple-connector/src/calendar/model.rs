@@ -4,11 +4,12 @@ use serde::{Deserialize, Serialize};
 use super::enums::{
     Availability, EventClass, EventStatus, InvitationStatus, PrivacyLevel, StoreType,
 };
+use crate::apple_types::{CalendarAccountId, CalendarAttachmentId, CalendarId, EventId, RowId};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct CalendarAccount {
-    pub row_id: i64,
-    pub id: String,
+    pub row_id: RowId,
+    pub id: Option<CalendarAccountId>,
     pub name: Option<String>,
     pub store_type: StoreType,
     pub disabled: bool,
@@ -16,12 +17,12 @@ pub struct CalendarAccount {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct CalendarSummary {
-    pub row_id: i64,
-    pub id: String,
+    pub row_id: RowId,
+    pub id: CalendarId,
     pub title: Option<String>,
     pub color: Option<String>,
-    pub account_row_id: i64,
-    pub account_id: String,
+    pub account_row_id: RowId,
+    pub account_id: Option<CalendarAccountId>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -33,10 +34,10 @@ pub struct CalendarDetail {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct EventSummary {
-    pub row_id: i64,
-    pub id: String,
-    pub calendar_row_id: i64,
-    pub calendar_id: String,
+    pub row_id: RowId,
+    pub id: EventId,
+    pub calendar_row_id: RowId,
+    pub calendar_id: CalendarId,
     pub summary: Option<String>,
     pub start: Option<DateTime<Utc>>,
     pub end: Option<DateTime<Utc>>,
@@ -66,8 +67,8 @@ pub struct EventDetail {
     pub invitation_status: InvitationStatus,
     pub availability: Availability,
     pub privacy_level: PrivacyLevel,
-    pub series_id: Option<String>,
-    pub series_row_id: Option<i64>,
+    pub series_id: Option<EventId>,
+    pub series_row_id: Option<RowId>,
     pub original_start: Option<DateTime<Utc>>,
     pub last_modified: Option<DateTime<Utc>>,
     pub creation_date: Option<DateTime<Utc>>,
@@ -116,8 +117,8 @@ pub struct EventAlarm {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct EventAttachment {
-    pub row_id: i64,
-    pub id: String,
+    pub row_id: RowId,
+    pub id: CalendarAttachmentId,
     pub filename: Option<String>,
     pub format: Option<String>,
     pub file_size: Option<i64>,
@@ -174,7 +175,7 @@ pub struct InterchangeAttendee {
 impl From<&EventDetail> for Event {
     fn from(detail: &EventDetail) -> Self {
         Self {
-            uid: detail.summary.id.clone(),
+            uid: detail.summary.id.as_str().to_owned(),
             summary: detail.summary.summary.clone(),
             description: detail.description.clone(),
             location: detail
@@ -182,11 +183,12 @@ impl From<&EventDetail> for Event {
                 .as_ref()
                 .and_then(|l| l.title.clone().or_else(|| l.address.clone())),
             url: detail.url.clone(),
-            status: Some(match detail.summary.status {
-                EventStatus::Confirmed => InterchangeStatus::Confirmed,
-                EventStatus::Tentative => InterchangeStatus::Tentative,
-                EventStatus::Cancelled => InterchangeStatus::Cancelled,
-            }),
+            status: match detail.summary.status {
+                EventStatus::Confirmed => Some(InterchangeStatus::Confirmed),
+                EventStatus::Tentative => Some(InterchangeStatus::Tentative),
+                EventStatus::Cancelled => Some(InterchangeStatus::Cancelled),
+                EventStatus::Unknown(_) => None,
+            },
             start: detail
                 .summary
                 .occurrence_start

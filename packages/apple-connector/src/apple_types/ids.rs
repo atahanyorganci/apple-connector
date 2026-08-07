@@ -1,6 +1,21 @@
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 
+/// Error returned when an identifier fails validation.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct IdValidationError {
+    pub kind: &'static str,
+    pub message: String,
+}
+
+impl std::fmt::Display for IdValidationError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}: {}", self.kind, self.message)
+    }
+}
+
+impl std::error::Error for IdValidationError {}
+
 /// Declares a transparent string-backed identifier newtype.
 ///
 /// The generated type serializes and deserializes exactly like a bare string
@@ -16,10 +31,22 @@ macro_rules! string_id {
         pub struct $name(pub String);
 
         impl $name {
-            /// Wrap any string-like value.
+            /// Wrap any string-like value without validation.
             #[must_use]
             pub fn new(value: impl Into<String>) -> Self {
                 Self(value.into())
+            }
+
+            /// Construct from a non-empty string.
+            pub fn try_new(value: impl Into<String>) -> Result<Self, IdValidationError> {
+                let value = value.into();
+                if value.is_empty() {
+                    return Err(IdValidationError {
+                        kind: stringify!($name),
+                        message: "identifier must not be empty".to_owned(),
+                    });
+                }
+                Ok(Self(value))
             }
 
             /// Borrow the identifier as a string slice.
@@ -32,6 +59,14 @@ macro_rules! string_id {
             #[must_use]
             pub fn into_inner(self) -> String {
                 self.0
+            }
+        }
+
+        impl std::str::FromStr for $name {
+            type Err = IdValidationError;
+
+            fn from_str(value: &str) -> Result<Self, Self::Err> {
+                Self::try_new(value)
             }
         }
 
@@ -140,6 +175,79 @@ string_id!(
     ContactId,
     "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"
 );
+string_id!(
+    /// Stable identifier for a contact phone value row.
+    ContactPhoneId,
+    "33333333-3333-3333-3333-333333333333"
+);
+string_id!(
+    /// Stable identifier for a contact email value row.
+    ContactEmailId,
+    "44444444-4444-4444-4444-444444444444"
+);
+string_id!(
+    /// Stable identifier for a contact address value row.
+    ContactAddressId,
+    "55555555-5555-5555-5555-555555555555"
+);
+string_id!(
+    /// Stable identifier for a contact URL value row.
+    ContactUrlId,
+    "66666666-6666-6666-6666-666666666666"
+);
+string_id!(
+    /// Stable identifier for a contact social profile value row.
+    ContactSocialProfileId,
+    "77777777-7777-7777-7777-777777777777"
+);
+string_id!(
+    /// Messages handle identifier (phone/email row id).
+    HandleId,
+    "88888888-8888-8888-8888-888888888888"
+);
+
+/// SQLite primary-key row identifier shared across Apple databases.
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize, ToSchema,
+)]
+#[serde(transparent)]
+#[schema(value_type = i64, example = 1)]
+pub struct RowId(pub i64);
+
+impl RowId {
+    #[must_use]
+    pub const fn new(value: i64) -> Self {
+        Self(value)
+    }
+
+    #[must_use]
+    pub const fn get(self) -> i64 {
+        self.0
+    }
+
+    pub fn try_new(value: i64) -> Result<Self, IdValidationError> {
+        if value <= 0 {
+            Err(IdValidationError {
+                kind: "RowId",
+                message: "row id must be positive".to_owned(),
+            })
+        } else {
+            Ok(Self(value))
+        }
+    }
+}
+
+impl From<i64> for RowId {
+    fn from(value: i64) -> Self {
+        Self(value)
+    }
+}
+
+impl std::fmt::Display for RowId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.0.fmt(f)
+    }
+}
 
 /// Internal chat row identifier.
 ///
@@ -153,10 +261,21 @@ string_id!(
 pub struct ChatId(pub i64);
 
 impl ChatId {
-    /// Wrap a raw chat row id.
+    /// Wrap a raw chat row id without validation.
     #[must_use]
     pub const fn new(value: i64) -> Self {
         Self(value)
+    }
+
+    pub fn try_new(value: i64) -> Result<Self, IdValidationError> {
+        if value <= 0 {
+            Err(IdValidationError {
+                kind: "ChatId",
+                message: "chat id must be positive".to_owned(),
+            })
+        } else {
+            Ok(Self(value))
+        }
     }
 
     /// Unwrap to the raw chat row id.
@@ -166,9 +285,27 @@ impl ChatId {
     }
 }
 
+impl std::fmt::Display for ChatId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
 impl From<i64> for ChatId {
     fn from(value: i64) -> Self {
         Self(value)
+    }
+}
+
+impl std::str::FromStr for ChatId {
+    type Err = IdValidationError;
+
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        let parsed = value.parse::<i64>().map_err(|_| IdValidationError {
+            kind: "ChatId",
+            message: "chat id must be a positive integer".to_owned(),
+        })?;
+        Self::try_new(parsed)
     }
 }
 

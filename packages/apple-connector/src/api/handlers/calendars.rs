@@ -109,10 +109,11 @@ pub async fn get_calendar(
     State(state): State<AppState>,
     axum::extract::Path(path): axum::extract::Path<CalendarIdPath>,
 ) -> Result<Json<CalendarDetailDto>, ApiError> {
+    let calendar_id = path.validated()?;
     let pool = require_calendar_db(&state.calendar_db)?;
     let calendar = run_timed_query(|| async {
         CalendarRepository::new(pool)
-            .get_calendar(&path.calendar_id)
+            .get_calendar(calendar_id.as_str())
             .await
     })
     .await
@@ -141,7 +142,8 @@ pub async fn list_calendar_events(
     Query(params): Query<EventListParams>,
 ) -> Result<Json<EventPageDto>, ApiError> {
     let pool = require_calendar_db(&state.calendar_db)?;
-    let page = fetch_calendar_event_page(pool, path.calendar_id.as_str(), &params).await?;
+    let calendar_id = path.validated()?;
+    let page = fetch_calendar_event_page(pool, calendar_id.as_str(), &params).await?;
     Ok(event_page_json(
         page.items,
         page.has_more,
@@ -169,7 +171,8 @@ pub async fn list_calendar_events_ical(
     Query(params): Query<EventListParams>,
 ) -> Result<Response, ApiError> {
     let pool = require_calendar_db(&state.calendar_db)?;
-    let page = fetch_calendar_event_page(pool, path.calendar_id.as_str(), &params).await?;
+    let calendar_id = path.validated()?;
+    let page = fetch_calendar_event_page(pool, calendar_id.as_str(), &params).await?;
     event_page_ics(page.items)
 }
 
@@ -192,7 +195,8 @@ pub async fn list_calendar_events_caldav(
     Query(params): Query<EventListParams>,
 ) -> Result<Response, ApiError> {
     let pool = require_calendar_db(&state.calendar_db)?;
-    let page = fetch_calendar_event_page(pool, path.calendar_id.as_str(), &params).await?;
+    let calendar_id = path.validated()?;
+    let page = fetch_calendar_event_page(pool, calendar_id.as_str(), &params).await?;
     event_page_caldav(page.items)
 }
 

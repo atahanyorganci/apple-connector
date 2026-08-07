@@ -1,4 +1,8 @@
+use std::sync::Arc;
+
 use chrono::{DateTime, Utc};
+
+use crate::apple_types::{AttachmentId, ChatId, HandleId, MessageId, RowId};
 
 #[derive(Debug, Clone)]
 pub struct Message {
@@ -8,8 +12,8 @@ pub struct Message {
 
 #[derive(Debug, Clone)]
 pub struct MessageEnvelope {
-    pub row_id: i64,
-    pub guid: String,
+    pub row_id: RowId,
+    pub guid: MessageId,
     pub direction: Direction,
     pub transport: Transport,
     pub sender: Option<Handle>,
@@ -17,10 +21,10 @@ pub struct MessageEnvelope {
     pub read_at: Option<DateTime<Utc>>,
     pub edited_at: Option<DateTime<Utc>>,
     pub retracted_at: Option<DateTime<Utc>>,
-    pub reply_to_guid: Option<String>,
-    pub thread_originator_guid: Option<String>,
+    pub reply_to_guid: Option<MessageId>,
+    pub thread_originator_guid: Option<MessageId>,
     /// Chats this message belongs to (`chat_message_join`).
-    pub chat_ids: Vec<i64>,
+    pub chat_ids: Vec<ChatId>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -51,7 +55,7 @@ impl Transport {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Handle {
-    pub id: String,
+    pub id: HandleId,
     pub service: String,
 }
 
@@ -82,6 +86,7 @@ pub enum AttributedBodyDecodeError {
     InvalidTypedStream,
     NotAttributedString,
     MissingText,
+    PayloadTooLarge,
 }
 
 impl std::fmt::Display for AttributedBodyDecodeError {
@@ -90,6 +95,7 @@ impl std::fmt::Display for AttributedBodyDecodeError {
             Self::InvalidTypedStream => write!(f, "invalid typedstream payload"),
             Self::NotAttributedString => write!(f, "payload is not an NSAttributedString"),
             Self::MissingText => write!(f, "attributed string text is missing"),
+            Self::PayloadTooLarge => write!(f, "attributed body exceeds decode size limit"),
         }
     }
 }
@@ -115,7 +121,7 @@ pub enum BodyAttribute {
     },
     Mention(String),
     FileTransfer {
-        guid: String,
+        guid: AttachmentId,
         inline_sticker: bool,
     },
     PhoneNumber,
@@ -150,8 +156,8 @@ pub struct AttachmentMessage {
 
 #[derive(Debug, Clone)]
 pub struct Attachment {
-    pub guid: String,
-    pub original_guid: String,
+    pub guid: AttachmentId,
+    pub original_guid: AttachmentId,
     /// Path as stored in `attachment.filename` (often `~/Library/Messages/...`).
     pub filename: Option<String>,
     /// `filename` with `~` expanded when possible.
@@ -190,7 +196,7 @@ pub struct AttachmentBodyRef {
 
 #[derive(Debug, Clone)]
 pub struct Reaction {
-    pub target_guid: Option<String>,
+    pub target_guid: Option<MessageId>,
     pub kind: ReactionKind,
 }
 
@@ -327,7 +333,7 @@ pub struct UnknownMessage {
 
 #[derive(Debug, Clone)]
 pub struct Chat {
-    pub row_id: i64,
+    pub row_id: RowId,
     pub guid: String,
     pub identifier: Option<String>,
     pub display_name: Option<String>,
@@ -336,20 +342,20 @@ pub struct Chat {
     /// Apple `chat.style == 43` for group chats.
     pub is_group: bool,
     pub participants: Vec<Handle>,
-    pub messages: Vec<Message>,
+    pub messages: Vec<Arc<Message>>,
     pub reply_threads: Vec<ReplyThread>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ReplyThread {
     /// Root message GUID for the thread.
-    pub originator_guid: String,
+    pub originator_guid: MessageId,
     /// Replies in this thread (excluding the originator), parented by `reply_to_guid`.
     pub replies: Vec<ReplyRef>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ReplyRef {
-    pub guid: String,
-    pub reply_to_guid: String,
+    pub guid: MessageId,
+    pub reply_to_guid: MessageId,
 }

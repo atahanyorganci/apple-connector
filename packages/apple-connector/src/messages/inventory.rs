@@ -63,6 +63,7 @@ impl MessageInventory {
                     AttributedBodyDecodeError::MissingText => {
                         inventory.attributed_body_missing_text += 1;
                     }
+                    AttributedBodyDecodeError::PayloadTooLarge => {}
                 }
             }
         }
@@ -118,16 +119,16 @@ impl MessageInventory {
         if message
             .envelope
             .reply_to_guid
-            .as_deref()
-            .is_some_and(|guid| !guid.is_empty())
+            .as_ref()
+            .is_some_and(|guid| !guid.as_str().is_empty())
         {
             self.replies += 1;
         }
         if message
             .envelope
             .thread_originator_guid
-            .as_deref()
-            .is_some_and(|guid| !guid.is_empty())
+            .as_ref()
+            .is_some_and(|guid| !guid.as_str().is_empty())
         {
             self.thread_originators += 1;
         }
@@ -217,16 +218,19 @@ fn attributed_body_error(content: &MessageContent) -> Option<AttributedBodyDecod
 #[cfg(test)]
 mod tests {
     use super::MessageInventory;
-    use crate::messages::model::{
-        AttributedBodyDecodeError, Direction, Message, MessageBody, MessageContent,
-        MessageEnvelope, TextMessage, Transport, UnknownMessage,
+    use crate::{
+        apple_types::{MessageId, RowId},
+        messages::model::{
+            AttributedBodyDecodeError, Direction, Message, MessageBody, MessageContent,
+            MessageEnvelope, TextMessage, Transport, UnknownMessage,
+        },
     };
 
     fn text_message(text: Option<&str>, error: Option<AttributedBodyDecodeError>) -> Message {
         Message {
             envelope: MessageEnvelope {
-                row_id: 1,
-                guid: "g".to_owned(),
+                row_id: RowId::new(1),
+                guid: MessageId::new("g"),
                 direction: Direction::Sent,
                 transport: Transport::IMessage,
                 sender: None,
@@ -234,7 +238,7 @@ mod tests {
                 read_at: None,
                 edited_at: None,
                 retracted_at: None,
-                reply_to_guid: Some("parent".to_owned()),
+                reply_to_guid: Some(MessageId::new("parent")),
                 thread_originator_guid: None,
                 chat_ids: Vec::new(),
             },
@@ -258,8 +262,8 @@ mod tests {
             text_message(None, Some(AttributedBodyDecodeError::InvalidTypedStream)),
             Message {
                 envelope: MessageEnvelope {
-                    row_id: 2,
-                    guid: "u".to_owned(),
+                    row_id: RowId::new(2),
+                    guid: MessageId::new("u"),
                     direction: Direction::Received,
                     transport: Transport::Sms,
                     sender: None,

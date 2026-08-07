@@ -20,8 +20,9 @@ use crate::{
     messages::{
         Attachment,
         attachment_path::{
-            content_disposition, file_validators, if_none_match_satisfied, resolve_content_type,
-            sanitize_download_filename, validate_attachment_path,
+            content_disposition, file_validators_async, if_none_match_satisfied,
+            is_present_on_disk_async, resolve_content_type, sanitize_download_filename,
+            validate_attachment_path_async,
         },
         repository::MessageRepository,
     },
@@ -45,18 +46,26 @@ use crate::{
 )]
 pub async fn get_attachment(
     State(state): State<AppState>,
-    axum::extract::Path(AttachmentGuidPath { guid }): axum::extract::Path<AttachmentGuidPath>,
+    axum::extract::Path(path): axum::extract::Path<AttachmentGuidPath>,
 ) -> Result<Json<AttachmentDetailDto>, ApiError> {
+    let guid = path.validated()?;
     let pool = require_messages_db(&state.messages_db)?;
-    let attachment_root = state.attachment_root.as_ref();
-    let attachment = run_timed_query(|| async {
+    let mut attachment = run_timed_query(|| async {
         MessageRepository::new(pool)
-            .get_attachment_by_guid(&guid, attachment_root)
+            .get_attachment_by_guid(guid.as_str())
             .await
     })
     .await
     .map_err(|error| ApiError::internal(error.to_string()))?
     .ok_or_else(|| ApiError::not_found(format!("attachment {guid} not found")))?;
+
+    attachment.present_on_disk = is_present_on_disk_async(
+        &state.blocking_io,
+        state.attachment_root.as_ref().clone(),
+        attachment.filename.clone(),
+    )
+    .await
+    .map_err(|_| ApiError::internal("blocking attachment check failed"))?;
 
     Ok(Json(attachment_detail_to_dto(&attachment)))
 }
@@ -112,11 +121,12 @@ pub async fn get_attachment(
 )]
 pub async fn get_attachment_content(
     State(state): State<AppState>,
-    axum::extract::Path(AttachmentGuidPath { guid }): axum::extract::Path<AttachmentGuidPath>,
+    axum::extract::Path(path): axum::extract::Path<AttachmentGuidPath>,
     request: Request,
 ) -> Result<Response, ApiError> {
-    let (attachment, validated_path) = resolve_content_attachment(&state, &guid).await?;
-    serve_attachment_bytes(attachment, validated_path, request).await
+    let guid = path.validated()?;
+    let (attachment, validated_path) = resolve_content_attachment(&state, guid.as_str()).await?;
+    serve_attachment_bytes(&state.blocking_io, attachment, validated_path, request).await
 }
 
 /// Check attachment content metadata
@@ -155,17 +165,18 @@ pub async fn get_attachment_content(
 )]
 pub async fn head_attachment_content(
     State(state): State<AppState>,
-    axum::extract::Path(AttachmentGuidPath { guid }): axum::extract::Path<AttachmentGuidPath>,
+    axum::extract::Path(path): axum::extract::Path<AttachmentGuidPath>,
     headers: HeaderMap,
 ) -> Result<Response, ApiError> {
-    let (attachment, validated_path) = resolve_content_attachment(&state, &guid).await?;
+    let guid = path.validated()?;
+    let (attachment, validated_path) = resolve_content_attachment(&state, guid.as_str()).await?;
     let mut request = Request::builder()
         .method(Method::HEAD)
         .uri("/")
         .body(Body::empty())
         .map_err(|_| ApiError::internal("failed to build head request"))?;
     copy_conditional_headers(&headers, request.headers_mut());
-    serve_attachment_bytes(attachment, validated_path, request).await
+    serve_attachment_bytes(&state.blocking_io, attachment, validated_path, request).await
 }
 
 async fn resolve_content_attachment(
@@ -173,10 +184,9 @@ async fn resolve_content_attachment(
     guid: &str,
 ) -> Result<(Attachment, std::path::PathBuf), ApiError> {
     let pool = require_messages_db(&state.messages_db)?;
-    let attachment_root = state.attachment_root.as_ref();
     let attachment = run_timed_query(|| async {
         MessageRepository::new(pool)
-            .get_attachment_by_guid(guid, attachment_root)
+            .get_attachment_by_guid(guid)
             .await
     })
     .await
@@ -191,16 +201,23 @@ async fn resolve_content_attachment(
 
     let filename = attachment
         .filename
-        .as_deref()
+        .clone()
         .ok_or_else(|| ApiError::not_found(format!("attachment {guid} is not available")))?;
 
-    let validated = validate_attachment_path(state.attachment_root.as_ref(), filename)
-        .map_err(|_| ApiError::not_found(format!("attachment {guid} is not available")))?;
+    let validated = validate_attachment_path_async(
+        &state.blocking_io,
+        state.attachment_root.as_ref().clone(),
+        filename,
+    )
+    .await
+    .map_err(|_| ApiError::internal("blocking attachment validation failed"))?
+    .map_err(|_| ApiError::not_found(format!("attachment {guid} is not available")))?;
 
     Ok((attachment, validated.canonical_path))
 }
 
 async fn serve_attachment_bytes(
+    blocking_io: &crate::api::blocking_io::BlockingIoPool,
     attachment: Attachment,
     path: std::path::PathBuf,
     request: Request,
@@ -208,13 +225,16 @@ async fn serve_attachment_bytes(
     let filename = sanitize_download_filename(
         attachment.transfer_name.as_deref(),
         attachment.mime_type.as_deref(),
-        &attachment.guid,
+        attachment.guid.as_str(),
     );
     let content_type = resolve_content_type(attachment.mime_type.as_deref());
     let disposition = content_disposition(&attachment.kind, &filename);
-    let validators = file_validators(&path).map_err(|_| {
-        ApiError::not_found(format!("attachment {} is not available", attachment.guid))
-    })?;
+    let validators = file_validators_async(blocking_io, path.clone())
+        .await
+        .map_err(|_| ApiError::internal("blocking attachment metadata read failed"))?
+        .map_err(|_| {
+            ApiError::not_found(format!("attachment {} is not available", attachment.guid))
+        })?;
 
     if let Some(if_none_match) = request.headers().get(header::IF_NONE_MATCH)
         && let Ok(value) = if_none_match.to_str()

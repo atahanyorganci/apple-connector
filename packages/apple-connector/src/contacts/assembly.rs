@@ -1,5 +1,8 @@
 use crate::{
-    apple_types::{ContactId, ContainerId, GroupId, SourceId, UnixTimestamp},
+    apple_types::{
+        ContactAddressId, ContactEmailId, ContactId, ContactPhoneId, ContactSocialProfileId,
+        ContactUrlId, ContainerId, GroupId, SourceId, UnixTimestamp,
+    },
     contacts::{
         labels::decode_label,
         model::{
@@ -37,8 +40,7 @@ pub fn group_from_row(row: GroupRow, source_id: SourceId) -> ContactGroup {
         source_id,
         container_id: row
             .container_unique_id
-            .map(|id| ContainerId::new(api_id_from_unique_id(&id)))
-            .unwrap_or_else(|| ContainerId::new("unknown")),
+            .map(|id| ContainerId::new(api_id_from_unique_id(&id))),
         name: row.name,
         is_smart_group: row.group_type.is_some_and(|t| t != 0),
         is_subscribed: false,
@@ -51,8 +53,7 @@ pub fn contact_summary_from_row(row: ContactRow, source_id: SourceId) -> Contact
         source_id,
         container_id: row
             .container_unique_id
-            .map(|id| ContainerId::new(api_id_from_unique_id(&id)))
-            .unwrap_or_else(|| ContainerId::new("unknown")),
+            .map(|id| ContainerId::new(api_id_from_unique_id(&id))),
         display_name: row.display_name.or_else(|| {
             Some(
                 [row.first_name.as_deref(), row.last_name.as_deref()]
@@ -88,8 +89,7 @@ pub fn contact_detail_from_row(
         source_id,
         container_id: row
             .container_unique_id
-            .map(|id| ContainerId::new(api_id_from_unique_id(&id)))
-            .unwrap_or_else(|| ContainerId::new("unknown")),
+            .map(|id| ContainerId::new(api_id_from_unique_id(&id))),
         display_name: row.display_name,
         first_name: row.first_name,
         last_name: row.last_name,
@@ -107,7 +107,7 @@ pub fn contact_detail_from_row(
             .into_iter()
             .filter_map(|phone| {
                 Some(ContactPhone {
-                    id: api_id_from_unique_id(&phone.unique_id),
+                    id: ContactPhoneId::new(api_id_from_unique_id(&phone.unique_id)),
                     label: decode_label(phone.label.as_deref()),
                     number: phone.number?,
                     is_primary: phone.is_primary.is_some_and(|v| v != 0),
@@ -118,7 +118,7 @@ pub fn contact_detail_from_row(
             .into_iter()
             .filter_map(|email| {
                 Some(ContactEmail {
-                    id: api_id_from_unique_id(&email.unique_id),
+                    id: ContactEmailId::new(api_id_from_unique_id(&email.unique_id)),
                     label: decode_label(email.label.as_deref()),
                     address: email.address?,
                     is_primary: email.is_primary.is_some_and(|v| v != 0),
@@ -128,7 +128,7 @@ pub fn contact_detail_from_row(
         addresses: addresses
             .into_iter()
             .map(|addr| ContactAddress {
-                id: api_id_from_unique_id(&addr.unique_id),
+                id: ContactAddressId::new(api_id_from_unique_id(&addr.unique_id)),
                 label: decode_label(addr.label.as_deref()),
                 street: addr.street,
                 city: addr.city,
@@ -142,7 +142,7 @@ pub fn contact_detail_from_row(
             .into_iter()
             .filter_map(|url| {
                 Some(ContactUrl {
-                    id: api_id_from_unique_id(&url.unique_id),
+                    id: ContactUrlId::new(api_id_from_unique_id(&url.unique_id)),
                     label: decode_label(url.label.as_deref()),
                     url: url.url?,
                     is_primary: url.is_primary.is_some_and(|v| v != 0),
@@ -152,7 +152,7 @@ pub fn contact_detail_from_row(
         social_profiles: socials
             .into_iter()
             .map(|profile| ContactSocialProfile {
-                id: api_id_from_unique_id(&profile.unique_id),
+                id: ContactSocialProfileId::new(api_id_from_unique_id(&profile.unique_id)),
                 label: decode_label(profile.label.as_deref()),
                 service: profile.service,
                 username: profile.username,

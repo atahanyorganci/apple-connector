@@ -51,11 +51,11 @@ pub async fn create_event(
 
     let pool = require_calendar_db(&state.calendar_db)?;
     let eventkit = require_eventkit_events(&state).await?;
-    let calendar_id = path.calendar_id.as_str();
+    let calendar_id = path.validated()?;
 
     let metadata = run_timed_query(|| async {
         CalendarRepository::new(pool)
-            .get_calendar_resolve_metadata(calendar_id)
+            .get_calendar_resolve_metadata(calendar_id.as_str())
             .await
     })
     .await
@@ -95,7 +95,7 @@ pub async fn update_event(
 
     let pool = require_calendar_db(&state.calendar_db)?;
     let eventkit = require_eventkit_events(&state).await?;
-    let event_id = path.event_id.as_str();
+    let event_id = path.validated()?;
 
     let calendar_hint = if let Some(calendar_id) = request.calendar_id.as_ref() {
         let metadata = run_timed_query(|| async {
@@ -113,7 +113,7 @@ pub async fn update_event(
 
     let external_id = run_timed_query(|| async {
         CalendarRepository::new(pool)
-            .get_event_external_id(event_id)
+            .get_event_external_id(event_id.as_str())
             .await
     })
     .await
@@ -122,7 +122,7 @@ pub async fn update_event(
     let span = request.span.unwrap_or(EventSpanDto::This);
     let saved = eventkit
         .update_event(
-            event_id,
+            event_id.as_str(),
             external_id.as_deref(),
             params.occurrence_start.map(|value| value.seconds()),
             update_event_input(request, calendar_hint, span),
@@ -156,10 +156,10 @@ pub async fn delete_event(
 
     let pool = require_calendar_db(&state.calendar_db)?;
     let eventkit = require_eventkit_events(&state).await?;
-    let event_id = path.event_id.as_str();
+    let event_id = path.validated()?;
     let external_id = run_timed_query(|| async {
         CalendarRepository::new(pool)
-            .get_event_external_id(event_id)
+            .get_event_external_id(event_id.as_str())
             .await
     })
     .await
@@ -168,7 +168,7 @@ pub async fn delete_event(
     let span = params.span.unwrap_or(EventSpanDto::This);
     eventkit
         .delete_event(
-            event_id,
+            event_id.as_str(),
             external_id.as_deref(),
             delete_event_input(span, params.occurrence_start.map(|value| value.seconds())),
         )

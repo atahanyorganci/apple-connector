@@ -101,11 +101,6 @@ pub struct SocialRow {
 }
 
 #[derive(Debug, Clone, FromRow)]
-pub struct GroupIdRow {
-    pub unique_id: String,
-}
-
-#[derive(Debug, Clone, FromRow)]
 pub struct PhotoRow {
     pub photo_data: Option<Vec<u8>>,
     pub image_type: Option<String>,

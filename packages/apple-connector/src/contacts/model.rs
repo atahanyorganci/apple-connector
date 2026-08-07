@@ -1,4 +1,7 @@
-use crate::apple_types::{ContactId, ContainerId, GroupId, SourceId, UnixTimestamp};
+use crate::apple_types::{
+    ContactAddressId, ContactEmailId, ContactId, ContactPhoneId, ContactSocialProfileId,
+    ContactUrlId, ContainerId, GroupId, SourceId, UnixTimestamp,
+};
 
 /// AddressBook account container (CNCDContainer).
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -18,7 +21,7 @@ pub type ContainerDetail = Container;
 pub struct ContactGroup {
     pub id: GroupId,
     pub source_id: SourceId,
-    pub container_id: ContainerId,
+    pub container_id: Option<ContainerId>,
     pub name: Option<String>,
     pub is_smart_group: bool,
     pub is_subscribed: bool,
@@ -29,7 +32,7 @@ pub struct ContactGroup {
 pub struct ContactSummary {
     pub id: ContactId,
     pub source_id: SourceId,
-    pub container_id: ContainerId,
+    pub container_id: Option<ContainerId>,
     pub display_name: Option<String>,
     pub first_name: Option<String>,
     pub last_name: Option<String>,
@@ -42,7 +45,7 @@ pub struct ContactSummary {
 pub struct ContactDetail {
     pub id: ContactId,
     pub source_id: SourceId,
-    pub container_id: ContainerId,
+    pub container_id: Option<ContainerId>,
     pub display_name: Option<String>,
     pub first_name: Option<String>,
     pub last_name: Option<String>,
@@ -68,7 +71,7 @@ pub type Contact = ContactDetail;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ContactPhone {
-    pub id: String,
+    pub id: ContactPhoneId,
     pub label: Option<String>,
     pub number: String,
     pub is_primary: bool,
@@ -76,7 +79,7 @@ pub struct ContactPhone {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ContactEmail {
-    pub id: String,
+    pub id: ContactEmailId,
     pub label: Option<String>,
     pub address: String,
     pub is_primary: bool,
@@ -84,7 +87,7 @@ pub struct ContactEmail {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ContactAddress {
-    pub id: String,
+    pub id: ContactAddressId,
     pub label: Option<String>,
     pub street: Option<String>,
     pub city: Option<String>,
@@ -96,7 +99,7 @@ pub struct ContactAddress {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ContactUrl {
-    pub id: String,
+    pub id: ContactUrlId,
     pub label: Option<String>,
     pub url: String,
     pub is_primary: bool,
@@ -104,7 +107,7 @@ pub struct ContactUrl {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ContactSocialProfile {
-    pub id: String,
+    pub id: ContactSocialProfileId,
     pub label: Option<String>,
     pub service: Option<String>,
     pub username: Option<String>,

@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use axum::{
     Json,
     extract::{Query, State},
@@ -39,6 +41,11 @@ pub async fn list_notes(
     Query(params): Query<NoteListParams>,
 ) -> Result<Json<NotePageDto>, ApiError> {
     let pool = require_notes_db(&state.notes_db)?;
+
+    let note_entity_ids = state
+        .cached_notes_entity_ids()
+        .await
+        .map_err(|error| ApiError::internal(error.to_string()))?;
     let limit = params.validated_limit()?;
     params.validated_cursor()?;
     let filters = params.validated_filters()?;
@@ -51,7 +58,7 @@ pub async fn list_notes(
             .map(|value| decode_note_search_cursor(value, &filter_snapshot))
             .transpose()?;
         run_timed_query(|| async {
-            NoteRepository::new(pool)
+            NoteRepository::with_entity_ids(pool, Arc::clone(&note_entity_ids))
                 .search_notes(&filters, limit, cursor)
                 .await
         })
@@ -70,7 +77,7 @@ pub async fn list_notes(
             Some(value) => Some(decode::<GlobalNoteCursor>(value)?),
         };
         run_timed_query(|| async {
-            NoteRepository::new(pool)
+            NoteRepository::with_entity_ids(pool, Arc::clone(&note_entity_ids))
                 .list_notes(&filters, limit, cursor)
                 .await
         })
@@ -101,17 +108,27 @@ pub async fn list_notes(
 )]
 pub async fn get_note(
     State(state): State<AppState>,
-    axum::extract::Path(NoteIdPath { note_id }): axum::extract::Path<NoteIdPath>,
+    axum::extract::Path(path): axum::extract::Path<NoteIdPath>,
 ) -> Result<Json<NoteDetailDto>, ApiError> {
+    let note_id = path.validated()?;
     let pool = require_notes_db(&state.notes_db)?;
-    let note = run_timed_query(|| async { NoteRepository::new(pool).get_note(&note_id).await })
+
+    let note_entity_ids = state
+        .cached_notes_entity_ids()
         .await
-        .map_err(|error| ApiError::internal(error.to_string()))?
-        .ok_or_else(|| ApiError::not_found(format!("note {note_id} not found")))?;
+        .map_err(|error| ApiError::internal(error.to_string()))?;
+    let note = run_timed_query(|| async {
+        NoteRepository::with_entity_ids(pool, Arc::clone(&note_entity_ids))
+            .get_note(note_id.as_str())
+            .await
+    })
+    .await
+    .map_err(|error| ApiError::internal(error.to_string()))?
+    .ok_or_else(|| ApiError::not_found(format!("note {note_id} not found")))?;
 
     let attachments = run_timed_query(|| async {
-        NoteRepository::new(pool)
-            .list_attachments_for_note(note.summary.row_id)
+        NoteRepository::with_entity_ids(pool, Arc::clone(&note_entity_ids))
+            .list_attachments_for_note(note.summary.row_id.get())
             .await
     })
     .await
@@ -145,17 +162,27 @@ pub async fn get_note(
 )]
 pub async fn get_note_contents(
     State(state): State<AppState>,
-    axum::extract::Path(NoteIdPath { note_id }): axum::extract::Path<NoteIdPath>,
+    axum::extract::Path(path): axum::extract::Path<NoteIdPath>,
 ) -> Result<Response, ApiError> {
+    let note_id = path.validated()?;
     let pool = require_notes_db(&state.notes_db)?;
-    let note = run_timed_query(|| async { NoteRepository::new(pool).get_note(&note_id).await })
+
+    let note_entity_ids = state
+        .cached_notes_entity_ids()
         .await
-        .map_err(|error| ApiError::internal(error.to_string()))?
-        .ok_or_else(|| ApiError::not_found(format!("note {note_id} not found")))?;
+        .map_err(|error| ApiError::internal(error.to_string()))?;
+    let note = run_timed_query(|| async {
+        NoteRepository::with_entity_ids(pool, Arc::clone(&note_entity_ids))
+            .get_note(note_id.as_str())
+            .await
+    })
+    .await
+    .map_err(|error| ApiError::internal(error.to_string()))?
+    .ok_or_else(|| ApiError::not_found(format!("note {note_id} not found")))?;
 
     let tags = run_timed_query(|| async {
-        NoteRepository::new(pool)
-            .fetch_tags_for_note(note.summary.row_id)
+        NoteRepository::with_entity_ids(pool, Arc::clone(&note_entity_ids))
+            .fetch_tags_for_note(note.summary.row_id.get())
             .await
     })
     .await

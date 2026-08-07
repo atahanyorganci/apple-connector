@@ -9,6 +9,15 @@ use super::{
     dto::pagination::{DEFAULT_PAGE_LIMIT, MAX_PAGE_LIMIT},
     error::ApiError,
 };
+use crate::apple_types::{
+    AttachmentId, CalendarAttachmentId, CalendarId, ChatId, ContactId, ContainerId, EventId,
+    GroupId, IdValidationError, MessageId, NoteAttachmentId, NoteFolderId, NoteId,
+    ReminderAttachmentId, ReminderId, ReminderListId,
+};
+
+fn id_validation_error(error: IdValidationError) -> ApiError {
+    ApiError::validation_with_details(error.message, serde_json::json!({ "field": error.kind }))
+}
 
 pub const CURSOR_VERSION: &str = "v1";
 pub const MAX_SEARCH_QUERY_LEN: usize = 256;
@@ -142,7 +151,7 @@ pub struct MessageListParams {
 
     /// Restrict results to messages in this chat.
     #[param(example = 42)]
-    pub chat_id: Option<i64>,
+    pub chat_id: Option<ChatId>,
 
     /// Restrict results to messages from this handle identifier.
     #[param(example = "+15551234567")]
@@ -243,9 +252,18 @@ impl MessageListParams {
             ));
         }
 
+        let chat_id = match self.chat_id {
+            None => None,
+            Some(id) => Some(
+                ChatId::try_new(id.get())
+                    .map_err(id_validation_error)?
+                    .get(),
+            ),
+        };
+
         Ok(crate::messages::search::MessageFilters {
             q,
-            chat_id: self.chat_id,
+            chat_id,
             sender,
             before,
             after,
@@ -274,7 +292,13 @@ fn parse_rfc3339_to_apple_nanos(value: &str, field: &str) -> Result<i64, ApiErro
 pub struct ChatIdPath {
     /// Internal chat row identifier.
     #[param(example = 42)]
-    pub chat_id: i64,
+    pub chat_id: ChatId,
+}
+
+impl ChatIdPath {
+    pub fn validated(&self) -> Result<ChatId, ApiError> {
+        ChatId::try_new(self.chat_id.get()).map_err(id_validation_error)
+    }
 }
 
 #[derive(Debug, Clone, Deserialize, IntoParams, ToSchema)]
@@ -282,7 +306,13 @@ pub struct ChatIdPath {
 pub struct MessageGuidPath {
     /// Message GUID.
     #[param(example = "A1B2C3D4-E5F6-7890-ABCD-EF1234567890")]
-    pub guid: String,
+    pub guid: MessageId,
+}
+
+impl MessageGuidPath {
+    pub fn validated(&self) -> Result<MessageId, ApiError> {
+        MessageId::try_new(self.guid.as_str()).map_err(id_validation_error)
+    }
 }
 
 #[derive(Debug, Clone, Deserialize, IntoParams, ToSchema)]
@@ -290,7 +320,13 @@ pub struct MessageGuidPath {
 pub struct AttachmentGuidPath {
     /// Attachment GUID.
     #[param(example = "at_0_1234567890ABCDEF")]
-    pub guid: String,
+    pub guid: AttachmentId,
+}
+
+impl AttachmentGuidPath {
+    pub fn validated(&self) -> Result<AttachmentId, ApiError> {
+        AttachmentId::try_new(self.guid.as_str()).map_err(id_validation_error)
+    }
 }
 
 #[derive(Debug, Clone, Deserialize, IntoParams, ToSchema)]
@@ -446,19 +482,37 @@ impl ReminderListKey {
 #[derive(Debug, Clone, Deserialize, IntoParams, ToSchema)]
 #[into_params(parameter_in = Path)]
 pub struct ReminderListIdPath {
-    pub list_id: String,
+    pub list_id: ReminderListId,
+}
+
+impl ReminderListIdPath {
+    pub fn validated_key(&self) -> Result<ReminderListKey, ApiError> {
+        ReminderListKey::parse(self.list_id.as_str())
+    }
 }
 
 #[derive(Debug, Clone, Deserialize, IntoParams, ToSchema)]
 #[into_params(parameter_in = Path)]
 pub struct ReminderIdPath {
-    pub reminder_id: String,
+    pub reminder_id: ReminderId,
+}
+
+impl ReminderIdPath {
+    pub fn validated(&self) -> Result<ReminderId, ApiError> {
+        ReminderId::try_new(self.reminder_id.as_str()).map_err(id_validation_error)
+    }
 }
 
 #[derive(Debug, Clone, Deserialize, IntoParams, ToSchema)]
 #[into_params(parameter_in = Path)]
 pub struct ReminderAttachmentIdPath {
-    pub id: String,
+    pub id: ReminderAttachmentId,
+}
+
+impl ReminderAttachmentIdPath {
+    pub fn validated(&self) -> Result<ReminderAttachmentId, ApiError> {
+        ReminderAttachmentId::try_new(self.id.as_str()).map_err(id_validation_error)
+    }
 }
 
 #[derive(Debug, Clone, Deserialize, IntoParams, ToSchema)]
@@ -642,19 +696,37 @@ impl NoteFolderKey {
 #[derive(Debug, Clone, Deserialize, IntoParams, ToSchema)]
 #[into_params(parameter_in = Path)]
 pub struct NoteFolderIdPath {
-    pub folder_id: String,
+    pub folder_id: NoteFolderId,
+}
+
+impl NoteFolderIdPath {
+    pub fn validated_key(&self) -> Result<NoteFolderKey, ApiError> {
+        NoteFolderKey::parse(self.folder_id.as_str())
+    }
 }
 
 #[derive(Debug, Clone, Deserialize, IntoParams, ToSchema)]
 #[into_params(parameter_in = Path)]
 pub struct NoteIdPath {
-    pub note_id: String,
+    pub note_id: NoteId,
+}
+
+impl NoteIdPath {
+    pub fn validated(&self) -> Result<NoteId, ApiError> {
+        NoteId::try_new(self.note_id.as_str()).map_err(id_validation_error)
+    }
 }
 
 #[derive(Debug, Clone, Deserialize, IntoParams, ToSchema)]
 #[into_params(parameter_in = Path)]
 pub struct NoteAttachmentIdPath {
-    pub id: String,
+    pub id: NoteAttachmentId,
+}
+
+impl NoteAttachmentIdPath {
+    pub fn validated(&self) -> Result<NoteAttachmentId, ApiError> {
+        NoteAttachmentId::try_new(self.id.as_str()).map_err(id_validation_error)
+    }
 }
 
 #[derive(Debug, Clone, Deserialize, IntoParams, ToSchema)]
@@ -867,45 +939,94 @@ impl EventListParams {
 #[derive(Debug, Clone, Deserialize, IntoParams, ToSchema)]
 #[into_params(parameter_in = Path)]
 pub struct CalendarIdPath {
-    pub calendar_id: String,
+    pub calendar_id: CalendarId,
+}
+
+impl CalendarIdPath {
+    pub fn validated(&self) -> Result<CalendarId, ApiError> {
+        CalendarId::try_new(self.calendar_id.as_str()).map_err(id_validation_error)
+    }
 }
 
 #[derive(Debug, Clone, Deserialize, IntoParams, ToSchema)]
 #[into_params(parameter_in = Path)]
 pub struct EventIdPath {
-    pub event_id: String,
+    pub event_id: EventId,
+}
+
+impl EventIdPath {
+    pub fn validated(&self) -> Result<EventId, ApiError> {
+        EventId::try_new(self.event_id.as_str()).map_err(id_validation_error)
+    }
 }
 
 #[derive(Debug, Clone, Deserialize, IntoParams, ToSchema)]
 #[into_params(parameter_in = Path)]
 pub struct EventAttachmentIdPath {
-    pub event_id: String,
-    pub attachment_id: String,
+    pub event_id: EventId,
+    pub attachment_id: CalendarAttachmentId,
+}
+
+impl EventAttachmentIdPath {
+    pub fn validated(&self) -> Result<(EventId, CalendarAttachmentId), ApiError> {
+        Ok((
+            EventId::try_new(self.event_id.as_str()).map_err(id_validation_error)?,
+            CalendarAttachmentId::try_new(self.attachment_id.as_str())
+                .map_err(id_validation_error)?,
+        ))
+    }
 }
 
 #[derive(Debug, Clone, Deserialize, IntoParams, ToSchema)]
 #[into_params(parameter_in = Path)]
 pub struct ContainerIdPath {
-    pub container_id: String,
+    pub container_id: ContainerId,
+}
+
+impl ContainerIdPath {
+    pub fn validated(&self) -> Result<ContainerId, ApiError> {
+        ContainerId::try_new(self.container_id.as_str()).map_err(id_validation_error)
+    }
 }
 
 #[derive(Debug, Clone, Deserialize, IntoParams, ToSchema)]
 #[into_params(parameter_in = Path)]
 pub struct GroupIdPath {
-    pub group_id: String,
+    pub group_id: GroupId,
+}
+
+impl GroupIdPath {
+    pub fn validated(&self) -> Result<GroupId, ApiError> {
+        GroupId::try_new(self.group_id.as_str()).map_err(id_validation_error)
+    }
 }
 
 #[derive(Debug, Clone, Deserialize, IntoParams, ToSchema)]
 #[into_params(parameter_in = Path)]
 pub struct ContactIdPath {
-    pub contact_id: String,
+    pub contact_id: ContactId,
+}
+
+impl ContactIdPath {
+    pub fn validated(&self) -> Result<ContactId, ApiError> {
+        ContactId::try_new(self.contact_id.as_str()).map_err(id_validation_error)
+    }
 }
 
 #[derive(Debug, Clone, Deserialize, IntoParams, ToSchema)]
 #[into_params(parameter_in = Path)]
 pub struct ContactGroupPath {
-    pub group_id: String,
-    pub contact_id: String,
+    pub group_id: GroupId,
+    pub contact_id: ContactId,
+}
+
+impl ContactGroupPath {
+    pub fn validated(&self) -> Result<(GroupId, ContactId), ApiError> {
+        Ok((
+            GroupId::try_new(self.group_id.as_str()).map_err(id_validation_error)?,
+            ContactId::try_new(self.contact_id.as_str()).map_err(id_validation_error)?,
+        ))
+    }
 }
 
 #[derive(Debug, Clone, Deserialize, IntoParams, ToSchema)]

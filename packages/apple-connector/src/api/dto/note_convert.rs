@@ -8,13 +8,14 @@ use super::{
     },
     pagination::PageMetaDto,
 };
-use crate::{
-    apple_types::{NoteAttachmentId, NoteFolderId, NoteId},
-    notes::{
-        ChecklistItem, EmbeddedObject, FolderKind, NoteAttachment, NoteBody, NoteDetail,
-        NoteFolder, NoteRun, NoteSummary, ParagraphStyle, ParagraphStyleKind,
-    },
+use crate::notes::{
+    ChecklistItem, EmbeddedObject, FolderKind, NoteAttachment, NoteBody, NoteDetail, NoteFolder,
+    NoteRun, NoteSummary, ParagraphStyle, ParagraphStyleKind,
 };
+
+fn display_title(title: &Option<String>) -> String {
+    title.as_deref().unwrap_or("Untitled").to_owned()
+}
 
 pub fn note_folder_page_to_dto(
     items: Vec<NoteFolder>,
@@ -50,23 +51,23 @@ pub fn note_page_to_dto(
 
 pub fn note_folder_summary_to_dto(folder: &NoteFolder) -> NoteFolderSummaryDto {
     NoteFolderSummaryDto {
-        id: NoteFolderId::new(folder.id.clone()),
-        row_id: folder.row_id,
-        title: folder.title.clone(),
+        id: folder.id.clone(),
+        row_id: folder.row_id.get(),
+        title: display_title(&folder.title),
         kind: folder_kind_to_dto(&folder.kind),
-        parent_id: folder.parent_id.clone().map(NoteFolderId::new),
+        parent_id: folder.parent_id.clone(),
         modified_at: folder.modified_at.map(timestamp_to_unix),
     }
 }
 
 pub fn note_folder_detail_to_dto(folder: &NoteFolder) -> NoteFolderDetailDto {
     NoteFolderDetailDto {
-        id: NoteFolderId::new(folder.id.clone()),
-        row_id: folder.row_id,
-        title: folder.title.clone(),
+        id: folder.id.clone(),
+        row_id: folder.row_id.get(),
+        title: display_title(&folder.title),
         kind: folder_kind_to_dto(&folder.kind),
-        parent_id: folder.parent_id.clone().map(NoteFolderId::new),
-        parent_row_id: folder.parent_row_id,
+        parent_id: folder.parent_id.clone(),
+        parent_row_id: folder.parent_row_id.map(|id| id.get()),
         account_id: folder.account_id.clone(),
         modified_at: folder.modified_at.map(timestamp_to_unix),
     }
@@ -74,12 +75,12 @@ pub fn note_folder_detail_to_dto(folder: &NoteFolder) -> NoteFolderDetailDto {
 
 pub fn note_summary_to_dto(note: &NoteSummary) -> NoteSummaryDto {
     NoteSummaryDto {
-        id: NoteId::new(note.id.clone()),
-        row_id: note.row_id,
-        title: note.title.clone(),
+        id: note.id.clone(),
+        row_id: note.row_id.get(),
+        title: display_title(&note.title),
         snippet: note.snippet.clone(),
-        folder_id: note.folder_id.clone().map(NoteFolderId::new),
-        folder_row_id: note.folder_row_id,
+        folder_id: note.folder_id.clone(),
+        folder_row_id: note.folder_row_id.map(|id| id.get()),
         folder_name: note.folder_name.clone(),
         folder_kind: folder_kind_to_dto(&note.folder_kind),
         is_pinned: note.is_pinned,
@@ -95,12 +96,12 @@ pub fn note_summary_to_dto(note: &NoteSummary) -> NoteSummaryDto {
 pub fn note_detail_to_dto(note: &NoteDetail, attachments: &[NoteAttachment]) -> NoteDetailDto {
     let summary = &note.summary;
     NoteDetailDto {
-        id: NoteId::new(summary.id.clone()),
-        row_id: summary.row_id,
-        title: summary.title.clone(),
+        id: summary.id.clone(),
+        row_id: summary.row_id.get(),
+        title: display_title(&summary.title),
         snippet: summary.snippet.clone(),
-        folder_id: summary.folder_id.clone().map(NoteFolderId::new),
-        folder_row_id: summary.folder_row_id,
+        folder_id: summary.folder_id.clone(),
+        folder_row_id: summary.folder_row_id.map(|id| id.get()),
         folder_name: summary.folder_name.clone(),
         folder_kind: folder_kind_to_dto(&summary.folder_kind),
         is_pinned: summary.is_pinned,
@@ -120,12 +121,12 @@ pub fn note_detail_to_dto(note: &NoteDetail, attachments: &[NoteAttachment]) -> 
 
 pub fn note_attachment_detail_to_dto(attachment: &NoteAttachment) -> NoteAttachmentDetailDto {
     NoteAttachmentDetailDto {
-        id: NoteAttachmentId::new(attachment.id.clone()),
-        row_id: attachment.row_id,
+        id: attachment.id.clone(),
+        row_id: attachment.row_id.get(),
         filename: attachment.filename.clone(),
         uti: attachment.uti.clone(),
         file_size: attachment.file_size,
-        note_id: NoteId::new(attachment.note_id.clone()),
+        note_id: attachment.note_id.clone(),
         modified_at: attachment.modified_at.map(timestamp_to_unix),
     }
 }
@@ -192,8 +193,8 @@ fn embedded_object_to_dto(object: &EmbeddedObject) -> EmbeddedObjectDto {
 
 fn note_attachment_summary_to_dto(attachment: &NoteAttachment) -> NoteAttachmentSummaryDto {
     NoteAttachmentSummaryDto {
-        id: NoteAttachmentId::new(attachment.id.clone()),
-        row_id: attachment.row_id,
+        id: attachment.id.clone(),
+        row_id: attachment.row_id.get(),
         filename: attachment.filename.clone(),
         uti: attachment.uti.clone(),
         file_size: attachment.file_size,

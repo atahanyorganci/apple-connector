@@ -9,14 +9,11 @@ use super::{
     common::timestamp_to_unix,
     pagination::PageMetaDto,
 };
-use crate::{
-    apple_types::{CalendarAccountId, CalendarAttachmentId, CalendarId, EventId},
-    calendar::{
-        CalendarAccount, CalendarDetail, CalendarSummary, EventAttachment, EventDetail,
-        EventLocation, EventParticipant, EventSummary, RecurrenceRule,
-        enums::{Availability, EventClass, EventStatus, InvitationStatus, PrivacyLevel, StoreType},
-        model::EventAlarm,
-    },
+use crate::calendar::{
+    CalendarAccount, CalendarDetail, CalendarSummary, EventAttachment, EventDetail, EventLocation,
+    EventParticipant, EventSummary, RecurrenceRule,
+    enums::{Availability, EventClass, EventStatus, InvitationStatus, PrivacyLevel, StoreType},
+    model::EventAlarm,
 };
 
 pub fn calendar_account_page_to_dto(items: Vec<CalendarAccount>) -> CalendarAccountPageDto {
@@ -27,8 +24,8 @@ pub fn calendar_account_page_to_dto(items: Vec<CalendarAccount>) -> CalendarAcco
 
 pub fn calendar_account_to_dto(account: &CalendarAccount) -> CalendarAccountDto {
     CalendarAccountDto {
-        id: CalendarAccountId::new(account.id.clone()),
-        row_id: account.row_id,
+        id: account.id.clone(),
+        row_id: account.row_id.get(),
         name: account.name.clone(),
         store_type: store_type_to_dto(account.store_type),
         disabled: account.disabled,
@@ -53,12 +50,12 @@ pub fn calendar_page_to_dto(
 
 pub fn calendar_summary_to_dto(calendar: &CalendarSummary) -> CalendarSummaryDto {
     CalendarSummaryDto {
-        id: CalendarId::new(calendar.id.clone()),
-        row_id: calendar.row_id,
+        id: calendar.id.clone(),
+        row_id: calendar.row_id.get(),
         title: calendar.title.clone(),
         color: calendar.color.clone(),
-        account_id: CalendarAccountId::new(calendar.account_id.clone()),
-        account_row_id: calendar.account_row_id,
+        account_id: calendar.account_id.clone(),
+        account_row_id: calendar.account_row_id.get(),
     }
 }
 
@@ -88,10 +85,10 @@ pub fn event_page_to_dto(
 
 pub fn event_summary_to_dto(event: &EventSummary) -> EventSummaryDto {
     EventSummaryDto {
-        id: EventId::new(event.id.clone()),
-        row_id: event.row_id,
-        calendar_id: CalendarId::new(event.calendar_id.clone()),
-        calendar_row_id: event.calendar_row_id,
+        id: event.id.clone(),
+        row_id: event.row_id.get(),
+        calendar_id: event.calendar_id.clone(),
+        calendar_row_id: event.calendar_row_id.get(),
         summary: event.summary.clone(),
         start: event.start.map(timestamp_to_unix),
         end: event.end.map(timestamp_to_unix),
@@ -131,8 +128,8 @@ pub fn event_detail_to_dto(event: &EventDetail) -> EventDetailDto {
         invitation_status: invitation_status_to_dto(event.invitation_status),
         availability: availability_to_dto(event.availability),
         privacy_level: privacy_level_to_dto(event.privacy_level),
-        series_id: event.series_id.as_ref().map(|id| EventId::new(id.clone())),
-        series_row_id: event.series_row_id,
+        series_id: event.series_id.clone(),
+        series_row_id: event.series_row_id.map(|id| id.get()),
         original_start: event.original_start.map(timestamp_to_unix),
         last_modified: event.last_modified.map(timestamp_to_unix),
         creation_date: event.creation_date.map(timestamp_to_unix),
@@ -150,8 +147,8 @@ pub fn attachment_detail_to_dto(attachment: &EventAttachment) -> EventAttachment
 
 fn attachment_summary_to_dto(attachment: &EventAttachment) -> EventAttachmentSummaryDto {
     EventAttachmentSummaryDto {
-        id: CalendarAttachmentId::new(attachment.id.clone()),
-        row_id: attachment.row_id,
+        id: attachment.id.clone(),
+        row_id: attachment.row_id.get(),
         filename: attachment.filename.clone(),
         format: attachment.format.clone(),
         file_size: attachment.file_size,
@@ -208,6 +205,7 @@ fn store_type_to_dto(store_type: StoreType) -> StoreTypeDto {
         StoreType::Exchange => StoreTypeDto::Exchange,
         StoreType::Subscription => StoreTypeDto::Subscription,
         StoreType::Birthday => StoreTypeDto::Birthday,
+        StoreType::Unknown(code) => StoreTypeDto::Unknown { code },
     }
 }
 
@@ -216,6 +214,7 @@ fn event_status_to_dto(status: EventStatus) -> EventStatusDto {
         EventStatus::Confirmed => EventStatusDto::Confirmed,
         EventStatus::Tentative => EventStatusDto::Tentative,
         EventStatus::Cancelled => EventStatusDto::Cancelled,
+        EventStatus::Unknown(code) => EventStatusDto::Unknown { code },
     }
 }
 
@@ -226,6 +225,7 @@ fn invitation_status_to_dto(status: InvitationStatus) -> InvitationStatusDto {
         InvitationStatus::Declined => InvitationStatusDto::Declined,
         InvitationStatus::Tentative => InvitationStatusDto::Tentative,
         InvitationStatus::NeedsAction => InvitationStatusDto::NeedsAction,
+        InvitationStatus::Raw(code) => InvitationStatusDto::Raw { code },
     }
 }
 
@@ -235,6 +235,7 @@ fn availability_to_dto(availability: Availability) -> AvailabilityDto {
         Availability::Free => AvailabilityDto::Free,
         Availability::Tentative => AvailabilityDto::Tentative,
         Availability::Unavailable => AvailabilityDto::Unavailable,
+        Availability::Unknown(code) => AvailabilityDto::Unknown { code },
     }
 }
 
@@ -243,6 +244,7 @@ fn privacy_level_to_dto(level: PrivacyLevel) -> PrivacyLevelDto {
         PrivacyLevel::Default => PrivacyLevelDto::Default,
         PrivacyLevel::Public => PrivacyLevelDto::Public,
         PrivacyLevel::Private => PrivacyLevelDto::Private,
+        PrivacyLevel::Unknown(code) => PrivacyLevelDto::Unknown { code },
     }
 }
 
@@ -251,5 +253,6 @@ fn event_class_to_dto(class: EventClass) -> EventClassDto {
         EventClass::Standard => EventClassDto::Standard,
         EventClass::Birthday => EventClassDto::Birthday,
         EventClass::SpecialDay => EventClassDto::SpecialDay,
+        EventClass::Unknown(code) => EventClassDto::Unknown { code },
     }
 }

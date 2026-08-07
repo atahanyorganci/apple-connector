@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use axum::{
     Json,
     extract::{Query, State},
@@ -37,6 +39,11 @@ pub async fn list_reminders(
     Query(params): Query<ReminderListParams>,
 ) -> Result<Json<ReminderPageDto>, ApiError> {
     let pool = require_reminders_db(&state.reminders_db)?;
+
+    let reminder_entity_ids = state
+        .cached_reminders_entity_ids()
+        .await
+        .map_err(|error| ApiError::internal(error.to_string()))?;
     let limit = params.validated_limit()?;
     params.validated_cursor()?;
     let filters = params.validated_filters()?;
@@ -51,7 +58,7 @@ pub async fn list_reminders(
             .map(|value| decode_reminder_search_cursor(value, &filter_snapshot))
             .transpose()?;
         run_timed_query(|| async {
-            ReminderRepository::new(pool)
+            ReminderRepository::with_entity_ids(pool, Arc::clone(&reminder_entity_ids))
                 .search_reminders(&filters, limit, cursor, include_subtasks, include_tags)
                 .await
         })
@@ -70,7 +77,7 @@ pub async fn list_reminders(
             Some(value) => Some(decode::<GlobalReminderCursor>(value)?),
         };
         run_timed_query(|| async {
-            ReminderRepository::new(pool)
+            ReminderRepository::with_entity_ids(pool, Arc::clone(&reminder_entity_ids))
                 .list_reminders(
                     &filters,
                     limit,
@@ -108,12 +115,18 @@ pub async fn list_reminders(
 )]
 pub async fn get_reminder(
     State(state): State<AppState>,
-    axum::extract::Path(ReminderIdPath { reminder_id }): axum::extract::Path<ReminderIdPath>,
+    axum::extract::Path(path): axum::extract::Path<ReminderIdPath>,
 ) -> Result<Json<ReminderDetailDto>, ApiError> {
+    let reminder_id = path.validated()?;
     let pool = require_reminders_db(&state.reminders_db)?;
+
+    let reminder_entity_ids = state
+        .cached_reminders_entity_ids()
+        .await
+        .map_err(|error| ApiError::internal(error.to_string()))?;
     let reminder = run_timed_query(|| async {
-        ReminderRepository::new(pool)
-            .get_reminder(&reminder_id)
+        ReminderRepository::with_entity_ids(pool, Arc::clone(&reminder_entity_ids))
+            .get_reminder(reminder_id.as_str())
             .await
     })
     .await

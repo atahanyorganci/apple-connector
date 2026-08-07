@@ -9,3 +9,8 @@ pub fn json_ids(ids: &[i64]) -> String {
 pub fn optional_bool_filter(value: Option<bool>) -> Option<i64> {
     value.map(i64::from)
 }
+
+/// Serialize string keys for SQLite `json_each(?)` IN-clause lookups.
+pub fn json_strings(values: &[&str]) -> String {
+    serde_json::to_string(values).unwrap_or_else(|_| "[]".to_owned())
+}

@@ -26,6 +26,7 @@ pub enum AttributedBodyErrorDto {
     InvalidTypedStream,
     NotAttributedString,
     MissingText,
+    PayloadTooLarge,
 }
 
 #[derive(Debug, Clone, Serialize, ToSchema)]

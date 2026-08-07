@@ -50,7 +50,7 @@ impl<'a> CalendarRepository<'a> {
     pub async fn list_accounts(&self) -> Result<Vec<CalendarAccount>, sqlx::Error> {
         crate::db::run_timed_query(|| async {
             let rows = fetch_stores_ordered(self.pool).await?;
-            Ok(rows.into_iter().map(account_from_row).collect())
+            Ok(rows.into_iter().filter_map(account_from_row).collect())
         })
         .await
     }
@@ -79,7 +79,11 @@ impl<'a> CalendarRepository<'a> {
             .flatten()
             .flatten();
         Ok(Page {
-            items: rows.into_iter().map(calendar_summary_from_row).collect(),
+            items: rows
+                .into_iter()
+                .map(calendar_summary_from_row)
+                .filter(|summary| summary.account_id.is_some())
+                .collect(),
             has_more,
             next_cursor,
         })
@@ -334,6 +338,7 @@ mod tests {
     use super::{CalendarRepository, unix_to_core_data_secs};
     use crate::{
         api::cursor::decode,
+        apple_types::EventId,
         connect_pool,
         fixtures::{CalendarFixtureDb, SEED_EVENT_ID},
     };
@@ -358,13 +363,18 @@ mod tests {
         let calendar_id = calendars.items[0].id.clone();
 
         let first = repo
-            .list_calendar_events(&calendar_id, &Default::default(), 1, None)
+            .list_calendar_events(calendar_id.as_str(), &Default::default(), 1, None)
             .await?;
         assert!(first.has_more);
         let cursor = first.next_cursor.ok_or("missing cursor")?;
 
         let second = repo
-            .list_calendar_events(&calendar_id, &Default::default(), 1, Some(decode(&cursor)?))
+            .list_calendar_events(
+                calendar_id.as_str(),
+                &Default::default(),
+                1,
+                Some(decode(&cursor)?),
+            )
             .await?;
         assert_ne!(first.items[0].id, second.items[0].id);
         Ok(())
@@ -376,10 +386,10 @@ mod tests {
         let pool = connect_pool(fixture.path()).await?;
         let repo = CalendarRepository::new(&pool);
         let event = repo
-            .get_event(SEED_EVENT_ID)
+            .get_event(EventId::new(SEED_EVENT_ID).as_str())
             .await?
             .ok_or("event not found")?;
-        assert_eq!(event.summary.id, SEED_EVENT_ID);
+        assert_eq!(event.summary.id, EventId::new(SEED_EVENT_ID));
         assert!(!event.attendees.is_empty());
         assert!(event.location.is_some());
         Ok(())

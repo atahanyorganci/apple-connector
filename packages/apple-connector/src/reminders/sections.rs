@@ -6,6 +6,7 @@ use super::{
     model::{Section, SmartFilter},
     row::SectionRow,
 };
+use crate::apple_types::{RowId, SectionId};
 
 #[derive(Debug, Deserialize)]
 struct MembershipDocument {
@@ -23,11 +24,11 @@ struct MembershipEntry {
 
 pub fn section_from_row(row: SectionRow) -> Section {
     Section {
-        row_id: row.row_id,
-        id: row.id,
+        row_id: RowId::new(row.row_id),
+        id: SectionId::new(row.id),
         display_name: row.display_name.unwrap_or_else(|| "Untitled".to_owned()),
         canonical_name: row.canonical_name,
-        list_row_id: row.list_row_id,
+        list_row_id: RowId::new(row.list_row_id),
     }
 }
 

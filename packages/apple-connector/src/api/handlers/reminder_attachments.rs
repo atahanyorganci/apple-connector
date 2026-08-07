@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use axum::{
     Json,
     body::Body,
@@ -18,10 +20,11 @@ use crate::{
     },
     db::run_timed_query,
     messages::attachment_path::{
-        content_disposition, file_validators, resolve_content_type, sanitize_download_filename,
+        content_disposition, file_validators_async, resolve_content_type,
+        sanitize_download_filename,
     },
     reminders::{
-        ReminderAttachment, ReminderRepository, attachment_path::validate_attachment_path,
+        ReminderAttachment, ReminderRepository, attachment_path::validate_attachment_path_async,
     },
 };
 
@@ -40,11 +43,10 @@ use crate::{
 )]
 pub async fn get_reminder_attachment(
     State(state): State<AppState>,
-    axum::extract::Path(ReminderAttachmentIdPath { id }): axum::extract::Path<
-        ReminderAttachmentIdPath,
-    >,
+    axum::extract::Path(path): axum::extract::Path<ReminderAttachmentIdPath>,
 ) -> Result<Json<ReminderAttachmentDetailDto>, ApiError> {
-    let (attachment, reminder_id) = resolve_attachment(&state, &id).await?;
+    let id = path.validated()?;
+    let (attachment, reminder_id) = resolve_attachment(&state, id.as_str()).await?;
     Ok(Json(reminder_attachment_detail_to_dto(
         &attachment,
         reminder_id,
@@ -66,13 +68,12 @@ pub async fn get_reminder_attachment(
 )]
 pub async fn get_reminder_attachment_content(
     State(state): State<AppState>,
-    axum::extract::Path(ReminderAttachmentIdPath { id }): axum::extract::Path<
-        ReminderAttachmentIdPath,
-    >,
+    axum::extract::Path(path): axum::extract::Path<ReminderAttachmentIdPath>,
     headers: axum::http::HeaderMap,
 ) -> Result<Response, ApiError> {
-    let (_, path) = resolve_attachment_path(&state, &id).await?;
-    serve_bytes(path, headers, Method::GET).await
+    let id = path.validated()?;
+    let (_, file_path) = resolve_attachment_path(&state, id.as_str()).await?;
+    serve_bytes(&state, file_path, headers, Method::GET).await
 }
 
 /// Head reminder attachment content
@@ -89,13 +90,12 @@ pub async fn get_reminder_attachment_content(
 )]
 pub async fn head_reminder_attachment_content(
     State(state): State<AppState>,
-    axum::extract::Path(ReminderAttachmentIdPath { id }): axum::extract::Path<
-        ReminderAttachmentIdPath,
-    >,
+    axum::extract::Path(path): axum::extract::Path<ReminderAttachmentIdPath>,
     headers: axum::http::HeaderMap,
 ) -> Result<Response, ApiError> {
-    let (_, path) = resolve_attachment_path(&state, &id).await?;
-    serve_bytes(path, headers, Method::HEAD).await
+    let id = path.validated()?;
+    let (_, file_path) = resolve_attachment_path(&state, id.as_str()).await?;
+    serve_bytes(&state, file_path, headers, Method::HEAD).await
 }
 
 async fn resolve_attachment(
@@ -103,15 +103,23 @@ async fn resolve_attachment(
     id: &str,
 ) -> Result<(ReminderAttachment, String), ApiError> {
     let pool = require_reminders_db(&state.reminders_db)?;
-    let attachment =
-        run_timed_query(|| async { ReminderRepository::new(pool).get_attachment_by_id(id).await })
+
+    let reminder_entity_ids = state
+        .cached_reminders_entity_ids()
+        .await
+        .map_err(|error| ApiError::internal(error.to_string()))?;
+    let attachment = run_timed_query(|| async {
+        ReminderRepository::with_entity_ids(pool, Arc::clone(&reminder_entity_ids))
+            .get_attachment_by_id(id)
             .await
-            .map_err(|error| ApiError::internal(error.to_string()))?
-            .ok_or_else(|| ApiError::not_found(format!("reminder attachment {id} not found")))?;
+    })
+    .await
+    .map_err(|error| ApiError::internal(error.to_string()))?
+    .ok_or_else(|| ApiError::not_found(format!("reminder attachment {id} not found")))?;
 
     let reminder_id = run_timed_query(|| async {
-        ReminderRepository::new(pool)
-            .get_reminder_id_for_row(attachment.reminder_row_id)
+        ReminderRepository::with_entity_ids(pool, Arc::clone(&reminder_entity_ids))
+            .get_reminder_id_for_row(attachment.reminder_row_id.get())
             .await
     })
     .await
@@ -126,24 +134,39 @@ async fn resolve_attachment_path(
     id: &str,
 ) -> Result<(ReminderAttachment, std::path::PathBuf), ApiError> {
     let pool = require_reminders_db(&state.reminders_db)?;
-    let attachment =
-        run_timed_query(|| async { ReminderRepository::new(pool).get_attachment_by_id(id).await })
+
+    let reminder_entity_ids = state
+        .cached_reminders_entity_ids()
+        .await
+        .map_err(|error| ApiError::internal(error.to_string()))?;
+    let attachment = run_timed_query(|| async {
+        ReminderRepository::with_entity_ids(pool, Arc::clone(&reminder_entity_ids))
+            .get_attachment_by_id(id)
             .await
-            .map_err(|error| ApiError::internal(error.to_string()))?
-            .ok_or_else(|| ApiError::not_found(format!("reminder attachment {id} not found")))?;
+    })
+    .await
+    .map_err(|error| ApiError::internal(error.to_string()))?
+    .ok_or_else(|| ApiError::not_found(format!("reminder attachment {id} not found")))?;
 
     let filename = attachment
         .filename
-        .as_deref()
+        .clone()
         .ok_or_else(|| ApiError::not_found(format!("reminder attachment {id} not found")))?;
 
-    let validated = validate_attachment_path(state.reminders_attachment_root.as_ref(), filename)
-        .map_err(|_| ApiError::not_found(format!("reminder attachment {id} not found")))?;
+    let validated = validate_attachment_path_async(
+        &state.blocking_io,
+        state.reminders_attachment_root.as_ref().clone(),
+        filename,
+    )
+    .await
+    .map_err(|_| ApiError::internal("blocking attachment validation failed"))?
+    .map_err(|_| ApiError::not_found(format!("reminder attachment {id} not found")))?;
 
     Ok((attachment, validated.canonical_path))
 }
 
 async fn serve_bytes(
+    state: &AppState,
     path: std::path::PathBuf,
     headers: axum::http::HeaderMap,
     method: Method,
@@ -157,7 +180,9 @@ async fn serve_bytes(
         request.headers_mut().insert(header::RANGE, range.clone());
     }
 
-    let validators = file_validators(&path)
+    let validators = file_validators_async(&state.blocking_io, path.clone())
+        .await
+        .map_err(|_| ApiError::internal("blocking attachment metadata read failed"))?
         .map_err(|_| ApiError::not_found("reminder attachment is not available"))?;
     let filename = path
         .file_name()

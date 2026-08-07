@@ -9,27 +9,35 @@ use super::{
         StoreRow, parse_core_data_timestamp,
     },
 };
+use crate::apple_types::{CalendarAccountId, CalendarAttachmentId, CalendarId, EventId, RowId};
 
-pub fn account_from_row(row: StoreRow) -> CalendarAccount {
-    CalendarAccount {
-        row_id: row.row_id,
-        id: row
-            .external_id
-            .unwrap_or_else(|| format!("store-{}", row.row_id)),
+pub fn account_from_row(row: StoreRow) -> Option<CalendarAccount> {
+    let external_id = row.external_id.filter(|id| !id.is_empty())?;
+    Some(CalendarAccount {
+        row_id: RowId::new(row.row_id),
+        id: Some(CalendarAccountId::new(external_id)),
         name: row.name,
         store_type: StoreType::from_raw(row.store_type),
         disabled: row.disabled.is_some_and(|v| v != 0),
+    })
+}
+
+fn calendar_account_id_from_row(account_id: String) -> Option<CalendarAccountId> {
+    if account_id.is_empty() {
+        None
+    } else {
+        Some(CalendarAccountId::new(account_id))
     }
 }
 
 pub fn calendar_summary_from_row(row: CalendarRow) -> CalendarSummary {
     CalendarSummary {
-        row_id: row.row_id,
-        id: row.id,
+        row_id: RowId::new(row.row_id),
+        id: CalendarId::new(row.id),
         title: row.title,
         color: row.color,
-        account_row_id: row.store_id,
-        account_id: row.account_id,
+        account_row_id: RowId::new(row.store_id),
+        account_id: calendar_account_id_from_row(row.account_id),
     }
 }
 
@@ -45,10 +53,10 @@ pub fn event_summary_from_row(row: EventRow) -> EventSummary {
     let start = parse_core_data_timestamp(row.occurrence_start.or(row.start_date));
     let end = parse_core_data_timestamp(row.occurrence_end.or(row.end_date));
     EventSummary {
-        row_id: row.row_id,
-        id: row.id,
-        calendar_row_id: row.calendar_row_id,
-        calendar_id: row.calendar_id,
+        row_id: RowId::new(row.row_id),
+        id: EventId::new(row.id),
+        calendar_row_id: RowId::new(row.calendar_row_id),
+        calendar_id: CalendarId::new(row.calendar_id),
         summary: row.summary,
         start: parse_core_data_timestamp(row.start_date),
         end: parse_core_data_timestamp(row.end_date),
@@ -97,8 +105,8 @@ pub fn event_detail_from_row(
         invitation_status: InvitationStatus::from_raw(row.invitation_status),
         availability: Availability::from_raw(row.availability),
         privacy_level: PrivacyLevel::from_raw(row.privacy_level),
-        series_id: row.series_id,
-        series_row_id: row.orig_item_id.filter(|id| *id > 0),
+        series_id: row.series_id.map(EventId::new),
+        series_row_id: row.orig_item_id.filter(|id| *id > 0).map(RowId::new),
         original_start: parse_core_data_timestamp(row.orig_date),
         last_modified: parse_core_data_timestamp(row.last_modified),
         creation_date: parse_core_data_timestamp(row.creation_date),
@@ -153,8 +161,8 @@ fn alarm_from_row(row: AlarmRow) -> EventAlarm {
 
 pub fn attachment_from_row(row: AttachmentRow) -> EventAttachment {
     EventAttachment {
-        row_id: row.row_id,
-        id: row.id,
+        row_id: RowId::new(row.row_id),
+        id: CalendarAttachmentId::new(row.id),
         filename: row.filename,
         format: row.format,
         file_size: row.file_size,

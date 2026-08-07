@@ -17,6 +17,7 @@ use crate::{
         params::{EventIdPath, EventListParams},
         router::AppState,
     },
+    apple_types::EventId,
     calendar::{CalendarRepository, Event, EventDetail, EventSummary, Page},
     db::run_timed_query,
 };
@@ -115,7 +116,8 @@ pub async fn get_event(
     axum::extract::Path(path): axum::extract::Path<EventIdPath>,
 ) -> Result<Json<EventDetailDto>, ApiError> {
     let pool = require_calendar_db(&state.calendar_db)?;
-    let event = fetch_event_detail(pool, &path.event_id).await?;
+    let event_id = path.validated()?;
+    let event = fetch_event_detail(pool, &event_id).await?;
     Ok(event_detail_json(&event))
 }
 
@@ -137,7 +139,8 @@ pub async fn get_event_ical(
     axum::extract::Path(path): axum::extract::Path<EventIdPath>,
 ) -> Result<Response, ApiError> {
     let pool = require_calendar_db(&state.calendar_db)?;
-    let event = fetch_event_detail(pool, &path.event_id).await?;
+    let event_id = path.validated()?;
+    let event = fetch_event_detail(pool, &event_id).await?;
     event_detail_ics(&event)
 }
 
@@ -159,7 +162,8 @@ pub async fn get_event_caldav(
     axum::extract::Path(path): axum::extract::Path<EventIdPath>,
 ) -> Result<Response, ApiError> {
     let pool = require_calendar_db(&state.calendar_db)?;
-    let event = fetch_event_detail(pool, &path.event_id).await?;
+    let event_id = path.validated()?;
+    let event = fetch_event_detail(pool, &event_id).await?;
     event_detail_caldav(&event)
 }
 
@@ -208,11 +212,18 @@ async fn fetch_event_page(
     }
 }
 
-async fn fetch_event_detail(pool: &SqlitePool, event_id: &str) -> Result<EventDetail, ApiError> {
-    run_timed_query(|| async { CalendarRepository::new(pool).get_event(event_id).await })
-        .await
-        .map_err(|error| ApiError::internal(error.to_string()))?
-        .ok_or_else(|| ApiError::not_found("Event not found"))
+async fn fetch_event_detail(
+    pool: &SqlitePool,
+    event_id: &EventId,
+) -> Result<EventDetail, ApiError> {
+    run_timed_query(|| async {
+        CalendarRepository::new(pool)
+            .get_event(event_id.as_str())
+            .await
+    })
+    .await
+    .map_err(|error| ApiError::internal(error.to_string()))?
+    .ok_or_else(|| ApiError::not_found("Event not found"))
 }
 
 fn event_detail_json(event: &EventDetail) -> Json<EventDetailDto> {

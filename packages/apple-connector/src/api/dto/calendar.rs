@@ -12,6 +12,7 @@ pub enum EventStatusDto {
     Confirmed,
     Tentative,
     Cancelled,
+    Unknown { code: i64 },
 }
 
 #[derive(Debug, Clone, Serialize, ToSchema)]
@@ -22,6 +23,7 @@ pub enum InvitationStatusDto {
     Declined,
     Tentative,
     NeedsAction,
+    Raw { code: i64 },
 }
 
 #[derive(Debug, Clone, Serialize, ToSchema)]
@@ -31,6 +33,7 @@ pub enum AvailabilityDto {
     Free,
     Tentative,
     Unavailable,
+    Unknown { code: i64 },
 }
 
 #[derive(Debug, Clone, Serialize, ToSchema)]
@@ -39,6 +42,7 @@ pub enum PrivacyLevelDto {
     Default,
     Public,
     Private,
+    Unknown { code: i64 },
 }
 
 #[derive(Debug, Clone, Serialize, ToSchema)]
@@ -49,6 +53,7 @@ pub enum StoreTypeDto {
     Exchange,
     Subscription,
     Birthday,
+    Unknown { code: i64 },
 }
 
 #[derive(Debug, Clone, Serialize, ToSchema)]
@@ -57,11 +62,13 @@ pub enum EventClassDto {
     Standard,
     Birthday,
     SpecialDay,
+    Unknown { code: i64 },
 }
 
 #[derive(Debug, Clone, Serialize, ToSchema)]
 pub struct CalendarAccountDto {
-    pub id: CalendarAccountId,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub id: Option<CalendarAccountId>,
     pub row_id: i64,
     pub name: Option<String>,
     pub store_type: StoreTypeDto,
@@ -79,7 +86,8 @@ pub struct CalendarSummaryDto {
     pub row_id: i64,
     pub title: Option<String>,
     pub color: Option<String>,
-    pub account_id: CalendarAccountId,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub account_id: Option<CalendarAccountId>,
     pub account_row_id: i64,
 }
 
