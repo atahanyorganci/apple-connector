@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "INSERT INTO ZABCDRECORD (Z_PK, Z_ENT, Z_OPT, ZCONTAINER, ZFIRSTNAME, ZUNIQUEID, ZCREATIONDATE, ZMODIFICATIONDATE) VALUES (?1, 22, 1, 1, ?2, ?3, 1700000000, 1700000000)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 3
+    },
+    "nullable": []
+  },
+  "hash": "79ff0966aae61b46ea6a61927f47f2edbb398d72ef9b78930fc33ae5f0f4f8b7"
+}

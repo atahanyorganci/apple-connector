@@ -1,0 +1,21 @@
+{
+  "db_name": "SQLite",
+  "query": "\n        SELECT EXISTS(\n            SELECT 1\n            FROM ZREMCDBASELIST\n            WHERE Z_PK = ?1\n              AND ZMARKEDFORDELETION = 0\n        ) AS \"exists!: bool\"\n        ",
+  "describe": {
+    "columns": [
+      {
+        "name": "exists!: bool",
+        "ordinal": 0,
+        "type_info": "Integer",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "efafadd01255b870d5f589da984c38e757781bdc8f472b7f512fd0000a45a1a9"
+}

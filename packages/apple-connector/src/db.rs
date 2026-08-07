@@ -17,6 +17,25 @@ const BUSY_TIMEOUT: Duration = Duration::from_secs(5);
 /// Upper bound for individual read queries against `chat.db`.
 pub const QUERY_TIMEOUT: Duration = Duration::from_secs(15);
 
+#[cfg(test)]
+pub mod query_budget {
+    use std::sync::atomic::{AtomicUsize, Ordering};
+
+    static COUNT: AtomicUsize = AtomicUsize::new(0);
+
+    pub fn reset() {
+        COUNT.store(0, Ordering::SeqCst);
+    }
+
+    pub fn bump() {
+        COUNT.fetch_add(1, Ordering::SeqCst);
+    }
+
+    pub fn get() -> usize {
+        COUNT.load(Ordering::SeqCst)
+    }
+}
+
 pub async fn run_timed_query<T, F, Fut>(query: F) -> Result<T, sqlx::Error>
 where
     F: FnOnce() -> Fut,

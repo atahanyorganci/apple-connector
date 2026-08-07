@@ -320,6 +320,12 @@ impl ContactsFixtureDb {
         Self::with_seed(true).await
     }
 
+    pub async fn seeded_with_batch_contacts(count: u32) -> io::Result<Self> {
+        let fixture = Self::seeded().await?;
+        seed_extra_contacts(fixture.path(), count).await?;
+        Ok(fixture)
+    }
+
     pub fn path(&self) -> &Path {
         &self.path
     }
@@ -358,6 +364,47 @@ async fn apply_contacts_schema(path: &Path, seed: bool) -> io::Result<()> {
 
     connection.close().await.ok();
     Ok(())
+}
+
+/// Inserts additional contact rows for batch-hydration tests.
+pub async fn seed_extra_contacts(path: &Path, count: u32) -> io::Result<()> {
+    let options = SqliteConnectOptions::new()
+        .filename(path)
+        .read_only(false)
+        .create_if_missing(false);
+
+    let mut connection = SqliteConnection::connect_with(&options)
+        .await
+        .map_err(io::Error::other)?;
+
+    for index in 0..count {
+        let pk = 100_i64 + i64::from(index);
+        let uuid = format!("{:08x}-0000-0000-0000-{index:012x}", index);
+        sqlx::query(
+            "INSERT INTO ZABCDRECORD (Z_PK, Z_ENT, Z_OPT, ZCONTAINER, ZFIRSTNAME, ZUNIQUEID, ZCREATIONDATE, ZMODIFICATIONDATE) VALUES (?1, 22, 1, 1, ?2, ?3, 1700000000, 1700000000)",
+        )
+        .bind(pk)
+        .bind(format!("Person{index}"))
+        .bind(format!("{uuid}:ABContact"))
+        .execute(&mut connection)
+        .await
+        .map_err(io::Error::other)?;
+    }
+
+    connection.close().await.ok();
+    Ok(())
+}
+
+/// Runs `EXPLAIN QUERY PLAN` for dynamic SQL (test helper only).
+pub async fn explain_query_plan(
+    pool: &sqlx::SqlitePool,
+    sql: &str,
+) -> Result<Vec<String>, sqlx::Error> {
+    let explain_sql = format!("EXPLAIN QUERY PLAN {sql}");
+    let rows: Vec<(i64, i64, i64, String)> = sqlx::query_as(sqlx::AssertSqlSafe(explain_sql))
+        .fetch_all(pool)
+        .await?;
+    Ok(rows.into_iter().map(|(_, _, _, detail)| detail).collect())
 }
 
 #[cfg(test)]

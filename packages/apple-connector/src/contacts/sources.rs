@@ -156,6 +156,59 @@ impl ContactsSources {
         Ok(None)
     }
 
+    pub async fn hydrate_contact_summaries(
+        &self,
+        summaries: Vec<ContactSummary>,
+    ) -> Result<Vec<ContactDetail>, sqlx::Error> {
+        use std::collections::HashMap;
+
+        use super::queries::fetch_contacts_by_api_ids;
+        use crate::{contacts::row::api_id_from_unique_id, sqlx_util::json_strings};
+
+        if summaries.is_empty() {
+            return Ok(Vec::new());
+        }
+
+        let ordered_summaries = summaries;
+        let mut by_source: HashMap<SourceId, Vec<ContactSummary>> = HashMap::new();
+        for summary in &ordered_summaries {
+            by_source
+                .entry(summary.source_id.clone())
+                .or_default()
+                .push(summary.clone());
+        }
+
+        let mut details_by_id: HashMap<String, ContactDetail> = HashMap::new();
+        for (source_id, group) in by_source {
+            let Some(pool) = self.pools.get(&source_id) else {
+                continue;
+            };
+            let repo = ContactsRepository::new(pool, source_id.clone());
+            let api_ids: Vec<&str> = group.iter().map(|summary| summary.id.as_str()).collect();
+            let rows = fetch_contacts_by_api_ids(pool, &json_strings(&api_ids)).await?;
+            let mut rows_by_api_id: HashMap<String, super::row::ContactRow> = HashMap::new();
+            for row in rows {
+                rows_by_api_id.insert(api_id_from_unique_id(&row.unique_id), row);
+            }
+            let ordered_rows: Vec<super::row::ContactRow> = api_ids
+                .into_iter()
+                .filter_map(|id| rows_by_api_id.remove(id))
+                .collect();
+            for detail in repo.hydrate_contacts_batch(ordered_rows).await? {
+                details_by_id.insert(detail.id.as_str().to_owned(), detail);
+            }
+        }
+
+        ordered_summaries
+            .into_iter()
+            .map(|summary| {
+                details_by_id
+                    .remove(summary.id.as_str())
+                    .ok_or(sqlx::Error::RowNotFound)
+            })
+            .collect()
+    }
+
     pub async fn get_contact_photo(
         &self,
         contact_id: &str,

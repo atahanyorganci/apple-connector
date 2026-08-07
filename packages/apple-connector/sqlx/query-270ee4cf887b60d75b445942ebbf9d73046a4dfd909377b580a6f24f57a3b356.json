@@ -1,0 +1,38 @@
+{
+  "db_name": "SQLite",
+  "query": "\n        SELECT\n            Z_PK AS \"list_row_id!\",\n            ZMEMBERSHIPSOFREMINDERSINSECTIONSASDATA AS \"membership_data?: Vec<u8>\"\n        FROM ZREMCDBASELIST\n        WHERE Z_PK IN (SELECT value FROM json_each(?1))\n          AND ZMARKEDFORDELETION = 0\n        ",
+  "describe": {
+    "columns": [
+      {
+        "name": "list_row_id!",
+        "ordinal": 0,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "ZREMCDBASELIST",
+            "name": "Z_PK"
+          }
+        }
+      },
+      {
+        "name": "membership_data?: Vec<u8>",
+        "ordinal": 1,
+        "type_info": "Blob",
+        "origin": {
+          "Table": {
+            "table": "ZREMCDBASELIST",
+            "name": "ZMEMBERSHIPSOFREMINDERSINSECTIONSASDATA"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false,
+      true
+    ]
+  },
+  "hash": "270ee4cf887b60d75b445942ebbf9d73046a4dfd909377b580a6f24f57a3b356"
+}

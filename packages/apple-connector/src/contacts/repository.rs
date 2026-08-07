@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use sqlx::SqlitePool;
 
 use super::{
@@ -7,12 +9,14 @@ use super::{
     },
     model::{ContactDetail, ContactGroup, ContactSummary, Container},
     queries::{
-        fetch_addresses_for_contact, fetch_contact_by_api_id, fetch_contact_external_id,
-        fetch_contact_photo, fetch_container_by_api_id, fetch_container_resolve_metadata,
-        fetch_containers, fetch_emails_for_contact, fetch_filtered_contacts, fetch_group_by_api_id,
-        fetch_group_contacts, fetch_group_external_id, fetch_group_ids_for_contact,
-        fetch_group_resolve_metadata, fetch_groups, fetch_phones_for_contact,
-        fetch_socials_for_contact, fetch_urls_for_contact,
+        AddressOwnedRow, EmailOwnedRow, GroupOwnedRow, PhoneOwnedRow, SocialOwnedRow, UrlOwnedRow,
+        fetch_addresses_for_contact_ids, fetch_contact_by_api_id, fetch_contact_external_id,
+        fetch_contact_photo, fetch_contacts_by_row_ids, fetch_container_by_api_id,
+        fetch_container_resolve_metadata, fetch_containers, fetch_emails_for_contact_ids,
+        fetch_filtered_contacts, fetch_group_by_api_id, fetch_group_contacts,
+        fetch_group_external_id, fetch_group_ids_for_contact_ids, fetch_group_resolve_metadata,
+        fetch_groups, fetch_phones_for_contact_ids, fetch_socials_for_contact_ids,
+        fetch_urls_for_contact_ids,
     },
     row::api_id_from_unique_id,
     search::ContactFilters,
@@ -20,6 +24,7 @@ use super::{
 use crate::{
     api::cursor::{ContactListCursor, GroupContactCursor, encode},
     apple_types::SourceId,
+    sqlx_util::json_ids,
 };
 
 #[derive(Debug, Clone)]
@@ -83,10 +88,13 @@ impl<'a> ContactsRepository<'a> {
     ) -> Result<Page<ContactGroup>, sqlx::Error> {
         let fetch_limit = i64::from(limit) + 1;
         let rows = fetch_groups(self.pool, cursor.map(|value| value.row_id), fetch_limit).await?;
-        Ok(split_page(
+        Ok(split_page_skipping(
             rows,
             limit,
-            |row| group_from_row(row, self.source_id.clone()),
+            |row| {
+                let group = group_from_row(row, self.source_id.clone());
+                group.container_id.is_some().then_some(group)
+            },
             |row| row.row_id,
         ))
     }
@@ -105,10 +113,13 @@ impl<'a> ContactsRepository<'a> {
         let fetch_limit = i64::from(limit) + 1;
         let binds = filters.bind_values(cursor.map(|value| value.row_id), fetch_limit);
         let rows = fetch_filtered_contacts(self.pool, &binds).await?;
-        Ok(split_page(
+        Ok(split_page_skipping(
             rows,
             limit,
-            |row| contact_summary_from_row(row, self.source_id.clone()),
+            |row| {
+                let summary = contact_summary_from_row(row, self.source_id.clone());
+                summary.container_id.is_some().then_some(summary)
+            },
             |row| row.row_id,
         ))
     }
@@ -127,10 +138,13 @@ impl<'a> ContactsRepository<'a> {
             fetch_limit,
         )
         .await?;
-        Ok(split_page(
+        Ok(split_page_skipping(
             rows,
             limit,
-            |row| contact_summary_from_row(row, self.source_id.clone()),
+            |row| {
+                let summary = contact_summary_from_row(row, self.source_id.clone());
+                summary.container_id.is_some().then_some(summary)
+            },
             |row| row.row_id,
         ))
     }
@@ -198,40 +212,179 @@ impl<'a> ContactsRepository<'a> {
         fetch_group_external_id(self.pool, &api_id).await
     }
 
+    pub async fn hydrate_contacts_batch(
+        &self,
+        rows: Vec<super::row::ContactRow>,
+    ) -> Result<Vec<ContactDetail>, sqlx::Error> {
+        if rows.is_empty() {
+            return Ok(Vec::new());
+        }
+
+        let row_ids: Vec<i64> = rows.iter().map(|row| row.row_id).collect();
+        let fetched = fetch_contacts_by_row_ids(self.pool, &json_ids(&row_ids)).await?;
+        let mut by_row_id: std::collections::HashMap<i64, super::row::ContactRow> =
+            fetched.into_iter().map(|row| (row.row_id, row)).collect();
+        let rows: Vec<super::row::ContactRow> = row_ids
+            .into_iter()
+            .filter_map(|row_id| by_row_id.remove(&row_id))
+            .collect();
+        if rows.is_empty() {
+            return Ok(Vec::new());
+        }
+
+        let row_ids: Vec<i64> = rows.iter().map(|row| row.row_id).collect();
+        let ids_json = json_ids(&row_ids);
+
+        let phones = fetch_phones_for_contact_ids(self.pool, &ids_json).await?;
+        let emails = fetch_emails_for_contact_ids(self.pool, &ids_json).await?;
+        let addresses = fetch_addresses_for_contact_ids(self.pool, &ids_json).await?;
+        let urls = fetch_urls_for_contact_ids(self.pool, &ids_json).await?;
+        let socials = fetch_socials_for_contact_ids(self.pool, &ids_json).await?;
+        let groups = fetch_group_ids_for_contact_ids(self.pool, &ids_json).await?;
+
+        let phones_by_owner = group_phones(phones);
+        let emails_by_owner = group_emails(emails);
+        let addresses_by_owner = group_addresses(addresses);
+        let urls_by_owner = group_urls(urls);
+        let socials_by_owner = group_socials(socials);
+        let groups_by_owner = group_group_ids(groups);
+
+        Ok(rows
+            .into_iter()
+            .map(|row| {
+                let row_id = row.row_id;
+                contact_detail_from_row(
+                    row,
+                    self.source_id.clone(),
+                    ContactRelatedRows {
+                        phones: phones_by_owner.get(&row_id).cloned().unwrap_or_default(),
+                        emails: emails_by_owner.get(&row_id).cloned().unwrap_or_default(),
+                        addresses: addresses_by_owner.get(&row_id).cloned().unwrap_or_default(),
+                        urls: urls_by_owner.get(&row_id).cloned().unwrap_or_default(),
+                        socials: socials_by_owner.get(&row_id).cloned().unwrap_or_default(),
+                    },
+                    groups_by_owner.get(&row_id).cloned().unwrap_or_default(),
+                )
+            })
+            .collect())
+    }
+
     async fn hydrate_contact(
         &self,
         row: super::row::ContactRow,
     ) -> Result<ContactDetail, sqlx::Error> {
-        let row_id = row.row_id;
-        let phones = fetch_phones_for_contact(self.pool, row_id).await?;
-        let emails = fetch_emails_for_contact(self.pool, row_id).await?;
-        let addresses = fetch_addresses_for_contact(self.pool, row_id).await?;
-        let urls = fetch_urls_for_contact(self.pool, row_id).await?;
-        let socials = fetch_socials_for_contact(self.pool, row_id).await?;
-        let groups = fetch_group_ids_for_contact(self.pool, row_id).await?;
-        Ok(contact_detail_from_row(
-            row,
-            self.source_id.clone(),
-            ContactRelatedRows {
-                phones,
-                emails,
-                addresses,
-                urls,
-                socials,
-            },
-            groups.into_iter().map(|group| group.unique_id).collect(),
-        ))
+        self.hydrate_contacts_batch(vec![row])
+            .await?
+            .into_iter()
+            .next()
+            .ok_or_else(|| sqlx::Error::RowNotFound)
     }
 }
 
-fn split_page<T, R, F, K>(rows: Vec<R>, limit: u32, map: F, row_id: K) -> Page<T>
+fn group_phones(rows: Vec<PhoneOwnedRow>) -> HashMap<i64, Vec<super::row::PhoneRow>> {
+    let mut map: HashMap<i64, Vec<super::row::PhoneRow>> = HashMap::new();
+    for row in rows {
+        map.entry(row.owner)
+            .or_default()
+            .push(super::row::PhoneRow {
+                unique_id: row.unique_id,
+                number: row.number,
+                label: row.label,
+                is_primary: row.is_primary,
+                ordering_index: row.ordering_index,
+            });
+    }
+    map
+}
+
+fn group_emails(rows: Vec<EmailOwnedRow>) -> HashMap<i64, Vec<super::row::EmailRow>> {
+    let mut map: HashMap<i64, Vec<super::row::EmailRow>> = HashMap::new();
+    for row in rows {
+        map.entry(row.owner)
+            .or_default()
+            .push(super::row::EmailRow {
+                unique_id: row.unique_id,
+                address: row.address,
+                label: row.label,
+                is_primary: row.is_primary,
+                ordering_index: row.ordering_index,
+            });
+    }
+    map
+}
+
+fn group_addresses(rows: Vec<AddressOwnedRow>) -> HashMap<i64, Vec<super::row::AddressRow>> {
+    let mut map: HashMap<i64, Vec<super::row::AddressRow>> = HashMap::new();
+    for row in rows {
+        map.entry(row.owner)
+            .or_default()
+            .push(super::row::AddressRow {
+                unique_id: row.unique_id,
+                street: row.street,
+                city: row.city,
+                state: row.state,
+                postal_code: row.postal_code,
+                country: row.country,
+                label: row.label,
+                is_primary: row.is_primary,
+                ordering_index: row.ordering_index,
+            });
+    }
+    map
+}
+
+fn group_urls(rows: Vec<UrlOwnedRow>) -> HashMap<i64, Vec<super::row::UrlRow>> {
+    let mut map: HashMap<i64, Vec<super::row::UrlRow>> = HashMap::new();
+    for row in rows {
+        map.entry(row.owner).or_default().push(super::row::UrlRow {
+            unique_id: row.unique_id,
+            url: row.url,
+            label: row.label,
+            is_primary: row.is_primary,
+            ordering_index: row.ordering_index,
+        });
+    }
+    map
+}
+
+fn group_socials(rows: Vec<SocialOwnedRow>) -> HashMap<i64, Vec<super::row::SocialRow>> {
+    let mut map: HashMap<i64, Vec<super::row::SocialRow>> = HashMap::new();
+    for row in rows {
+        map.entry(row.owner)
+            .or_default()
+            .push(super::row::SocialRow {
+                unique_id: row.unique_id,
+                service: row.service,
+                username: row.username,
+                url: row.url,
+                label: row.label,
+                is_primary: row.is_primary,
+                ordering_index: row.ordering_index,
+            });
+    }
+    map
+}
+
+fn group_group_ids(rows: Vec<GroupOwnedRow>) -> HashMap<i64, Vec<String>> {
+    let mut map: HashMap<i64, Vec<String>> = HashMap::new();
+    for row in rows {
+        map.entry(row.owner).or_default().push(row.unique_id);
+    }
+    map
+}
+
+fn split_page_skipping<T, R, F, K>(rows: Vec<R>, limit: u32, map: F, row_id: K) -> Page<T>
 where
-    F: Fn(R) -> T,
+    F: Fn(R) -> Option<T>,
     K: Fn(&R) -> i64,
 {
     let has_more = rows.len() > limit as usize;
     let last_row_id = rows.get(limit.saturating_sub(1) as usize).map(row_id);
-    let items: Vec<T> = rows.into_iter().take(limit as usize).map(map).collect();
+    let items: Vec<T> = rows
+        .into_iter()
+        .take(limit as usize)
+        .filter_map(map)
+        .collect();
     let next_cursor = if has_more {
         last_row_id.and_then(|id| encode(&ContactListCursor { row_id: id }).ok())
     } else {
@@ -286,6 +439,31 @@ mod tests {
         assert_eq!(detail.first_name.as_deref(), Some("Jane"));
         assert_eq!(detail.phones.len(), 1);
         assert_eq!(detail.emails.len(), 1);
+        Ok(())
+    }
+    #[tokio::test]
+    async fn hydrate_batch_uses_bounded_queries_for_large_page()
+    -> Result<(), Box<dyn std::error::Error>> {
+        use crate::db::query_budget;
+
+        let fixture = ContactsFixtureDb::seeded_with_batch_contacts(200).await?;
+        let pool = connect_pool(fixture.path()).await?;
+        let repo = ContactsRepository::new(&pool, SourceId::new("fixture-source"));
+        let rows = crate::contacts::queries::fetch_contacts_by_row_ids(
+            &pool,
+            &crate::sqlx_util::json_ids(&(100..300).collect::<Vec<_>>()),
+        )
+        .await?;
+        assert_eq!(rows.len(), 200);
+
+        query_budget::reset();
+        let details = repo.hydrate_contacts_batch(rows).await?;
+        assert_eq!(details.len(), 200);
+        assert!(
+            query_budget::get() == 6,
+            "expected exactly 6 batch hydration queries, got {}",
+            query_budget::get()
+        );
         Ok(())
     }
 }

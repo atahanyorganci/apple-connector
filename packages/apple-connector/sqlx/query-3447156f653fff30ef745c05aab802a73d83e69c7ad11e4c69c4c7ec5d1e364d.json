@@ -1,0 +1,38 @@
+{
+  "db_name": "SQLite",
+  "query": "\n        SELECT\n            pg.Z_22CONTACTS AS \"owner!\",\n            g.ZUNIQUEID AS \"unique_id!\"\n        FROM Z_22PARENTGROUPS pg\n        JOIN ZABCDRECORD g ON g.Z_PK = pg.Z_19PARENTGROUPS1\n        WHERE pg.Z_22CONTACTS IN (SELECT value FROM json_each(?1))\n        ",
+  "describe": {
+    "columns": [
+      {
+        "name": "owner!",
+        "ordinal": 0,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "Z_22PARENTGROUPS",
+            "name": "Z_22CONTACTS"
+          }
+        }
+      },
+      {
+        "name": "unique_id!",
+        "ordinal": 1,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "ZABCDRECORD",
+            "name": "ZUNIQUEID"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      true,
+      true
+    ]
+  },
+  "hash": "3447156f653fff30ef745c05aab802a73d83e69c7ad11e4c69c4c7ec5d1e364d"
+}
