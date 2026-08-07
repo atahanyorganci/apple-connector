@@ -2,11 +2,9 @@ use axum::{
     Json,
     body::Body,
     extract::{Request, State},
-    http::{HeaderMap, HeaderValue, Method, StatusCode, header},
+    http::{HeaderMap, Method},
     response::Response,
 };
-use tower::ServiceExt;
-use tower_http::services::ServeFile;
 
 use super::health::require_messages_db;
 use crate::{
@@ -20,9 +18,8 @@ use crate::{
     messages::{
         Attachment,
         attachment_path::{
-            content_disposition, file_validators_async, if_none_match_satisfied,
-            is_present_on_disk_async, resolve_content_type, sanitize_download_filename,
-            validate_attachment_path_async,
+            content_disposition, is_present_on_disk_async, resolve_content_type,
+            sanitize_download_filename, validate_attachment_path_async,
         },
         repository::MessageRepository,
     },
@@ -252,90 +249,21 @@ async fn serve_attachment_bytes(
     );
     let content_type = resolve_content_type(attachment.mime_type.as_deref());
     let disposition = content_disposition(&attachment.kind, &filename);
-    let validators = file_validators_async(blocking_io, path.clone())
-        .await
-        .map_err(|_| ApiError::internal("blocking attachment metadata read failed"))?
-        .map_err(|_| {
-            ApiError::with_details(
-                ErrorCode::MessageAttachmentUnavailable,
-                format!("attachment {} is not available", attachment.guid),
-                serde_json::json!({ "guid": attachment.guid }),
-            )
-        })?;
-
-    if let Some(if_none_match) = request.headers().get(header::IF_NONE_MATCH)
-        && let Ok(value) = if_none_match.to_str()
-        && if_none_match_satisfied(value, &validators.etag)
-    {
-        return Response::builder()
-            .status(StatusCode::NOT_MODIFIED)
-            .header(header::ETAG, &validators.etag)
-            .header(header::LAST_MODIFIED, &validators.last_modified)
-            .body(Body::empty())
-            .map_err(|_| ApiError::internal("failed to build not modified response"));
-    }
-
-    let serve_file = ServeFile::new(path);
-    let response = serve_file
-        .oneshot(request)
-        .await
-        .map_err(|_| ApiError::internal("attachment delivery failed"))?
-        .map(Body::new);
-
-    map_served_response(response, &content_type, &disposition, &validators)
-}
-
-fn map_served_response(
-    mut response: Response<Body>,
-    content_type: &str,
-    disposition: &str,
-    validators: &crate::messages::attachment_path::FileValidators,
-) -> Result<Response<Body>, ApiError> {
-    let status = response.status();
-    if status == StatusCode::RANGE_NOT_SATISFIABLE {
-        return Err(ApiError::range_not_satisfiable(
-            "requested byte range is not satisfiable",
-        ));
-    }
-    if status == StatusCode::NOT_FOUND {
-        return Err(ApiError::new(ErrorCode::MessageAttachmentUnavailable));
-    }
-    if status.is_server_error() {
-        return Err(ApiError::internal("attachment delivery failed"));
-    }
-
-    let headers = response.headers_mut();
-    if let Ok(value) = HeaderValue::from_str(content_type) {
-        headers.insert(header::CONTENT_TYPE, value);
-    }
-    if let Ok(value) = HeaderValue::from_str(disposition) {
-        headers.insert(header::CONTENT_DISPOSITION, value);
-    }
-    if let Ok(value) = HeaderValue::from_str(&validators.etag) {
-        headers.insert(header::ETAG, value);
-    }
-    if let Ok(value) = HeaderValue::from_str(&validators.last_modified) {
-        headers.insert(header::LAST_MODIFIED, value);
-    }
-    headers.insert(
-        header::X_CONTENT_TYPE_OPTIONS,
-        HeaderValue::from_static("nosniff"),
-    );
-    headers.insert(header::ACCEPT_RANGES, HeaderValue::from_static("bytes"));
-
-    Ok(response)
+    crate::api::media::serve_media_bytes(
+        blocking_io,
+        crate::api::media::ServeMedia {
+            path,
+            content_type,
+            content_disposition: disposition,
+            unavailable: ErrorCode::MessageAttachmentUnavailable,
+        },
+        request,
+    )
+    .await
 }
 
 fn copy_conditional_headers(source: &HeaderMap, destination: &mut HeaderMap) {
-    for name in [
-        header::IF_NONE_MATCH,
-        header::IF_MODIFIED_SINCE,
-        header::RANGE,
-    ] {
-        if let Some(value) = source.get(&name) {
-            destination.insert(name, value.clone());
-        }
-    }
+    crate::api::media::copy_conditional_headers(source, destination);
 }
 
 use crate::api::{

@@ -10,6 +10,7 @@ mod eventkit;
 mod eventkit_convert;
 mod handlers;
 mod hydrate;
+mod media;
 mod middleware;
 pub(crate) mod params;
 mod router;
