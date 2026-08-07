@@ -157,13 +157,13 @@ pub struct MessageListParams {
     #[param(example = "+15551234567")]
     pub sender: Option<String>,
 
-    /// Return messages sent strictly before this RFC 3339 timestamp.
-    #[param(format = "date-time", example = "2024-01-15T12:00:00Z")]
-    pub before: Option<String>,
+    /// Return messages sent strictly before this Unix timestamp (UTC seconds).
+    #[param(example = 1_705_320_000)]
+    pub before: Option<i64>,
 
-    /// Return messages sent strictly after this RFC 3339 timestamp.
-    #[param(format = "date-time", example = "2024-01-01T00:00:00Z")]
-    pub after: Option<String>,
+    /// Return messages sent strictly after this Unix timestamp (UTC seconds).
+    #[param(example = 1_704_067_200)]
+    pub after: Option<i64>,
 
     /// Restrict results to sent or received messages.
     pub direction: Option<DirectionFilterDto>,
@@ -229,16 +229,8 @@ impl MessageListParams {
             Some(value) => Some(value.to_owned()),
         };
 
-        let before = self
-            .before
-            .as_deref()
-            .map(|value| parse_rfc3339_to_apple_nanos(value, "before"))
-            .transpose()?;
-        let after = self
-            .after
-            .as_deref()
-            .map(|value| parse_rfc3339_to_apple_nanos(value, "after"))
-            .transpose()?;
+        let before = self.before.map(unix_secs_to_apple_nanos);
+        let after = self.after.map(unix_secs_to_apple_nanos);
 
         if let (Some(before), Some(after)) = (before, after)
             && before <= after
@@ -275,16 +267,16 @@ impl MessageListParams {
     }
 }
 
-fn parse_rfc3339_to_apple_nanos(value: &str, field: &str) -> Result<i64, ApiError> {
-    let parsed = chrono::DateTime::parse_from_rfc3339(value).map_err(|_| {
-        ApiError::validation_with_details(
-            "timestamp must be RFC 3339",
-            serde_json::json!({ "field": field }),
-        )
-    })?;
-    let unix_secs = parsed.timestamp();
-    let nsecs = parsed.timestamp_subsec_nanos();
-    Ok((unix_secs - 978_307_200) * 1_000_000_000 + i64::from(nsecs))
+fn unix_secs_to_apple_nanos(unix_secs: i64) -> i64 {
+    (unix_secs - 978_307_200) * 1_000_000_000
+}
+
+fn unix_secs_to_core_data_secs(unix_secs: i64) -> i64 {
+    unix_secs - 978_307_200
+}
+
+fn unix_secs_to_core_data_timestamp(unix_secs: i64) -> f64 {
+    unix_secs_to_core_data_secs(unix_secs) as f64
 }
 
 #[derive(Debug, Clone, Deserialize, IntoParams, ToSchema)]
@@ -433,8 +425,8 @@ mod tests {
             q: None,
             chat_id: None,
             sender: None,
-            before: Some("2024-01-01T00:00:00Z".to_owned()),
-            after: Some("2024-02-01T00:00:00Z".to_owned()),
+            before: Some(1_704_067_200),
+            after: Some(1_706_745_600),
             direction: None,
             transport: None,
             content_type: None,
@@ -525,10 +517,10 @@ pub struct ReminderListParams {
     pub completed: Option<bool>,
     pub flagged: Option<bool>,
     pub has_due_date: Option<bool>,
-    #[param(format = "date-time", example = "2026-01-15T12:00:00Z")]
-    pub due_before: Option<String>,
-    #[param(format = "date-time", example = "2026-01-01T00:00:00Z")]
-    pub due_after: Option<String>,
+    #[param(example = 1_737_072_000)]
+    pub due_before: Option<i64>,
+    #[param(example = 1_735_689_600)]
+    pub due_after: Option<i64>,
     pub priority_min: Option<i32>,
     pub has_notes: Option<bool>,
     pub top_level_only: Option<bool>,
@@ -607,16 +599,8 @@ impl ReminderListParams {
             },
         };
 
-        let due_before = self
-            .due_before
-            .as_deref()
-            .map(|value| parse_rfc3339_to_core_data_secs(value, "due_before"))
-            .transpose()?;
-        let due_after = self
-            .due_after
-            .as_deref()
-            .map(|value| parse_rfc3339_to_core_data_secs(value, "due_after"))
-            .transpose()?;
+        let due_before = self.due_before.map(unix_secs_to_core_data_secs);
+        let due_after = self.due_after.map(unix_secs_to_core_data_secs);
 
         Ok(crate::reminders::ReminderFilters {
             q,
@@ -635,32 +619,6 @@ impl ReminderListParams {
 
 fn is_uuid(value: &str) -> bool {
     value.len() == 36 && value.chars().all(|ch| ch.is_ascii_hexdigit() || ch == '-')
-}
-
-fn parse_rfc3339_to_core_data_secs(value: &str, field: &str) -> Result<i64, ApiError> {
-    if let Ok(unix) = value.parse::<i64>() {
-        return Ok(unix - 978_307_200);
-    }
-    let parsed = chrono::DateTime::parse_from_rfc3339(value).map_err(|_| {
-        ApiError::validation_with_details(
-            "timestamp must be RFC 3339 or Unix seconds",
-            serde_json::json!({ "field": field }),
-        )
-    })?;
-    Ok(parsed.timestamp() - 978_307_200)
-}
-
-fn parse_rfc3339_to_core_data_timestamp(value: &str, field: &str) -> Result<f64, ApiError> {
-    if let Ok(unix) = value.parse::<i64>() {
-        return Ok((unix - 978_307_200) as f64);
-    }
-    let parsed = chrono::DateTime::parse_from_rfc3339(value).map_err(|_| {
-        ApiError::validation_with_details(
-            "timestamp must be RFC 3339 or Unix seconds",
-            serde_json::json!({ "field": field }),
-        )
-    })?;
-    Ok((parsed.timestamp() - 978_307_200) as f64)
 }
 
 #[derive(Debug, Clone)]
@@ -742,10 +700,10 @@ pub struct NoteListParams {
     pub has_checklist: Option<bool>,
     pub has_attachments: Option<bool>,
     pub include_deleted: Option<bool>,
-    #[param(format = "date-time", example = "2026-01-15T12:00:00Z")]
-    pub modified_before: Option<String>,
-    #[param(format = "date-time", example = "2026-01-01T00:00:00Z")]
-    pub modified_after: Option<String>,
+    #[param(example = 1_737_072_000)]
+    pub modified_before: Option<i64>,
+    #[param(example = 1_735_689_600)]
+    pub modified_after: Option<i64>,
 }
 
 impl NoteListParams {
@@ -808,16 +766,8 @@ impl NoteListParams {
             },
         };
 
-        let modified_before = self
-            .modified_before
-            .as_deref()
-            .map(|value| parse_rfc3339_to_core_data_timestamp(value, "modified_before"))
-            .transpose()?;
-        let modified_after = self
-            .modified_after
-            .as_deref()
-            .map(|value| parse_rfc3339_to_core_data_timestamp(value, "modified_after"))
-            .transpose()?;
+        let modified_before = self.modified_before.map(unix_secs_to_core_data_timestamp);
+        let modified_after = self.modified_after.map(unix_secs_to_core_data_timestamp);
 
         if let (Some(before), Some(after)) = (modified_before, modified_after)
             && before <= after

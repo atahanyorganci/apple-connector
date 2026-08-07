@@ -3686,26 +3686,26 @@
           {
             "name": "before",
             "in": "query",
-            "description": "Return messages sent strictly before this RFC 3339 timestamp.",
+            "description": "Return messages sent strictly before this Unix timestamp (UTC seconds).",
             "required": false,
             "schema": {
-              "type": "string",
-              "format": "date-time"
+              "type": "integer",
+              "format": "int64"
             },
             "style": "form",
-            "example": "2024-01-15T12:00:00Z"
+            "example": 1705320000
           },
           {
             "name": "after",
             "in": "query",
-            "description": "Return messages sent strictly after this RFC 3339 timestamp.",
+            "description": "Return messages sent strictly after this Unix timestamp (UTC seconds).",
             "required": false,
             "schema": {
-              "type": "string",
-              "format": "date-time"
+              "type": "integer",
+              "format": "int64"
             },
             "style": "form",
-            "example": "2024-01-01T00:00:00Z"
+            "example": 1704067200
           },
           {
             "name": "direction",
@@ -4294,22 +4294,22 @@
             "in": "query",
             "required": false,
             "schema": {
-              "type": "string",
-              "format": "date-time"
+              "type": "integer",
+              "format": "int64"
             },
             "style": "form",
-            "example": "2026-01-15T12:00:00Z"
+            "example": 1737072000
           },
           {
             "name": "modified_after",
             "in": "query",
             "required": false,
             "schema": {
-              "type": "string",
-              "format": "date-time"
+              "type": "integer",
+              "format": "int64"
             },
             "style": "form",
-            "example": "2026-01-01T00:00:00Z"
+            "example": 1735689600
           }
         ],
         "responses": {
@@ -4448,22 +4448,22 @@
             "in": "query",
             "required": false,
             "schema": {
-              "type": "string",
-              "format": "date-time"
+              "type": "integer",
+              "format": "int64"
             },
             "style": "form",
-            "example": "2026-01-15T12:00:00Z"
+            "example": 1737072000
           },
           {
             "name": "modified_after",
             "in": "query",
             "required": false,
             "schema": {
-              "type": "string",
-              "format": "date-time"
+              "type": "integer",
+              "format": "int64"
             },
             "style": "form",
-            "example": "2026-01-01T00:00:00Z"
+            "example": 1735689600
           }
         ],
         "responses": {
@@ -5003,22 +5003,22 @@
             "in": "query",
             "required": false,
             "schema": {
-              "type": "string",
-              "format": "date-time"
+              "type": "integer",
+              "format": "int64"
             },
             "style": "form",
-            "example": "2026-01-15T12:00:00Z"
+            "example": 1737072000
           },
           {
             "name": "due_after",
             "in": "query",
             "required": false,
             "schema": {
-              "type": "string",
-              "format": "date-time"
+              "type": "integer",
+              "format": "int64"
             },
             "style": "form",
-            "example": "2026-01-01T00:00:00Z"
+            "example": 1735689600
           },
           {
             "name": "priority_min",
@@ -5264,22 +5264,22 @@
             "in": "query",
             "required": false,
             "schema": {
-              "type": "string",
-              "format": "date-time"
+              "type": "integer",
+              "format": "int64"
             },
             "style": "form",
-            "example": "2026-01-15T12:00:00Z"
+            "example": 1737072000
           },
           {
             "name": "due_after",
             "in": "query",
             "required": false,
             "schema": {
-              "type": "string",
-              "format": "date-time"
+              "type": "integer",
+              "format": "int64"
             },
             "style": "form",
-            "example": "2026-01-01T00:00:00Z"
+            "example": 1735689600
           },
           {
             "name": "priority_min",
@@ -8556,17 +8556,19 @@
         "properties": {
           "after": {
             "type": [
-              "string",
+              "integer",
               "null"
             ],
-            "description": "Return messages sent strictly after this RFC 3339 timestamp."
+            "format": "int64",
+            "description": "Return messages sent strictly after this Unix timestamp (UTC seconds)."
           },
           "before": {
             "type": [
-              "string",
+              "integer",
               "null"
             ],
-            "description": "Return messages sent strictly before this RFC 3339 timestamp."
+            "format": "int64",
+            "description": "Return messages sent strictly before this Unix timestamp (UTC seconds)."
           },
           "chat_id": {
             "oneOf": [
@@ -9257,15 +9259,17 @@
           },
           "modified_after": {
             "type": [
-              "string",
+              "integer",
               "null"
-            ]
+            ],
+            "format": "int64"
           },
           "modified_before": {
             "type": [
-              "string",
+              "integer",
               "null"
-            ]
+            ],
+            "format": "int64"
           },
           "q": {
             "type": [
@@ -10283,15 +10287,17 @@
           },
           "due_after": {
             "type": [
-              "string",
+              "integer",
               "null"
-            ]
+            ],
+            "format": "int64"
           },
           "due_before": {
             "type": [
-              "string",
+              "integer",
               "null"
-            ]
+            ],
+            "format": "int64"
           },
           "flagged": {
             "type": [

@@ -125,11 +125,9 @@ module) shared across the OpenAPI contract:
   `NoteAttachmentId`, and the integer-backed `ChatId`) are typed wrappers that
   serialize transparently as their underlying string (or integer).
 
-> **Breaking change:** response timestamps were previously emitted as RFC 3339
-> strings (for example `"2024-01-15T12:00:00Z"`). They are now Unix-seconds
-> integers (for example `1705320000`). Clients that parsed the string form must
-> be updated. Query-parameter bounds (`before`, `after`, `due_before`,
-> `due_after`) still accept ISO-8601 / RFC 3339 input.
+> **Breaking change:** timestamps in responses and query filters are Unix-seconds
+> integers only (for example `1705320000`). RFC 3339 / ISO-8601 query bounds are
+> no longer accepted.
 
 ## Pagination and cursors
 
@@ -154,7 +152,7 @@ a cursor with different filters returns `400 validation_error`.
 | `q`               | Case-insensitive text search (max 256 chars). Matches plain `text` and decoded `attributedBody`. |
 | `chat_id`         | Restrict to one chat row id.                                                                     |
 | `sender`          | Handle identifier (phone/email).                                                                 |
-| `before`, `after` | ISO-8601 UTC bounds on message time.                                                             |
+| `before`, `after` | Unix-seconds UTC bounds on message time.                                                         |
 | `direction`       | `sent` or `received`.                                                                            |
 | `transport`       | `imessage`, `sms`, `rcs`, or `unknown`.                                                          |
 | `content_type`    | Classified content kind (`text`, `attachment`, `reaction`, …).                                   |
@@ -190,7 +188,7 @@ different filters returns `400 validation_error`.
 | `folder_id`                                                  | Restrict to one folder (row id or UUID).                                          |
 | `is_pinned`, `is_locked`, `has_checklist`, `has_attachments` | Boolean metadata filters.                                                         |
 | `include_deleted`                                            | Include Recently Deleted notes.                                                   |
-| `modified_before`, `modified_after`                          | ISO-8601 UTC bounds on modification time.                                         |
+| `modified_before`, `modified_after`                          | Unix-seconds UTC bounds on modification time.                                     |
 
 Filtered requests bind cursors to the active filter set. Reusing a cursor with
 different filters returns `400 validation_error`.

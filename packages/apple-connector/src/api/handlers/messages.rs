@@ -315,7 +315,7 @@ mod tests {
 
         let (status, payload) = response_json(
             app.clone(),
-            "/v1/messages?before=2024-01-01T00:00:00Z&after=2024-02-01T00:00:00Z",
+            "/v1/messages?before=1704067200&after=1706745600",
         )
         .await?;
         assert_eq!(status, StatusCode::BAD_REQUEST);
@@ -325,7 +325,8 @@ mod tests {
         let (status, _) = response_json(app.clone(), &format!("/v1/messages?q={long_q}")).await?;
         assert_eq!(status, StatusCode::BAD_REQUEST);
 
-        let (status, _) = response_json(app.clone(), "/v1/messages?before=not-a-date").await?;
+        let (status, _) =
+            response_json(app.clone(), "/v1/messages?before=not-a-unix-timestamp").await?;
         assert_eq!(status, StatusCode::BAD_REQUEST);
         Ok(())
     }
