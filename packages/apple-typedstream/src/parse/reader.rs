@@ -17,6 +17,14 @@ const LAST_TAG: i8 = -111;
 const FIRST_REFERENCE: i64 = -110;
 const MAX_DEPTH: usize = 128;
 const MAX_BLOB_LENGTH: usize = 64 * 1024 * 1024;
+/// Maximum objects and shared strings retained for back-references.
+const MAX_OBJECTS: usize = 1 << 20;
+const MAX_SHARED_STRINGS: usize = 1 << 20;
+/// Maximum values materialised from one stream.
+const MAX_VALUES: usize = 1 << 22;
+/// Maximum classes in one inheritance chain. Real Foundation chains are a
+/// handful deep; the cap bounds the quadratic chain expansion below it.
+const MAX_CLASS_CHAIN: usize = 256;
 
 #[derive(Clone)]
 enum CacheEntry {
@@ -41,6 +49,7 @@ struct Reader<'a> {
     byte_order: ByteOrder,
     shared_strings: Vec<Vec<u8>>,
     objects: Vec<CacheEntry>,
+    values_read: usize,
 }
 
 impl<'a> Reader<'a> {
@@ -51,6 +60,7 @@ impl<'a> Reader<'a> {
             byte_order: ByteOrder::Little,
             shared_strings: Vec::new(),
             objects: Vec::new(),
+            values_read: 0,
         };
         reader.read_header()?;
         Ok(reader)
@@ -123,6 +133,7 @@ impl<'a> Reader<'a> {
 
     fn read_value(&mut self, encoding: &Encoding, depth: usize) -> Result<Value> {
         self.check_depth(depth)?;
+        self.charge_value()?;
         match encoding {
             Encoding::Bool => match self.read_u8()? {
                 0 => Ok(Value::Bool(false)),
@@ -162,9 +173,13 @@ impl<'a> Reader<'a> {
             Encoding::Ignored => Ok(Value::Null),
             Encoding::Array(length, element) => {
                 if matches!(element.as_ref(), Encoding::I8 | Encoding::U8) {
-                    return Ok(Value::Bytes(self.read_exact(*length)?.to_vec()));
+                    return Ok(Value::Bytes(self.read_blob(*length)?));
                 }
-                let mut values = Vec::with_capacity(*length);
+                // Never reserve from the declared length: every element consumes
+                // at least one byte, so the remaining input is the real ceiling.
+                // `[4294967295@]` is fourteen bytes of encoding and would
+                // otherwise ask for four billion values up front.
+                let mut values = Vec::with_capacity((*length).min(self.remaining()));
                 for _ in 0..*length {
                     values.push(self.read_value(element, depth + 1)?);
                 }
@@ -196,11 +211,10 @@ impl<'a> Reader<'a> {
         }
 
         let object_index = self.objects.len();
-        self.objects
-            .push(CacheEntry::Object(Value::Reference(Reference {
-                kind: ReferenceKind::Object,
-                index: object_index,
-            })));
+        self.push_object(CacheEntry::Object(Value::Reference(Reference {
+            kind: ReferenceKind::Object,
+            index: object_index,
+        })))?;
 
         let classes = self.read_class_chain()?;
         let mut fields = Vec::new();
@@ -226,6 +240,14 @@ impl<'a> Reader<'a> {
             let name = name.trim_end_matches('\0').to_owned();
             let version = self.read_integer(true)?;
             literals.push(Class { name, version });
+            if literals.len() > MAX_CLASS_CHAIN {
+                return Err(Error::limit(
+                    self.offset,
+                    "class chain length",
+                    literals.len(),
+                    MAX_CLASS_CHAIN,
+                ));
+            }
             head = self.read_i8()?;
         }
 
@@ -255,7 +277,7 @@ impl<'a> Reader<'a> {
         for index in 0..literals.len() {
             let mut chain = literals[index..].to_vec();
             chain.extend(full[literals.len()..].iter().cloned());
-            self.objects.push(CacheEntry::Class(chain));
+            self.push_object(CacheEntry::Class(chain))?;
         }
         Ok(full)
     }
@@ -275,7 +297,7 @@ impl<'a> Reader<'a> {
             return Err(Error::syntax(self.offset, "C string contains a zero byte"));
         }
         let value = bytes_to_value(bytes);
-        self.objects.push(CacheEntry::CString(value.clone()));
+        self.push_object(CacheEntry::CString(value.clone()))?;
         Ok(value)
     }
 
@@ -312,13 +334,7 @@ impl<'a> Reader<'a> {
         let length = self.read_integer_with_head(head, false)?;
         let length = usize::try_from(length)
             .map_err(|_| Error::syntax(self.offset - 1, "negative string length"))?;
-        if length > MAX_BLOB_LENGTH {
-            return Err(Error::syntax(
-                self.offset - 1,
-                format!("blob length {length} exceeds limit"),
-            ));
-        }
-        Ok(Some(self.read_exact(length)?.to_vec()))
+        Ok(Some(self.read_blob(length)?))
     }
 
     fn read_shared_string(&mut self) -> Result<Option<Vec<u8>>> {
@@ -330,7 +346,7 @@ impl<'a> Reader<'a> {
             let value = self
                 .read_unshared_string()?
                 .ok_or_else(|| Error::syntax(self.offset, "nil literal shared string"))?;
-            self.shared_strings.push(value.clone());
+            self.push_shared_string(value.clone())?;
             return Ok(Some(value));
         }
         let index = self.decode_reference(head)?;
@@ -433,10 +449,73 @@ impl<'a> Reader<'a> {
 
     fn check_depth(&self, depth: usize) -> Result<()> {
         if depth > MAX_DEPTH {
-            Err(Error::syntax(self.offset, "nesting limit exceeded"))
+            Err(Error::limit(
+                self.offset,
+                "value nesting depth",
+                depth,
+                MAX_DEPTH,
+            ))
         } else {
             Ok(())
         }
+    }
+
+    fn remaining(&self) -> usize {
+        self.bytes.len().saturating_sub(self.offset)
+    }
+
+    fn charge_value(&mut self) -> Result<()> {
+        self.values_read = self.values_read.saturating_add(1);
+        if self.values_read > MAX_VALUES {
+            return Err(Error::limit(
+                self.offset,
+                "value count",
+                self.values_read,
+                MAX_VALUES,
+            ));
+        }
+        Ok(())
+    }
+
+    /// The single path for every bulk byte read, so no encoding can allocate
+    /// past the documented blob ceiling.
+    fn read_blob(&mut self, length: usize) -> Result<Vec<u8>> {
+        if length > MAX_BLOB_LENGTH {
+            return Err(Error::limit(
+                self.offset,
+                "blob length",
+                length,
+                MAX_BLOB_LENGTH,
+            ));
+        }
+        Ok(self.read_exact(length)?.to_vec())
+    }
+
+    fn push_object(&mut self, entry: CacheEntry) -> Result<usize> {
+        if self.objects.len() >= MAX_OBJECTS {
+            return Err(Error::limit(
+                self.offset,
+                "object count",
+                self.objects.len(),
+                MAX_OBJECTS,
+            ));
+        }
+        let index = self.objects.len();
+        self.objects.push(entry);
+        Ok(index)
+    }
+
+    fn push_shared_string(&mut self, value: Vec<u8>) -> Result<()> {
+        if self.shared_strings.len() >= MAX_SHARED_STRINGS {
+            return Err(Error::limit(
+                self.offset,
+                "shared string count",
+                self.shared_strings.len(),
+                MAX_SHARED_STRINGS,
+            ));
+        }
+        self.shared_strings.push(value);
+        Ok(())
     }
 
     fn peek_i8(&self) -> Result<i8> {

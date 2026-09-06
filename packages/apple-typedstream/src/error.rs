@@ -4,9 +4,26 @@ pub type Result<T> = std::result::Result<T, Error>;
 
 #[derive(Debug)]
 pub enum Error {
-    InvalidHeader { offset: usize, message: String },
-    UnexpectedEof { offset: usize, needed: usize },
-    Syntax { offset: usize, message: String },
+    InvalidHeader {
+        offset: usize,
+        message: String,
+    },
+    UnexpectedEof {
+        offset: usize,
+        needed: usize,
+    },
+    Syntax {
+        offset: usize,
+        message: String,
+    },
+    /// A decoding budget was exhausted. `limit` names the budget so callers can
+    /// distinguish which one tripped without matching on message text.
+    LimitExceeded {
+        offset: usize,
+        limit: &'static str,
+        actual: usize,
+        max: usize,
+    },
     Io(io::Error),
     Custom(String),
 }
@@ -30,6 +47,15 @@ impl fmt::Display for Error {
                     "typedstream syntax error at byte {offset}: {message}"
                 )
             }
+            Self::LimitExceeded {
+                offset,
+                limit,
+                actual,
+                max,
+            } => write!(
+                formatter,
+                "typedstream {limit} limit exceeded at byte {offset}: {actual} exceeds maximum {max}"
+            ),
             Self::Io(error) => error.fmt(formatter),
             Self::Custom(message) => write!(formatter, "{message}"),
         }
@@ -45,6 +71,15 @@ impl Error {
         Self::Syntax {
             offset,
             message: message.to_string(),
+        }
+    }
+
+    pub(crate) fn limit(offset: usize, limit: &'static str, actual: usize, max: usize) -> Self {
+        Self::LimitExceeded {
+            offset,
+            limit,
+            actual,
+            max,
         }
     }
 }

@@ -24,11 +24,42 @@ pub(crate) enum Encoding {
     Struct(Option<String>, Vec<Encoding>),
 }
 
+/// Maximum nesting of `[`/`{` groups in one type encoding.
+///
+/// Encodings are parsed recursively before any value is read, so this bound —
+/// not the reader's value-depth bound — is what stops a hostile encoding string
+/// from overflowing the stack.
+const MAX_ENCODING_DEPTH: usize = 32;
+
+/// Maximum number of encoding items parsed from one type encoding.
+const MAX_ENCODING_ITEMS: usize = 4096;
+
+#[derive(Default)]
+struct Budget {
+    items: usize,
+}
+
+impl Budget {
+    fn charge_item(&mut self, offset: usize) -> Result<()> {
+        self.items = self.items.saturating_add(1);
+        if self.items > MAX_ENCODING_ITEMS {
+            return Err(Error::limit(
+                offset,
+                "type encoding item count",
+                self.items,
+                MAX_ENCODING_ITEMS,
+            ));
+        }
+        Ok(())
+    }
+}
+
 pub(crate) fn parse_all(input: &[u8]) -> Result<Vec<Encoding>> {
     let mut offset = 0;
     let mut encodings = Vec::new();
+    let mut budget = Budget::default();
     while offset < input.len() {
-        encodings.push(parse_one(input, &mut offset)?);
+        encodings.push(parse_one(input, &mut offset, &mut budget, 0)?);
     }
     if encodings.is_empty() {
         return Err(Error::syntax(0, "empty type encoding"));
@@ -36,8 +67,23 @@ pub(crate) fn parse_all(input: &[u8]) -> Result<Vec<Encoding>> {
     Ok(encodings)
 }
 
-fn parse_one(input: &[u8], offset: &mut usize) -> Result<Encoding> {
+fn parse_one(
+    input: &[u8],
+    offset: &mut usize,
+    budget: &mut Budget,
+    depth: usize,
+) -> Result<Encoding> {
     let start = *offset;
+    if depth > MAX_ENCODING_DEPTH {
+        return Err(Error::limit(
+            start,
+            "type encoding nesting depth",
+            depth,
+            MAX_ENCODING_DEPTH,
+        ));
+    }
+    budget.charge_item(start)?;
+
     let byte = *input
         .get(*offset)
         .ok_or_else(|| Error::syntax(start, "incomplete type encoding"))?;
@@ -74,7 +120,7 @@ fn parse_one(input: &[u8], offset: &mut usize) -> Result<Encoding> {
                 .map_err(|_| Error::syntax(start, "invalid array length"))?
                 .parse()
                 .map_err(|_| Error::syntax(start, "array length overflows usize"))?;
-            let element = parse_one(input, offset)?;
+            let element = parse_one(input, offset, budget, depth + 1)?;
             if input.get(*offset) != Some(&b']') {
                 return Err(Error::syntax(start, "unterminated array encoding"));
             }
@@ -106,7 +152,7 @@ fn parse_one(input: &[u8], offset: &mut usize) -> Result<Encoding> {
                 if *offset >= input.len() {
                     return Err(Error::syntax(start, "unterminated struct encoding"));
                 }
-                fields.push(parse_one(input, offset)?);
+                fields.push(parse_one(input, offset, budget, depth + 1)?);
             }
             *offset += 1;
             Encoding::Struct(name, fields)
