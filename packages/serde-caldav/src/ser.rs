@@ -70,7 +70,7 @@ fn write_response(writer: &mut Writer<Vec<u8>>, object: &CalDavCalendarObject) -
     let ics =
         serde_icalendar::to_string(&object.event).map_err(|e| Error::Serialize(e.to_string()))?;
     writer
-        .write_event(Event::Text(BytesText::from_escaped(ics.trim())))
+        .write_event(Event::Text(BytesText::new(ics.trim())))
         .map_err(|e| Error::Serialize(e.to_string()))?;
     writer
         .write_event(Event::End(BytesEnd::new("calendar-data")))

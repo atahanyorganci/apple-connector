@@ -104,7 +104,7 @@ fn write_address_data(writer: &mut Writer<Vec<u8>>, object: &CardDavAddressObjec
         .map_err(|e| Error::Serialize(e.to_string()))?;
     let vcf = serde_vcard::to_string(&object.vcard).map_err(|e| Error::Serialize(e.to_string()))?;
     writer
-        .write_event(Event::Text(BytesText::from_escaped(vcf.trim())))
+        .write_event(Event::Text(BytesText::new(vcf.trim())))
         .map_err(|e| Error::Serialize(e.to_string()))?;
     writer
         .write_event(Event::End(BytesEnd::new("card:address-data")))

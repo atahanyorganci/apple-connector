@@ -15,4 +15,5 @@ serde-icalendar = { path = "../serde-icalendar" }
 serde_json = "1"
 
 [dev-dependencies]
+quick-xml = "0.37"
 serde_json = "1"
