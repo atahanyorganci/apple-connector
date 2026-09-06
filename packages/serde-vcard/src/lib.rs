@@ -7,10 +7,11 @@ mod ser;
 
 use std::io::{Read, Write};
 
+pub use de::{parse_vcard, parse_vcards};
 pub use error::{Error, Result};
 pub use model::{
-    Address, DateOrDateTime, Email, ExtensionBag, Photo, SocialProfile, StructuredName, Telephone,
-    VCard,
+    Address, DateOrDateTime, Email, ExtensionBag, Photo, RawProperty, SocialProfile,
+    StructuredName, Telephone, Url, VCard,
 };
 use serde::{Serialize, de::DeserializeOwned};
 
@@ -96,13 +97,11 @@ mod tests {
                     number: "+15551234567".to_owned(),
                     label: Some("CELL".to_owned()),
                     preferred: true,
-                    phone_type: None,
                 },
                 Telephone {
                     number: "+15559876543".to_owned(),
                     label: Some("WORK".to_owned()),
                     preferred: false,
-                    phone_type: None,
                 },
             ],
             emails: vec![super::Email {

@@ -4,7 +4,7 @@ use base64::{Engine, engine::general_purpose::STANDARD};
 
 use crate::{
     error::{Error, Result},
-    model::{Address, DateOrDateTime, StructuredName, VCard},
+    model::{Address, DateOrDateTime, Photo, RawProperty, SocialProfile, StructuredName, VCard},
 };
 
 const LINE_LIMIT: usize = 75;
@@ -54,34 +54,37 @@ fn card_to_vcard(card: &VCard) -> Result<String> {
     }
     for phone in &card.phones {
         lines.push(format!(
-            "{}{}:{}",
+            "{}:{}",
             property_params("TEL", phone.label.as_deref(), phone.preferred),
-            phone_type_param(phone.phone_type.as_deref()),
             escape_value(&phone.number)
         ));
     }
     for email in &card.emails {
         lines.push(format!(
-            "{}{}:{}",
+            "{}:{}",
             property_params("EMAIL", email.label.as_deref(), email.preferred),
-            "",
             escape_value(&email.address)
         ));
     }
     for address in &card.addresses {
         lines.push(format!(
-            "{}{}:{}",
+            "{}:{}",
             property_params("ADR", address.label.as_deref(), address.preferred),
-            "",
             address_value(address)
         ));
     }
-    if let Some(photo) = &card.photo {
-        let media = photo.media_type.as_deref().unwrap_or("image/jpeg");
+    for url in &card.urls {
         lines.push(format!(
-            "PHOTO;ENCODING=b;TYPE={media}:{}",
-            STANDARD.encode(&photo.data)
+            "{}:{}",
+            property_params("URL", url.label.as_deref(), url.preferred),
+            escape_value(&url.url)
         ));
+    }
+    for profile in &card.social_profiles {
+        lines.push(social_profile_line(profile));
+    }
+    if let Some(photo) = &card.photo {
+        lines.push(photo_line(photo));
     }
     if let Some(extensions) = &card.extensions {
         for (key, value) in &extensions.properties {
@@ -91,8 +94,56 @@ fn card_to_vcard(card: &VCard) -> Result<String> {
             }
         }
     }
+    for property in &card.unknown {
+        lines.push(raw_property_line(property));
+    }
     lines.push("END:VCARD".to_owned());
     Ok(fold_lines(&lines))
+}
+
+/// RFC 6350 §6.2.4: PHOTO is a URI, so inline bytes are written as a `data:`
+/// URI rather than the vCard 3.0 `ENCODING=b` form the header no longer claims.
+fn photo_line(photo: &Photo) -> String {
+    match photo {
+        Photo::Uri { uri } => format!("PHOTO:{uri}"),
+        Photo::Inline { data, media_type } => {
+            let media = media_type.as_deref().unwrap_or("image/jpeg");
+            format!("PHOTO:data:{media};base64,{}", STANDARD.encode(data))
+        }
+    }
+}
+
+fn social_profile_line(profile: &SocialProfile) -> String {
+    let mut property = "X-SOCIALPROFILE".to_owned();
+    if profile.preferred {
+        property.push_str(";PREF=1");
+    }
+    if let Some(service) = &profile.service {
+        property.push_str(&format!(";TYPE={}", escape_param(service)));
+    }
+    if let Some(username) = &profile.username {
+        property.push_str(&format!(";x-user={}", escape_param(username)));
+    }
+    format!(
+        "{property}:{}",
+        escape_value(profile.url.as_deref().unwrap_or(""))
+    )
+}
+
+fn raw_property_line(property: &RawProperty) -> String {
+    let mut line = String::new();
+    if let Some(group) = &property.group {
+        line.push_str(group);
+        line.push('.');
+    }
+    line.push_str(&property.name);
+    for parameter in &property.parameters {
+        line.push(';');
+        line.push_str(parameter);
+    }
+    line.push(':');
+    line.push_str(&property.value);
+    line
 }
 
 fn structured_name_value(name: &StructuredName) -> String {
@@ -131,12 +182,6 @@ fn property_params(name: &str, label: Option<&str>, preferred: bool) -> String {
         params.push_str(&format!(";TYPE={}", escape_param(label)));
     }
     params
-}
-
-fn phone_type_param(phone_type: Option<&str>) -> String {
-    phone_type
-        .map(|value| format!(";TYPE={}", escape_param(value)))
-        .unwrap_or_default()
 }
 
 fn format_date(value: &DateOrDateTime) -> String {
