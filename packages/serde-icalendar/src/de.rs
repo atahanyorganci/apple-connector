@@ -1,4 +1,4 @@
-use chrono::{DateTime, NaiveDate, TimeZone, Utc};
+use chrono::{DateTime, NaiveDate, NaiveDateTime, TimeZone, Utc};
 use icalendar::{Calendar, CalendarDateTime, Component, DatePerhapsTime, EventLike};
 
 use crate::{
@@ -50,16 +50,7 @@ pub fn parse_ics(input: &[u8]) -> Result<CalendarEvent> {
             .collect(),
         alarms: Vec::new(),
         recurrence_rule: ics_event.property_value("RRULE").map(str::to_owned),
-        exception_dates: ics_event
-            .multi_properties()
-            .get("EXDATE")
-            .map(|properties| {
-                properties
-                    .iter()
-                    .flat_map(|property| parse_exdate(property.value()))
-                    .collect()
-            })
-            .unwrap_or_default(),
+        exception_dates: parse_exception_dates(ics_event)?,
         sequence: ics_event.get_sequence(),
         extensions: Some(parse_extensions(ics_event)),
     })
@@ -89,38 +80,96 @@ fn date_perhaps_time_to_event(dt: DatePerhapsTime) -> EventDateTime {
     }
 }
 
-fn parse_exdate(value: &str) -> Option<EventDateTime> {
-    let all_day = !value.contains('T');
-    let timestamp = if all_day {
-        let date = NaiveDate::parse_from_str(value, "%Y%m%d").ok()?;
-        Utc.from_utc_datetime(&date.and_hms_opt(0, 0, 0)?)
-    } else {
-        DateTime::parse_from_rfc3339(&format_ics_to_rfc3339(value))
-            .ok()?
-            .with_timezone(&Utc)
+/// Collect every EXDATE value on the event.
+///
+/// RFC 5545 allows one EXDATE property to carry a comma-separated list, and the
+/// TZID parameter applies to every value in that list. A value that cannot be
+/// parsed is an error rather than a silently dropped exception, so callers can
+/// tell "no exceptions" apart from "we could not read the exceptions".
+fn parse_exception_dates(event: &icalendar::Event) -> Result<Vec<EventDateTime>> {
+    let Some(properties) = event.multi_properties().get("EXDATE") else {
+        return Ok(Vec::new());
     };
-    Some(EventDateTime {
+
+    let mut dates = Vec::new();
+    for property in properties {
+        let tzid = property
+            .params()
+            .get("TZID")
+            .map(|parameter| parameter.value().to_owned());
+        for value in property.value().split(',') {
+            let value = value.trim();
+            if value.is_empty() {
+                continue;
+            }
+            dates.push(parse_exdate(value, tzid.clone())?);
+        }
+    }
+    Ok(dates)
+}
+
+fn parse_exdate(value: &str, tzid: Option<String>) -> Result<EventDateTime> {
+    // DATE form: 20240101
+    if !value.contains('T') {
+        let date = NaiveDate::parse_from_str(value, "%Y%m%d")
+            .map_err(|error| Error::Parse(format!("invalid EXDATE value {value:?}: {error}")))?;
+        let midnight = date
+            .and_hms_opt(0, 0, 0)
+            .ok_or_else(|| Error::Parse(format!("invalid EXDATE date {value:?}")))?;
+        return Ok(EventDateTime {
+            timestamp: Utc.from_utc_datetime(&midnight),
+            all_day: true,
+            tzid,
+        });
+    }
+
+    // UTC form: 20240101T120000Z. The trailing Z wins over any TZID parameter.
+    if let Some(without_zulu) = value.strip_suffix('Z') {
+        let naive = parse_ics_naive(without_zulu, value)?;
+        return Ok(EventDateTime {
+            timestamp: Utc.from_utc_datetime(&naive),
+            all_day: false,
+            tzid: None,
+        });
+    }
+
+    // Zoned or floating form: 20240101T120000
+    let naive = parse_ics_naive(value, value)?;
+    let timestamp = match tzid.as_deref() {
+        Some(zone) => resolve_zoned(naive, zone)?,
+        None => Utc.from_utc_datetime(&naive),
+    };
+    Ok(EventDateTime {
         timestamp,
-        all_day,
-        tzid: None,
+        all_day: false,
+        tzid,
     })
 }
 
-fn format_ics_to_rfc3339(value: &str) -> String {
-    if value.ends_with('Z') {
-        let trimmed = value.trim_end_matches('Z');
-        format!(
-            "{}-{}-{}T{}:{}:{}Z",
-            &trimmed[0..4],
-            &trimmed[4..6],
-            &trimmed[6..8],
-            &trimmed[9..11],
-            &trimmed[11..13],
-            &trimmed[13..15]
-        )
-    } else {
-        value.to_owned()
-    }
+fn parse_ics_naive(value: &str, original: &str) -> Result<NaiveDateTime> {
+    NaiveDateTime::parse_from_str(value, "%Y%m%dT%H%M%S")
+        .map_err(|error| Error::Parse(format!("invalid EXDATE value {original:?}: {error}")))
+}
+
+/// Resolve a wall-clock time in a named zone to the UTC instant it denotes.
+///
+/// Ambiguous local times (a DST fall-back) resolve to the earlier offset;
+/// non-existent ones (a spring-forward gap) are an error rather than a silent
+/// shift.
+fn resolve_zoned(naive: NaiveDateTime, tzid: &str) -> Result<DateTime<Utc>> {
+    let zone: chrono_tz::Tz = tzid
+        .parse()
+        .map_err(|_| Error::Parse(format!("unknown time zone {tzid:?}")))?;
+    let local = zone.from_local_datetime(&naive);
+    local
+        .single()
+        .or_else(|| local.earliest())
+        .map(|resolved| resolved.with_timezone(&Utc))
+        .ok_or_else(|| {
+            Error::Parse(format!(
+                "local time {naive} does not exist in time zone {tzid}"
+            ))
+        })
 }
 
 fn parse_organizer(value: &str) -> Option<Organizer> {
