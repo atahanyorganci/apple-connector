@@ -226,7 +226,9 @@ impl Event {
     /// Convert the interchange model into the serde-icalendar wire format.
     pub fn to_ics_event(&self) -> serde_icalendar::CalendarEvent {
         use chrono::TimeZone;
-        use serde_icalendar::{Attendee, CalendarEvent, EventDateTime, EventStatus, Organizer};
+        use serde_icalendar::{
+            Attendee, CalendarEvent, EventDateTime, EventStatus, Organizer, ParticipationStatus,
+        };
 
         fn ts_to_dt(ts: i64, all_day: bool) -> EventDateTime {
             let timestamp = Utc.timestamp_opt(ts, 0).single().unwrap_or_else(Utc::now);
@@ -252,7 +254,7 @@ impl Event {
             end: self.end.map(|ts| ts_to_dt(ts, self.all_day)),
             organizer: self.organizer_email.as_ref().map(|email| Organizer {
                 email: email.clone(),
-                name: None,
+                ..Organizer::default()
             }),
             attendees: self
                 .attendees
@@ -260,9 +262,11 @@ impl Event {
                 .map(|attendee| Attendee {
                     email: attendee.email.clone(),
                     name: attendee.name.clone(),
-                    role: None,
-                    partstat: attendee.partstat.clone(),
-                    rsvp: None,
+                    partstat: attendee
+                        .partstat
+                        .as_deref()
+                        .map(ParticipationStatus::from_token),
+                    ..Attendee::default()
                 })
                 .collect(),
             alarms: Vec::new(),

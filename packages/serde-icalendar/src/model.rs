@@ -123,32 +123,173 @@ impl EventDateTime {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+/// Build the RFC-token enums used for ROLE, PARTSTAT and CUTYPE.
+///
+/// Each keeps an `Other` arm so a token this crate does not know is preserved
+/// verbatim rather than dropped, and serializes as the token itself rather than
+/// as a Rust variant name.
+macro_rules! rfc_token_enum {
+    ($(#[$meta:meta])* $name:ident { $($variant:ident => $token:literal),+ $(,)? }) => {
+        $(#[$meta])*
+        #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+        #[serde(from = "String", into = "String")]
+        pub enum $name {
+            $($variant,)+
+            /// A token outside the RFC set, preserved as written.
+            Other(String),
+        }
+
+        impl $name {
+            pub fn as_token(&self) -> &str {
+                match self {
+                    $(Self::$variant => $token,)+
+                    Self::Other(value) => value,
+                }
+            }
+
+            pub fn from_token(value: &str) -> Self {
+                match value.to_ascii_uppercase().as_str() {
+                    $($token => Self::$variant,)+
+                    _ => Self::Other(value.to_owned()),
+                }
+            }
+        }
+
+        impl From<String> for $name {
+            fn from(value: String) -> Self {
+                Self::from_token(&value)
+            }
+        }
+
+        impl From<$name> for String {
+            fn from(value: $name) -> Self {
+                value.as_token().to_owned()
+            }
+        }
+    };
+}
+
+rfc_token_enum! {
+    /// ROLE parameter, RFC 5545 §3.2.16.
+    Role {
+        Chair => "CHAIR",
+        ReqParticipant => "REQ-PARTICIPANT",
+        OptParticipant => "OPT-PARTICIPANT",
+        NonParticipant => "NON-PARTICIPANT",
+    }
+}
+
+rfc_token_enum! {
+    /// PARTSTAT parameter, RFC 5545 §3.2.12.
+    ParticipationStatus {
+        NeedsAction => "NEEDS-ACTION",
+        Accepted => "ACCEPTED",
+        Declined => "DECLINED",
+        Tentative => "TENTATIVE",
+        Delegated => "DELEGATED",
+        Completed => "COMPLETED",
+        InProcess => "IN-PROCESS",
+    }
+}
+
+rfc_token_enum! {
+    /// CUTYPE parameter, RFC 5545 §3.2.3.
+    CalendarUserType {
+        Individual => "INDIVIDUAL",
+        Group => "GROUP",
+        Resource => "RESOURCE",
+        Room => "ROOM",
+        Unknown => "UNKNOWN",
+    }
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Organizer {
     pub email: String,
+    /// The CN parameter.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub name: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub sent_by: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub dir: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub language: Option<String>,
+    /// Parameters this crate does not model, kept so a round trip is lossless.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub parameters: BTreeMap<String, String>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Attendee {
     pub email: String,
+    /// The CN parameter.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub name: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub role: Option<String>,
+    pub role: Option<Role>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub partstat: Option<String>,
+    pub partstat: Option<ParticipationStatus>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cutype: Option<CalendarUserType>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub rsvp: Option<bool>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub delegated_from: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub delegated_to: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub members: Vec<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub sent_by: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub dir: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub language: Option<String>,
+    /// Parameters this crate does not model, kept so a round trip is lossless.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub parameters: BTreeMap<String, String>,
 }
 
+/// When a VALARM fires, RFC 5545 §3.8.6.3.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+pub enum AlarmTrigger {
+    /// A duration relative to the event's start or end, kept as written so the
+    /// exact ISO 8601 spelling survives a round trip.
+    Duration {
+        value: String,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        related: Option<TriggerRelation>,
+    },
+    /// An absolute instant.
+    DateTime { timestamp: DateTime<Utc> },
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum TriggerRelation {
+    Start,
+    End,
+}
+
+/// A VALARM component.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Alarm {
+    /// The ACTION token, for example `DISPLAY`, `AUDIO` or `EMAIL`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub trigger: Option<String>,
+    pub action: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub trigger: Option<AlarmTrigger>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub description: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub action: Option<String>,
+    pub summary: Option<String>,
+    /// The DURATION between repeats, kept as written.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub duration: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub repeat: Option<u32>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub attendees: Vec<Attendee>,
 }

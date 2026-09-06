@@ -1,9 +1,16 @@
+use std::collections::BTreeMap;
+
 use chrono::{DateTime, NaiveDate, NaiveDateTime, TimeZone, Utc};
-use icalendar::{Calendar, CalendarDateTime, Component, DatePerhapsTime, EventLike};
+use icalendar::{
+    Calendar, CalendarDateTime, Component, DatePerhapsTime, EventLike, Parameter, Property,
+};
 
 use crate::{
     error::{Error, Result},
-    model::{CalendarEvent, EventDateTime, EventStatus, ExtensionBag, Organizer},
+    model::{
+        Alarm, AlarmTrigger, Attendee, CalendarEvent, CalendarUserType, EventDateTime, EventStatus,
+        ExtensionBag, Organizer, ParticipationStatus, Role, TriggerRelation,
+    },
 };
 
 pub fn parse_ics(input: &[u8]) -> Result<CalendarEvent> {
@@ -35,26 +42,9 @@ pub fn parse_ics(input: &[u8]) -> Result<CalendarEvent> {
             .get_end()
             .map(date_perhaps_time_to_event)
             .transpose()?,
-        organizer: ics_event
-            .property_value("ORGANIZER")
-            .and_then(parse_organizer),
-        attendees: ics_event
-            .get_attendees()
-            .into_iter()
-            .map(|attendee| crate::model::Attendee {
-                email: attendee
-                    .cal_address
-                    .strip_prefix("mailto:")
-                    .or_else(|| attendee.cal_address.strip_prefix("MAILTO:"))
-                    .unwrap_or(attendee.cal_address.as_str())
-                    .to_owned(),
-                name: attendee.cn.clone(),
-                role: attendee.role.map(|role| format!("{role:?}")),
-                partstat: attendee.part_stat.map(|part| format!("{part:?}")),
-                rsvp: attendee.rsvp,
-            })
-            .collect(),
-        alarms: Vec::new(),
+        organizer: ics_event.properties().get("ORGANIZER").map(parse_organizer),
+        attendees: parse_attendees(ics_event.multi_properties().get("ATTENDEE")),
+        alarms: parse_alarms(ics_event)?,
         recurrence_rule: ics_event.property_value("RRULE").map(str::to_owned),
         exception_dates: parse_exception_dates(ics_event)?,
         sequence: ics_event.get_sequence(),
@@ -157,13 +147,157 @@ fn resolve_zoned(naive: NaiveDateTime, tzid: &str) -> Result<DateTime<Utc>> {
         })
 }
 
-fn parse_organizer(value: &str) -> Option<Organizer> {
-    let email = value
+/// Parameters handled by a dedicated model field, so the catch-all bag does not
+/// duplicate them.
+const KNOWN_ADDRESS_PARAMS: &[&str] = &[
+    "CN",
+    "CUTYPE",
+    "DELEGATED-FROM",
+    "DELEGATED-TO",
+    "DIR",
+    "LANGUAGE",
+    "MEMBER",
+    "PARTSTAT",
+    "ROLE",
+    "RSVP",
+    "SENT-BY",
+];
+
+fn strip_mailto(value: &str) -> &str {
+    value
         .strip_prefix("mailto:")
         .or_else(|| value.strip_prefix("MAILTO:"))
         .unwrap_or(value)
-        .to_owned();
-    Some(Organizer { email, name: None })
+}
+
+fn param<'a>(property: &'a Property, key: &str) -> Option<&'a str> {
+    property.params().get(key).map(Parameter::value)
+}
+
+/// Parameters we do not model, kept verbatim so a round trip loses nothing.
+fn unmodelled_params(property: &Property) -> BTreeMap<String, String> {
+    property
+        .params()
+        .iter()
+        .filter(|(key, _)| !KNOWN_ADDRESS_PARAMS.contains(&key.as_str()))
+        .map(|(key, value)| (key.clone(), value.value().to_owned()))
+        .collect()
+}
+
+/// RFC 5545 requires each address in MEMBER, DELEGATED-FROM and DELEGATED-TO to
+/// be a quoted string in a comma-separated list.
+fn address_list(property: &Property, key: &str) -> Vec<String> {
+    param(property, key)
+        .into_iter()
+        .flat_map(|raw| raw.split(','))
+        .map(|entry| strip_mailto(entry.trim().trim_matches('"')).to_owned())
+        .filter(|entry| !entry.is_empty())
+        .collect()
+}
+
+fn parse_organizer(property: &Property) -> Organizer {
+    Organizer {
+        email: strip_mailto(property.value()).to_owned(),
+        name: param(property, "CN").map(str::to_owned),
+        sent_by: param(property, "SENT-BY")
+            .map(strip_mailto)
+            .map(str::to_owned),
+        dir: param(property, "DIR").map(str::to_owned),
+        language: param(property, "LANGUAGE").map(str::to_owned),
+        parameters: unmodelled_params(property),
+    }
+}
+
+fn parse_attendees(properties: Option<&Vec<Property>>) -> Vec<Attendee> {
+    properties
+        .map(|properties| properties.iter().map(parse_attendee).collect())
+        .unwrap_or_default()
+}
+
+fn parse_attendee(property: &Property) -> Attendee {
+    Attendee {
+        email: strip_mailto(property.value()).to_owned(),
+        name: param(property, "CN").map(str::to_owned),
+        role: param(property, "ROLE").map(Role::from_token),
+        partstat: param(property, "PARTSTAT").map(ParticipationStatus::from_token),
+        cutype: param(property, "CUTYPE").map(CalendarUserType::from_token),
+        rsvp: param(property, "RSVP").map(|value| value.eq_ignore_ascii_case("TRUE")),
+        delegated_from: address_list(property, "DELEGATED-FROM"),
+        delegated_to: address_list(property, "DELEGATED-TO"),
+        members: address_list(property, "MEMBER"),
+        sent_by: param(property, "SENT-BY")
+            .map(strip_mailto)
+            .map(str::to_owned),
+        dir: param(property, "DIR").map(str::to_owned),
+        language: param(property, "LANGUAGE").map(str::to_owned),
+        parameters: unmodelled_params(property),
+    }
+}
+
+/// VALARM components arrive as nested `Other` components rather than as
+/// properties, which is why they were previously dropped wholesale.
+fn parse_alarms(event: &icalendar::Event) -> Result<Vec<Alarm>> {
+    let mut alarms = Vec::new();
+    for component in event.components() {
+        if !component.component_kind().eq_ignore_ascii_case("VALARM") {
+            continue;
+        }
+        let properties = component.properties();
+        let repeat = match properties.get("REPEAT") {
+            Some(property) => Some(property.value().parse::<u32>().map_err(|error| {
+                Error::Parse(format!(
+                    "invalid VALARM REPEAT {:?}: {error}",
+                    property.value()
+                ))
+            })?),
+            None => None,
+        };
+
+        alarms.push(Alarm {
+            action: properties
+                .get("ACTION")
+                .map(|property| property.value().to_owned()),
+            trigger: properties.get("TRIGGER").map(parse_trigger).transpose()?,
+            description: properties
+                .get("DESCRIPTION")
+                .map(|property| property.value().to_owned()),
+            summary: properties
+                .get("SUMMARY")
+                .map(|property| property.value().to_owned()),
+            duration: properties
+                .get("DURATION")
+                .map(|property| property.value().to_owned()),
+            repeat,
+            attendees: parse_attendees(component.multi_properties().get("ATTENDEE")),
+        });
+    }
+    Ok(alarms)
+}
+
+fn parse_trigger(property: &Property) -> Result<AlarmTrigger> {
+    if param(property, "VALUE").is_some_and(|value| value.eq_ignore_ascii_case("DATE-TIME")) {
+        let value = property.value();
+        let naive = NaiveDateTime::parse_from_str(value.trim_end_matches('Z'), "%Y%m%dT%H%M%S")
+            .map_err(|error| Error::Parse(format!("invalid VALARM TRIGGER {value:?}: {error}")))?;
+        return Ok(AlarmTrigger::DateTime {
+            timestamp: Utc.from_utc_datetime(&naive),
+        });
+    }
+
+    let related = match param(property, "RELATED") {
+        Some(value) if value.eq_ignore_ascii_case("END") => Some(TriggerRelation::End),
+        Some(value) if value.eq_ignore_ascii_case("START") => Some(TriggerRelation::Start),
+        Some(value) => {
+            return Err(Error::Parse(format!(
+                "invalid VALARM TRIGGER RELATED {value:?}"
+            )));
+        }
+        None => None,
+    };
+    Ok(AlarmTrigger::Duration {
+        value: property.value().to_owned(),
+        related,
+    })
 }
 
 fn parse_extensions(event: &icalendar::Event) -> ExtensionBag {

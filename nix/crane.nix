@@ -49,6 +49,7 @@
         (lib.fileset.maybeMissing (packageRoot + "/fixtures/contacts/seed.sql"))
         (lib.fileset.maybeMissing (projectRoot + "/packages/apple-typedstream/fixtures"))
         (lib.fileset.maybeMissing (projectRoot + "/packages/apple-typedstream/tests/snapshots"))
+        (lib.fileset.maybeMissing (projectRoot + "/packages/serde-icalendar/tests/fixtures"))
         (lib.fileset.maybeMissing (projectRoot + "/docs/openapi.json"))
         (lib.fileset.maybeMissing (projectRoot + "/scripts/check-api-error-leakage.sh"))
       ];

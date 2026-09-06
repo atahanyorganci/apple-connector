@@ -9,7 +9,8 @@ use std::io::{Read, Write};
 
 pub use error::{Error, Result};
 pub use model::{
-    Alarm, Attendee, CalendarEvent, EventDateTime, EventStatus, ExtensionBag, Organizer,
+    Alarm, AlarmTrigger, Attendee, CalendarEvent, CalendarUserType, EventDateTime, EventStatus,
+    ExtensionBag, Organizer, ParticipationStatus, Role, TriggerRelation,
 };
 use serde::{Serialize, de::DeserializeOwned};
 
