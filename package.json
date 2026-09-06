@@ -1,0 +1,27 @@
+{
+	"name": "apple-connector-workspace",
+	"version": "1.0.0",
+	"private": true,
+	"description": "pnpm workspace for apple-connector JavaScript packages",
+	"type": "module",
+	"scripts": {
+		"build": "turbo run build",
+		"check": "turbo run check",
+		"dev": "turbo run dev",
+		"format": "turbo run format format:root",
+		"format:fix": "turbo run format:fix format:root:fix",
+		"format:root": "oxfmt --check",
+		"format:root:fix": "oxfmt",
+		"lint": "turbo run lint",
+		"lint:fix": "turbo run lint:fix",
+		"typecheck": "turbo run typecheck"
+	},
+	"devDependencies": {
+		"oxfmt": "^0.66.0",
+		"oxlint": "^1.81.0",
+		"oxlint-tsgolint": "^7.0.2001",
+		"turbo": "^2.5.4",
+		"typescript": "^7.0.2"
+	},
+	"packageManager": "pnpm@12.3.4+sha512.961aa41fb077da3a04a441d9f8e15ebc0c96da8ef710b2eb67bf9ee7cb0610eabd48f1fd85f51cffe73846785fa0f87c56a3a872a1d893f8446741b5cce45457"
+}

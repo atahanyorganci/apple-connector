@@ -1,6 +1,8 @@
 /target
 result*
 .env
+node_modules
+.turbo
 /.sqlx/
 packages/apple-connector/.sqlx/
 packages/apple-connector/fixtures/messages/chat.db

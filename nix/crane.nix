@@ -163,7 +163,7 @@
     };
     devShells.default = craneLibNightly.devShell {
       checks = self'.checks;
-      packages = [rustToolchain pkgs.cargo-watch pkgs.cargo-fuzz];
+      packages = with pkgs; [rustToolchain cargo-watch cargo-fuzz nodejs-slim corepack];
       RUST_SRC_PATH = "${rustToolchain.passthru.availableComponents.rust-src}/lib/rustlib/src/rust/library";
       SQLX_OFFLINE = "true";
       SQLX_OFFLINE_DIR = "packages/apple-connector/sqlx";

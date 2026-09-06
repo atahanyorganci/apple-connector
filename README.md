@@ -98,13 +98,13 @@ Interactive reference: [`/docs`](http://127.0.0.1:3000/docs) (Scalar UI) and
 [`/openapi.json`](http://127.0.0.1:3000/openapi.json). Committed contract:
 [`docs/openapi.json`](docs/openapi.json).
 
-| Domain | Read (SQLite) | Write (framework) |
-| --- | --- | --- |
-| Messages | chats, messages, attachments | — |
-| Reminders | lists, reminders, attachments | create/update/delete reminders |
-| Notes | folders, notes, attachments | — |
-| Calendar | accounts, calendars, events, iCal/CalDAV export | create/update/delete events |
-| Contacts | containers, groups, contacts, vCard/CardDAV | create/update/delete contacts and groups |
+| Domain    | Read (SQLite)                                   | Write (framework)                        |
+| --------- | ----------------------------------------------- | ---------------------------------------- |
+| Messages  | chats, messages, attachments                    | —                                        |
+| Reminders | lists, reminders, attachments                   | create/update/delete reminders           |
+| Notes     | folders, notes, attachments                     | —                                        |
+| Calendar  | accounts, calendars, events, iCal/CalDAV export | create/update/delete events              |
+| Contacts  | containers, groups, contacts, vCard/CardDAV     | create/update/delete contacts and groups |
 
 Common routes: `GET /healthz`, `GET /openapi.json`, `GET /docs`. List endpoints
 use keyset pagination (`limit`, `cursor`). Unknown routes return JSON `404`;

@@ -4,17 +4,17 @@ Rust monorepo exposing a **hybrid HTTP API** over Apple Messages, Reminders, Not
 
 ## Crates
 
-| Crate | Path | Role |
-| --- | --- | --- |
-| `apple-connector` | `packages/apple-connector/` | Axum HTTP server, SQLx queries, OpenAPI (`/docs`, `/openapi.json`) |
-| `apple-eventkit` | `packages/apple-eventkit/` | EventKit wrapper for Reminders/Calendar writes (macOS-only) |
-| `apple-contacts` | `packages/apple-contacts/` | Contacts framework wrapper for contact/group writes (macOS-only) |
-| `apple-notes-protobuf` | `packages/apple-notes-protobuf/` | Gzip + protobuf decoder for Apple Notes body blobs |
-| `apple-typedstream` | `packages/apple-typedstream/` | Parser for Apple typedstream / attributed message bodies |
-| `serde-vcard` | `packages/serde-vcard/` | RFC 6350 vCard serializer/deserializer |
-| `serde-carddav` | `packages/serde-carddav/` | RFC 6352 CardDAV XML serializer/deserializer |
-| `serde-caldav` | `packages/serde-caldav/` | CalDAV XML serializer/deserializer |
-| `serde-icalendar` | `packages/serde-icalendar/` | iCalendar serializer/deserializer |
+| Crate                  | Path                             | Role                                                               |
+| ---------------------- | -------------------------------- | ------------------------------------------------------------------ |
+| `apple-connector`      | `packages/apple-connector/`      | Axum HTTP server, SQLx queries, OpenAPI (`/docs`, `/openapi.json`) |
+| `apple-eventkit`       | `packages/apple-eventkit/`       | EventKit wrapper for Reminders/Calendar writes (macOS-only)        |
+| `apple-contacts`       | `packages/apple-contacts/`       | Contacts framework wrapper for contact/group writes (macOS-only)   |
+| `apple-notes-protobuf` | `packages/apple-notes-protobuf/` | Gzip + protobuf decoder for Apple Notes body blobs                 |
+| `apple-typedstream`    | `packages/apple-typedstream/`    | Parser for Apple typedstream / attributed message bodies           |
+| `serde-vcard`          | `packages/serde-vcard/`          | RFC 6350 vCard serializer/deserializer                             |
+| `serde-carddav`        | `packages/serde-carddav/`        | RFC 6352 CardDAV XML serializer/deserializer                       |
+| `serde-caldav`         | `packages/serde-caldav/`         | CalDAV XML serializer/deserializer                                 |
+| `serde-icalendar`      | `packages/serde-icalendar/`      | iCalendar serializer/deserializer                                  |
 
 Domain code lives under `packages/apple-connector/src/{messages,reminders,notes,calendar,contacts,api}/`. Offline SQLx metadata: `packages/apple-connector/sqlx/`. Fixtures: `packages/apple-connector/fixtures/`.
 
