@@ -8,78 +8,56 @@ pub mod xmlns;
 
 use std::io::{Read, Write};
 
-pub use de::{parse_address_object, parse_multistatus, parse_xml};
+pub use de::{parse_address_object, parse_multistatus};
 pub use error::{Error, Result};
 pub use model::{
     CardDavAddressBookResource, CardDavAddressObject, CardDavMultistatus, CardDavResponse,
 };
 pub use ser::{address_object_to_string, multistatus_to_string};
-use serde::{Serialize, de::DeserializeOwned};
 
-/// Serialize a value into CardDAV XML with embedded vCard address-data.
-pub fn to_string<T>(value: &T) -> Result<String>
-where
-    T: Serialize,
-{
-    let mut buffer = Vec::new();
-    to_writer(&mut buffer, value)?;
-    String::from_utf8(buffer).map_err(|error| Error::Serialize(error.to_string()))
+/// Maximum number of bytes [`from_reader`] will read.
+pub const MAX_INPUT_BYTES: usize = 64 * 1024 * 1024;
+
+/// Serialize a multistatus into CardDAV XML.
+pub fn to_string(multistatus: &CardDavMultistatus) -> Result<String> {
+    multistatus_to_string(multistatus)
 }
 
-/// Deserialize a value from CardDAV XML.
-pub fn from_str<T>(input: &str) -> Result<T>
-where
-    T: DeserializeOwned,
-{
+/// Serialize a multistatus into a CardDAV XML writer.
+pub fn to_writer<W: Write>(mut writer: W, multistatus: &CardDavMultistatus) -> Result<()> {
+    writer
+        .write_all(to_string(multistatus)?.as_bytes())
+        .map_err(|error| Error::Serialize(error.to_string()))
+}
+
+/// Parse a RFC 6352 multistatus document.
+pub fn from_str(input: &str) -> Result<CardDavMultistatus> {
     from_slice(input.as_bytes())
 }
 
-/// Serialize a value into a CardDAV XML writer.
-pub fn to_writer<W, T>(writer: W, value: &T) -> Result<()>
-where
-    W: Write,
-    T: serde::Serialize,
-{
-    ser::to_writer(writer, value)
+/// Parse a RFC 6352 multistatus document.
+pub fn from_slice(input: &[u8]) -> Result<CardDavMultistatus> {
+    de::parse_multistatus(input)
 }
 
-/// Deserialize a value from a CardDAV XML byte slice.
-///
-/// The document is always parsed as a multistatus, and the result is shaped to
-/// `T` structurally. Routing used to depend on `std::any::type_name::<T>()`
-/// containing "CardDavMultistatus" and on the word "multistatus" appearing
-/// anywhere in the document — including inside a vCard NOTE — so a type alias
-/// or a wrapper changed which parser ran.
-pub fn from_slice<T>(input: &[u8]) -> Result<T>
-where
-    T: DeserializeOwned,
-{
-    let multistatus = de::parse_multistatus(input)?;
-    let as_multistatus =
-        serde_json::to_value(&multistatus).map_err(|e| Error::Parse(e.to_string()))?;
-    if let Ok(value) = serde_json::from_value::<T>(as_multistatus) {
-        return Ok(value);
-    }
-
-    let object = multistatus
-        .responses
-        .into_iter()
-        .find_map(|response| response.address_object)
-        .ok_or_else(|| Error::Parse("no address-data found in multistatus".to_owned()))?;
-    serde_json::from_value(serde_json::to_value(object).map_err(|e| Error::Parse(e.to_string()))?)
-        .map_err(|e| Error::Parse(e.to_string()))
+/// Parse a multistatus from a reader, reading at most [`MAX_INPUT_BYTES`].
+pub fn from_reader<R: Read>(reader: R) -> Result<CardDavMultistatus> {
+    from_reader_with_limit(reader, MAX_INPUT_BYTES)
 }
 
-/// Deserialize a value from a reader containing CardDAV XML.
-pub fn from_reader<R, T>(mut reader: R) -> Result<T>
-where
-    R: Read,
-    T: DeserializeOwned,
-{
+/// Parse a multistatus from a reader, reading at most `limit` bytes.
+pub fn from_reader_with_limit<R: Read>(reader: R, limit: usize) -> Result<CardDavMultistatus> {
+    let ceiling = u64::try_from(limit).unwrap_or(u64::MAX).saturating_add(1);
     let mut bytes = Vec::new();
     reader
+        .take(ceiling)
         .read_to_end(&mut bytes)
         .map_err(|error| Error::Parse(error.to_string()))?;
+    if bytes.len() > limit {
+        return Err(Error::Parse(format!(
+            "CardDAV input exceeds the {limit} byte limit"
+        )));
+    }
     from_slice(&bytes)
 }
 
@@ -87,10 +65,13 @@ where
 mod tests {
     use serde_vcard::VCard;
 
-    use super::{CardDavAddressObject, CardDavMultistatus, from_str, to_string};
+    use super::{
+        CardDavAddressObject, CardDavMultistatus, CardDavResponse, address_object_to_string,
+        from_str, to_string,
+    };
 
     #[test]
-    fn stub_round_trip_carddav_object() -> Result<(), Box<dyn std::error::Error>> {
+    fn round_trip_carddav_object() -> Result<(), Box<dyn std::error::Error>> {
         let object = CardDavAddressObject {
             href: Some("/addressbooks/home/contact.vcf".to_owned()),
             etag: None,
@@ -100,18 +81,20 @@ mod tests {
                 ..VCard::default()
             },
         };
-        let xml = to_string(&object)?;
+        let xml = address_object_to_string(&object)?;
         assert!(xml.contains("multistatus"));
         assert!(xml.contains("address-data"));
-        let decoded: CardDavAddressObject = from_str(&xml)?;
-        assert_eq!(decoded.href, object.href);
+
+        let decoded = from_str(&xml)?;
+        assert_eq!(decoded.responses.len(), 1);
+        assert_eq!(decoded.responses[0].href, object.href);
         Ok(())
     }
 
     #[test]
     fn multistatus_round_trip() -> Result<(), Box<dyn std::error::Error>> {
         let multistatus = CardDavMultistatus {
-            responses: vec![super::CardDavResponse {
+            responses: vec![CardDavResponse {
                 href: Some("/contacts/1.vcf".to_owned()),
                 etag: None,
                 status: None,
@@ -127,7 +110,7 @@ mod tests {
             }],
         };
         let xml = to_string(&multistatus)?;
-        let decoded: CardDavMultistatus = from_str(&xml)?;
+        let decoded = from_str(&xml)?;
         assert_eq!(decoded.responses.len(), 1);
         Ok(())
     }

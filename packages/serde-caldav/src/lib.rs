@@ -8,59 +8,54 @@ pub mod xmlns;
 
 use std::io::{Read, Write};
 
-pub use de::{parse_calendar_object, parse_multistatus, parse_xml};
+pub use de::{parse_calendar_object, parse_multistatus};
 pub use error::{Error, Result};
 pub use model::{CalDavCalendarObject, CalDavCalendarResource, CalDavMultistatus, CalDavResponse};
 pub use ser::{calendar_object_to_string, multistatus_to_string};
-use serde::{Serialize, de::DeserializeOwned};
 
-/// Serialize a value into CalDAV XML with embedded ICS calendar-data.
-pub fn to_string<T>(value: &T) -> Result<String>
-where
-    T: Serialize,
-{
-    let mut buffer = Vec::new();
-    to_writer(&mut buffer, value)?;
-    String::from_utf8(buffer).map_err(|error| Error::Serialize(error.to_string()))
+/// Maximum number of bytes [`from_reader`] will read.
+pub const MAX_INPUT_BYTES: usize = 64 * 1024 * 1024;
+
+/// Serialize a multistatus into CalDAV XML.
+pub fn to_string(multistatus: &CalDavMultistatus) -> Result<String> {
+    multistatus_to_string(multistatus)
 }
 
-/// Deserialize a value from CalDAV XML.
-pub fn from_str<T>(input: &str) -> Result<T>
-where
-    T: DeserializeOwned,
-{
+/// Serialize a multistatus into a CalDAV XML writer.
+pub fn to_writer<W: Write>(mut writer: W, multistatus: &CalDavMultistatus) -> Result<()> {
+    writer
+        .write_all(to_string(multistatus)?.as_bytes())
+        .map_err(|error| Error::Serialize(error.to_string()))
+}
+
+/// Parse a RFC 4791 multistatus document.
+pub fn from_str(input: &str) -> Result<CalDavMultistatus> {
     from_slice(input.as_bytes())
 }
 
-/// Serialize a value into a CalDAV XML writer.
-pub fn to_writer<W, T>(writer: W, value: &T) -> Result<()>
-where
-    W: Write,
-    T: serde::Serialize,
-{
-    ser::to_writer(writer, value)
+/// Parse a RFC 4791 multistatus document.
+pub fn from_slice(input: &[u8]) -> Result<CalDavMultistatus> {
+    de::parse_multistatus(input)
 }
 
-/// Deserialize a value from a CalDAV XML byte slice.
-pub fn from_slice<T>(input: &[u8]) -> Result<T>
-where
-    T: DeserializeOwned,
-{
-    let object = de::parse_xml(input)?;
-    serde_json::from_value(serde_json::to_value(object).map_err(|e| Error::Parse(e.to_string()))?)
-        .map_err(|e| Error::Parse(e.to_string()))
+/// Parse a multistatus from a reader, reading at most [`MAX_INPUT_BYTES`].
+pub fn from_reader<R: Read>(reader: R) -> Result<CalDavMultistatus> {
+    from_reader_with_limit(reader, MAX_INPUT_BYTES)
 }
 
-/// Deserialize a value from a reader containing CalDAV XML.
-pub fn from_reader<R, T>(mut reader: R) -> Result<T>
-where
-    R: Read,
-    T: DeserializeOwned,
-{
+/// Parse a multistatus from a reader, reading at most `limit` bytes.
+pub fn from_reader_with_limit<R: Read>(reader: R, limit: usize) -> Result<CalDavMultistatus> {
+    let ceiling = u64::try_from(limit).unwrap_or(u64::MAX).saturating_add(1);
     let mut bytes = Vec::new();
     reader
+        .take(ceiling)
         .read_to_end(&mut bytes)
         .map_err(|error| Error::Parse(error.to_string()))?;
+    if bytes.len() > limit {
+        return Err(Error::Parse(format!(
+            "CalDAV input exceeds the {limit} byte limit"
+        )));
+    }
     from_slice(&bytes)
 }
 
@@ -68,21 +63,23 @@ where
 mod tests {
     use serde_icalendar::CalendarEvent;
 
-    use super::{CalDavCalendarObject, from_str, to_string};
+    use super::{CalDavCalendarObject, calendar_object_to_string, from_str};
 
     #[test]
-    fn stub_round_trip_caldav_object() -> Result<(), Box<dyn std::error::Error>> {
+    fn round_trip_caldav_object() -> Result<(), Box<dyn std::error::Error>> {
         let object = CalDavCalendarObject {
             href: Some("/calendars/home/event.ics".to_owned()),
             etag: None,
             content_type: Some("text/calendar; charset=utf-8".to_owned()),
             event: CalendarEvent::default(),
         };
-        let xml = to_string(&object)?;
+        let xml = calendar_object_to_string(&object)?;
         assert!(xml.contains("multistatus"));
         assert!(xml.contains("calendar-data"));
-        let decoded: CalDavCalendarObject = from_str(&xml)?;
-        assert_eq!(decoded.href, object.href);
+
+        let decoded = from_str(&xml)?;
+        assert_eq!(decoded.responses.len(), 1);
+        assert_eq!(decoded.responses[0].href, object.href);
         Ok(())
     }
 }

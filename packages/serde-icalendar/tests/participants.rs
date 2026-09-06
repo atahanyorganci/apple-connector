@@ -18,7 +18,7 @@ fn fixture(name: &str) -> Result<String, std::io::Error> {
 
 fn round_trip(event: &CalendarEvent) -> Result<CalendarEvent, serde_icalendar::Error> {
     let ics = to_string(event)?;
-    from_str::<CalendarEvent>(&ics)
+    from_str(&ics)
 }
 
 /// Undo RFC 5545 line folding so assertions can look for a whole value.
@@ -28,7 +28,7 @@ fn unfolded(ics: &str) -> String {
 
 #[test]
 fn apple_invite_round_trips() -> TestResult {
-    let event = from_str::<CalendarEvent>(&fixture("apple-invite.ics")?)?;
+    let event = from_str(&fixture("apple-invite.ics")?)?;
 
     let organizer = event.organizer.clone().ok_or("expected an organizer")?;
     assert_eq!(organizer.email, "organizer@example.com");
@@ -65,7 +65,7 @@ fn apple_invite_round_trips() -> TestResult {
 
 #[test]
 fn google_invite_round_trips() -> TestResult {
-    let event = from_str::<CalendarEvent>(&fixture("google-invite.ics")?)?;
+    let event = from_str(&fixture("google-invite.ics")?)?;
 
     assert_eq!(event.attendees.len(), 2);
     assert_eq!(
@@ -87,7 +87,7 @@ fn google_invite_round_trips() -> TestResult {
 
 #[test]
 fn outlook_invite_round_trips() -> TestResult {
-    let event = from_str::<CalendarEvent>(&fixture("outlook-invite.ics")?)?;
+    let event = from_str(&fixture("outlook-invite.ics")?)?;
 
     let chair = event
         .attendees
@@ -122,7 +122,7 @@ fn outlook_invite_round_trips() -> TestResult {
 
 #[test]
 fn role_and_partstat_use_rfc_tokens_not_debug_names() -> TestResult {
-    let event = from_str::<CalendarEvent>(&fixture("apple-invite.ics")?)?;
+    let event = from_str(&fixture("apple-invite.ics")?)?;
     let ics = unfolded(&to_string(&event)?);
 
     assert!(ics.contains("ROLE=REQ-PARTICIPANT"), "{ics}");
@@ -136,7 +136,7 @@ fn role_and_partstat_use_rfc_tokens_not_debug_names() -> TestResult {
 
 #[test]
 fn organizer_cn_survives_a_round_trip() -> TestResult {
-    let event = from_str::<CalendarEvent>(&fixture("apple-invite.ics")?)?;
+    let event = from_str(&fixture("apple-invite.ics")?)?;
     let ics = unfolded(&to_string(&event)?);
     assert!(ics.contains("CN=Ada Lovelace"), "{ics}");
     Ok(())
@@ -144,7 +144,7 @@ fn organizer_cn_survives_a_round_trip() -> TestResult {
 
 #[test]
 fn unknown_tokens_and_parameters_are_preserved() -> TestResult {
-    let event = from_str::<CalendarEvent>(&fixture("outlook-invite.ics")?)?;
+    let event = from_str(&fixture("outlook-invite.ics")?)?;
     let attendee = event
         .attendees
         .iter()
@@ -165,7 +165,7 @@ fn unknown_tokens_and_parameters_are_preserved() -> TestResult {
 
 #[test]
 fn delegation_and_membership_round_trip() -> TestResult {
-    let event = from_str::<CalendarEvent>(&fixture("google-invite.ics")?)?;
+    let event = from_str(&fixture("google-invite.ics")?)?;
     let delegate = event
         .attendees
         .iter()
@@ -201,7 +201,7 @@ fn an_alarm_without_a_trigger_is_reported() -> TestResult {
 
 #[test]
 fn absolute_alarm_triggers_round_trip() -> TestResult {
-    let event = from_str::<CalendarEvent>(&fixture("outlook-invite.ics")?)?;
+    let event = from_str(&fixture("outlook-invite.ics")?)?;
     let absolute = event
         .alarms
         .iter()
@@ -232,7 +232,7 @@ fn attendees_are_written_back_out() -> TestResult {
     assert!(ics.contains("ATTENDEE"), "{ics}");
     assert!(ics.contains("mailto:someone@example.com"), "{ics}");
 
-    let reparsed = from_str::<CalendarEvent>(&ics)?;
+    let reparsed = from_str(&ics)?;
     assert_eq!(reparsed.attendees, event.attendees);
     Ok(())
 }

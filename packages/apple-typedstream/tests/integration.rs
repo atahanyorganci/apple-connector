@@ -1,7 +1,8 @@
 use std::{collections::BTreeMap, io::Cursor};
 
 use apple_typedstream::{
-    Deserializer, Serializer, Value, from_reader, from_slice, to_vec, to_writer,
+    Deserializer, Serializer, Value, from_reader, from_slice, to_vec, to_writer, value_from_reader,
+    value_from_slice,
 };
 use serde::{Deserialize, Serialize};
 
@@ -88,7 +89,7 @@ fn serializer_and_deserializer_implement_serde_traits() -> Result<(), Box<dyn st
 #[test]
 fn parses_real_fixture_as_dynamic_value() -> Result<(), Box<dyn std::error::Error>> {
     let bytes = include_bytes!("../fixtures/attributed-body-01-plain-short.bin");
-    let value: Value = from_slice(bytes)?;
+    let value: Value = value_from_slice(bytes)?;
     let Value::Archived(object) = value else {
         panic!("expected archived object");
     };
@@ -100,7 +101,7 @@ fn parses_real_fixture_as_dynamic_value() -> Result<(), Box<dyn std::error::Erro
 
 #[test]
 fn rejects_invalid_header_and_truncated_values() -> Result<(), Box<dyn std::error::Error>> {
-    let error = from_slice::<Value>(b"not a typedstream")
+    let error = value_from_slice(b"not a typedstream")
         .err()
         .ok_or("expected header error")?;
     assert!(error.to_string().contains("header"));
@@ -110,5 +111,27 @@ fn rejects_invalid_header_and_truncated_values() -> Result<(), Box<dyn std::erro
         .err()
         .ok_or("expected truncated stream error")?;
     assert!(error.to_string().contains("end of typedstream"));
+    Ok(())
+}
+
+#[test]
+fn readers_are_bounded() -> Result<(), Box<dyn std::error::Error>> {
+    let bytes = include_bytes!("../fixtures/attributed-body-01-plain-short.bin");
+
+    // Within the limit the reader behaves exactly like the slice entry point.
+    let value = value_from_reader(Cursor::new(bytes.to_vec()))?;
+    assert!(matches!(value, Value::Archived(_)));
+
+    let error =
+        apple_typedstream::from_reader_with_limit::<_, String>(Cursor::new(bytes.to_vec()), 8)
+            .err()
+            .ok_or("expected an input size limit error")?;
+    assert!(
+        matches!(
+            error,
+            apple_typedstream::Error::LimitExceeded { limit, .. } if limit == "input size"
+        ),
+        "unexpected error: {error}"
+    );
     Ok(())
 }

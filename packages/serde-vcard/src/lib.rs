@@ -1,4 +1,9 @@
-//! Serde format crate for RFC 6350 vCard text.
+//! RFC 6350 vCard reader and writer.
+//!
+//! The entry points are concrete: they read and write [`VCard`] values rather
+//! than pretending to be a general serde format. The models still derive
+//! `Serialize`/`Deserialize` so callers can put them in JSON, but the vCard
+//! wire format never routes through `serde_json::Value`.
 
 mod de;
 mod error;
@@ -13,56 +18,57 @@ pub use model::{
     Address, DateOrDateTime, Email, ExtensionBag, Photo, RawProperty, SocialProfile,
     StructuredName, Telephone, Url, VCard,
 };
-use serde::{Serialize, de::DeserializeOwned};
 
-/// Serialize a value into a vCard string.
-pub fn to_string<T>(value: &T) -> Result<String>
-where
-    T: Serialize,
-{
+/// Maximum number of bytes [`from_reader`] will read.
+pub const MAX_INPUT_BYTES: usize = 16 * 1024 * 1024;
+
+/// Serialize a card into a vCard string.
+pub fn to_string(card: &VCard) -> Result<String> {
     let mut buffer = Vec::new();
-    to_writer(&mut buffer, value)?;
+    to_writer(&mut buffer, card)?;
     String::from_utf8(buffer).map_err(|error| Error::Serialize(error.to_string()))
 }
 
-/// Deserialize a value from a vCard string.
-pub fn from_str<T>(input: &str) -> Result<T>
-where
-    T: DeserializeOwned,
-{
+/// Serialize a card into a vCard byte stream.
+pub fn to_writer<W: Write>(writer: W, card: &VCard) -> Result<()> {
+    ser::to_writer(writer, card)
+}
+
+/// Parse the first card in a vCard string.
+pub fn from_str(input: &str) -> Result<VCard> {
     from_slice(input.as_bytes())
 }
 
-/// Serialize a value into a vCard byte stream.
-pub fn to_writer<W, T>(writer: W, value: &T) -> Result<()>
-where
-    W: Write,
-    T: Serialize,
-{
-    ser::to_writer(writer, value)
+/// Parse the first card in a vCard byte slice.
+pub fn from_slice(input: &[u8]) -> Result<VCard> {
+    de::parse_vcard(input)
 }
 
-/// Deserialize a value from a vCard byte slice.
-pub fn from_slice<T>(input: &[u8]) -> Result<T>
-where
-    T: DeserializeOwned,
-{
-    let card = de::parse_vcard(input)?;
-    serde_json::from_value(serde_json::to_value(&card).map_err(|e| Error::Parse(e.to_string()))?)
-        .map_err(|e| Error::Parse(e.to_string()))
+/// Parse the first card from a reader, reading at most [`MAX_INPUT_BYTES`].
+pub fn from_reader<R: Read>(reader: R) -> Result<VCard> {
+    from_reader_with_limit(reader, MAX_INPUT_BYTES)
 }
 
-/// Deserialize a value from a reader containing vCard text.
-pub fn from_reader<R, T>(mut reader: R) -> Result<T>
-where
-    R: Read,
-    T: DeserializeOwned,
-{
+/// Parse the first card from a reader, reading at most `limit` bytes.
+pub fn from_reader_with_limit<R: Read>(reader: R, limit: usize) -> Result<VCard> {
+    let bytes = read_bounded(reader, limit)?;
+    from_slice(&bytes)
+}
+
+/// Read at most `limit` bytes, failing rather than growing without bound.
+fn read_bounded<R: Read>(reader: R, limit: usize) -> Result<Vec<u8>> {
+    let ceiling = u64::try_from(limit).unwrap_or(u64::MAX).saturating_add(1);
     let mut bytes = Vec::new();
     reader
+        .take(ceiling)
         .read_to_end(&mut bytes)
         .map_err(|error| Error::Parse(error.to_string()))?;
-    from_slice(&bytes)
+    if bytes.len() > limit {
+        return Err(Error::Parse(format!(
+            "vCard input exceeds the {limit} byte limit"
+        )));
+    }
+    Ok(bytes)
 }
 
 #[cfg(test)]
@@ -83,7 +89,7 @@ mod tests {
         let vcf = to_string(&card)?;
         assert!(vcf.contains("BEGIN:VCARD"));
         assert!(vcf.contains("FN:Jane Doe"));
-        let decoded: VCard = from_str(&vcf)?;
+        let decoded = from_str(&vcf)?;
         assert_eq!(decoded.formatted_name, card.formatted_name);
         Ok(())
     }
@@ -112,7 +118,7 @@ mod tests {
             ..VCard::default()
         };
         let vcf = to_string(&card)?;
-        let decoded: VCard = from_str(&vcf)?;
+        let decoded = from_str(&vcf)?;
         assert_eq!(decoded.phones.len(), 2);
         assert_eq!(decoded.emails.len(), 1);
         Ok(())
@@ -125,7 +131,7 @@ mod tests {
             ..VCard::default()
         };
         let vcf = to_string(&card)?;
-        let decoded: VCard = from_str(&vcf)?;
+        let decoded = from_str(&vcf)?;
         assert_eq!(decoded.formatted_name, card.formatted_name);
         Ok(())
     }

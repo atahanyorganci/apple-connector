@@ -22,7 +22,7 @@ pub fn parse_vcards(input: &str) -> Result<Vec<VCard>> {
     let mut cards = Vec::new();
     let mut current: Option<Vec<Line>> = None;
 
-    for raw in unfold_lines(input) {
+    for (number, raw) in unfold_lines(input) {
         if raw.trim().is_empty() {
             continue;
         }
@@ -45,7 +45,7 @@ pub fn parse_vcards(input: &str) -> Result<Vec<VCard>> {
         let Some(lines) = current.as_mut() else {
             continue;
         };
-        lines.push(split_property(&raw)?);
+        lines.push(split_property(&raw, number)?);
     }
 
     if current.is_some() {
@@ -56,6 +56,8 @@ pub fn parse_vcards(input: &str) -> Result<Vec<VCard>> {
 
 /// A single logical property line, already unfolded and split.
 struct Line {
+    /// Source line the property started on, for error messages.
+    number: usize,
     group: Option<String>,
     name: String,
     params: Params,
@@ -115,19 +117,20 @@ impl Params {
     }
 }
 
-fn unfold_lines(input: &str) -> Vec<String> {
-    let mut lines: Vec<String> = Vec::new();
-    for raw in input.split('\n') {
+/// Unfold continuations, keeping the source line each logical property began on.
+fn unfold_lines(input: &str) -> Vec<(usize, String)> {
+    let mut lines: Vec<(usize, String)> = Vec::new();
+    for (index, raw) in input.split('\n').enumerate() {
         let raw = raw.strip_suffix('\r').unwrap_or(raw);
         // A folded continuation is exactly one space or tab followed by the
         // rest of the value; trimming further would eat significant spaces.
         if let Some(rest) = raw.strip_prefix(' ').or_else(|| raw.strip_prefix('\t'))
-            && let Some(last) = lines.last_mut()
+            && let Some((_, last)) = lines.last_mut()
         {
             last.push_str(rest);
             continue;
         }
-        lines.push(raw.to_owned());
+        lines.push((index + 1, raw.to_owned()));
     }
     lines
 }
@@ -156,7 +159,7 @@ fn split_unquoted(input: &str, separator: char) -> Vec<&str> {
 /// The value separator is the first unquoted colon: a quoted parameter value is
 /// allowed to contain one, and splitting on the first colon regardless cut the
 /// property in the wrong place.
-fn split_property(line: &str) -> Result<Line> {
+fn split_property(line: &str, number: usize) -> Result<Line> {
     let mut in_quotes = false;
     let mut split_at = None;
     for (index, character) in line.char_indices() {
@@ -170,7 +173,7 @@ fn split_property(line: &str) -> Result<Line> {
         }
     }
     let split_at =
-        split_at.ok_or_else(|| Error::Parse(format!("invalid property line: {line}")))?;
+        split_at.ok_or_else(|| Error::property(number, line.to_owned(), "no value separator"))?;
     let left = line.get(..split_at).unwrap_or_default();
     let value = line.get(split_at + 1..).unwrap_or_default().to_owned();
 
@@ -190,6 +193,7 @@ fn split_property(line: &str) -> Result<Line> {
         .collect();
 
     Ok(Line {
+        number,
         group,
         name: name.trim().to_owned(),
         params: Params { entries },
@@ -280,7 +284,11 @@ fn apply_line(
         "X-SOCIALPROFILE" | "IMPP" => card
             .social_profiles
             .push(parse_social_profile(line, label, preferred)),
-        "PHOTO" => card.photo = Some(parse_photo(line)?),
+        "PHOTO" => {
+            card.photo = Some(
+                parse_photo(line).map_err(|error| Error::property(line.number, "PHOTO", error))?,
+            );
+        }
         name if name.starts_with("X-") => {
             let bag = card.extensions.get_or_insert_with(ExtensionBag::default);
             bag.properties

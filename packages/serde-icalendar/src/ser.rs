@@ -14,16 +14,8 @@ use crate::{
     },
 };
 
-pub fn to_writer<W, T>(mut writer: W, value: &T) -> Result<()>
-where
-    W: Write,
-    T: serde::Serialize,
-{
-    let event: CalendarEvent = serde_json::from_value(
-        serde_json::to_value(value).map_err(|e| Error::Serialize(e.to_string()))?,
-    )
-    .map_err(|e| Error::Serialize(e.to_string()))?;
-    let ics = event_to_ics(&event)?;
+pub fn to_writer<W: Write>(mut writer: W, event: &CalendarEvent) -> Result<()> {
+    let ics = event_to_ics(event)?;
     writer
         .write_all(ics.as_bytes())
         .map_err(|e| Error::Serialize(e.to_string()))

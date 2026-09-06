@@ -1,5 +1,3 @@
-use std::io::Write;
-
 use quick_xml::{
     Writer,
     events::{BytesDecl, BytesEnd, BytesStart, BytesText, Event},
@@ -12,21 +10,6 @@ use crate::{
 };
 
 const DEFAULT_STATUS: &str = "HTTP/1.1 200 OK";
-
-pub fn to_writer<W, T>(mut writer: W, value: &T) -> Result<()>
-where
-    W: Write,
-    T: serde::Serialize,
-{
-    let object: CalDavCalendarObject = serde_json::from_value(
-        serde_json::to_value(value).map_err(|e| Error::Serialize(e.to_string()))?,
-    )
-    .map_err(|e| Error::Serialize(e.to_string()))?;
-    let xml = calendar_object_to_string(&object)?;
-    writer
-        .write_all(xml.as_bytes())
-        .map_err(|e| Error::Serialize(e.to_string()))
-}
 
 /// Serialize one calendar object as a single-response multistatus.
 pub fn calendar_object_to_string(object: &CalDavCalendarObject) -> Result<String> {

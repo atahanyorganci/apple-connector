@@ -3,7 +3,6 @@ use quick_xml::{
     events::Event,
     name::{Namespace, ResolveResult},
 };
-use serde_icalendar::CalendarEvent;
 
 use crate::{
     error::{Error, Result},
@@ -38,7 +37,7 @@ impl ResponseBuilder {
         // from a `&#13;` entity; neither is part of the iCalendar object.
         let payload = self.calendar_data.trim();
         let calendar_object = if self.saw_calendar_data && !payload.is_empty() {
-            let event = serde_icalendar::from_str::<CalendarEvent>(payload).map_err(|error| {
+            let event = serde_icalendar::from_str(payload).map_err(|error| {
                 Error::Parse(format!("calendar-data is not valid iCalendar: {error}"))
             })?;
             Some(CalDavCalendarObject {
@@ -189,10 +188,4 @@ pub fn parse_calendar_object(input: &[u8]) -> Result<CalDavCalendarObject> {
         .into_iter()
         .find_map(|response| response.calendar_object)
         .ok_or_else(|| Error::Parse("no calendar-data found in multistatus".to_owned()))
-}
-
-/// Retained for the generic serde entry points; superseded by
-/// [`parse_calendar_object`].
-pub fn parse_xml(input: &[u8]) -> Result<CalDavCalendarObject> {
-    parse_calendar_object(input)
 }

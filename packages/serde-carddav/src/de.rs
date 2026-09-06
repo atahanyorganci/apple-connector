@@ -3,7 +3,6 @@ use quick_xml::{
     events::Event,
     name::{Namespace, ResolveResult},
 };
-use serde_vcard::VCard;
 
 use crate::{
     error::{Error, Result},
@@ -38,7 +37,7 @@ impl ResponseBuilder {
         // not part of the vCard.
         let payload = self.address_data.trim();
         let address_object = if self.saw_address_data && !payload.is_empty() {
-            let vcard = serde_vcard::from_str::<VCard>(payload).map_err(|error| {
+            let vcard = serde_vcard::from_str(payload).map_err(|error| {
                 Error::Parse(format!("address-data is not a valid vCard: {error}"))
             })?;
             Some(CardDavAddressObject {
@@ -186,10 +185,4 @@ pub fn parse_address_object(input: &[u8]) -> Result<CardDavAddressObject> {
         .into_iter()
         .find_map(|response| response.address_object)
         .ok_or_else(|| Error::Parse("no address-data found in multistatus".to_owned()))
-}
-
-/// Retained for the generic serde entry points; superseded by
-/// [`parse_address_object`].
-pub fn parse_xml(input: &[u8]) -> Result<CardDavAddressObject> {
-    parse_address_object(input)
 }

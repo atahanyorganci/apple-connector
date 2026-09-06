@@ -20,7 +20,7 @@ fn ics_with(lines: &str) -> String {
 }
 
 fn parse(lines: &str) -> Result<CalendarEvent, serde_icalendar::Error> {
-    from_str::<CalendarEvent>(&ics_with(lines))
+    from_str(&ics_with(lines))
 }
 
 #[test]
@@ -62,7 +62,7 @@ fn tzid_survives_a_round_trip() -> TestResult {
         "local wall time was not preserved:\n{ics}"
     );
 
-    let reparsed = from_str::<CalendarEvent>(&ics)?;
+    let reparsed = from_str(&ics)?;
     assert_eq!(reparsed.start, event.start);
     Ok(())
 }
@@ -104,7 +104,7 @@ fn all_day_end_is_exclusive_and_round_trips() -> TestResult {
     assert!(ics.contains("DTSTART;VALUE=DATE:20240101"), "{ics}");
     assert!(ics.contains("DTEND;VALUE=DATE:20240102"), "{ics}");
 
-    let reparsed = from_str::<CalendarEvent>(&ics)?;
+    let reparsed = from_str(&ics)?;
     assert_eq!(reparsed.start, event.start);
     assert_eq!(reparsed.end, event.end);
     Ok(())
@@ -129,7 +129,7 @@ fn every_exception_date_is_serialized() -> TestResult {
     assert!(ics.contains("20240102T120000Z"), "{ics}");
     assert!(ics.contains("20240103T120000Z"), "{ics}");
 
-    let reparsed = from_str::<CalendarEvent>(&ics)?;
+    let reparsed = from_str(&ics)?;
     assert_eq!(reparsed.exception_dates.len(), 2);
     Ok(())
 }
@@ -140,7 +140,7 @@ fn zoned_exception_dates_round_trip_with_their_zone() -> TestResult {
     let ics = to_string(&event)?;
     assert!(ics.contains("TZID=Europe/Istanbul"), "{ics}");
 
-    let reparsed = from_str::<CalendarEvent>(&ics)?;
+    let reparsed = from_str(&ics)?;
     assert_eq!(reparsed.exception_dates, event.exception_dates);
     Ok(())
 }

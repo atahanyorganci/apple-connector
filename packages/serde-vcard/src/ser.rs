@@ -9,16 +9,8 @@ use crate::{
 
 const LINE_LIMIT: usize = 75;
 
-pub fn to_writer<W, T>(mut writer: W, value: &T) -> Result<()>
-where
-    W: Write,
-    T: serde::Serialize,
-{
-    let card: VCard = serde_json::from_value(
-        serde_json::to_value(value).map_err(|e| Error::Serialize(e.to_string()))?,
-    )
-    .map_err(|e| Error::Serialize(e.to_string()))?;
-    let vcf = card_to_vcard(&card)?;
+pub fn to_writer<W: Write>(mut writer: W, card: &VCard) -> Result<()> {
+    let vcf = card_to_vcard(card)?;
     writer
         .write_all(vcf.as_bytes())
         .map_err(|e| Error::Serialize(e.to_string()))

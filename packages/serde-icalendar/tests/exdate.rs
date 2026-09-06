@@ -21,7 +21,7 @@ fn ics_with(lines: &str) -> String {
 }
 
 fn parse(lines: &str) -> Result<CalendarEvent, serde_icalendar::Error> {
-    from_str::<CalendarEvent>(&ics_with(lines))
+    from_str(&ics_with(lines))
 }
 
 #[test]

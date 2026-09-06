@@ -251,25 +251,32 @@ pub(crate) fn event_page_ics(items: Vec<EventSummary>) -> Result<Response, ApiEr
 }
 
 pub(crate) fn event_page_caldav(items: Vec<EventSummary>) -> Result<Response, ApiError> {
-    let mut xml_parts = Vec::new();
+    // One multistatus with one response per event. Serializing each event on
+    // its own and joining produced a body with N XML declarations and N root
+    // elements, which no conformant parser accepts.
+    let mut responses = Vec::with_capacity(items.len());
     for summary in &items {
         let detail = empty_event_detail(summary.clone());
         let event: Event = (&detail).into();
-        let object = serde_caldav::CalDavCalendarObject {
-            href: Some(format!("/v1/events/{}/caldav", summary.id)),
+        let href = format!("/v1/events/{}/caldav", summary.id);
+        responses.push(serde_caldav::CalDavResponse {
+            href: Some(href.clone()),
             etag: None,
-            content_type: Some("text/calendar; charset=utf-8".to_owned()),
-            event: event.to_ics_event(),
-        };
-        xml_parts.push(
-            serde_caldav::to_string(&object)
-                .map_err(|_| ApiError::internal("serialization failed"))?,
-        );
+            status: None,
+            calendar_object: Some(serde_caldav::CalDavCalendarObject {
+                href: Some(href),
+                etag: None,
+                content_type: Some("text/calendar; charset=utf-8".to_owned()),
+                event: event.to_ics_event(),
+            }),
+        });
     }
+    let body = serde_caldav::multistatus_to_string(&serde_caldav::CalDavMultistatus { responses })
+        .map_err(|_| ApiError::internal("serialization failed"))?;
     Ok((
         StatusCode::OK,
         [(axum::http::header::CONTENT_TYPE, CALDAV_CONTENT_TYPE)],
-        xml_parts.join("\n"),
+        body,
     )
         .into_response())
 }

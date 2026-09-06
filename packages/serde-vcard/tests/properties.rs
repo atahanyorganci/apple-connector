@@ -17,7 +17,7 @@ fn unfolded(vcf: &str) -> String {
 fn urls_parse_and_serialize() -> TestResult {
     // `urls` was declared on the model but never read or written, so every
     // URL silently vanished.
-    let parsed = from_str::<VCard>(&card("URL;TYPE=work:https://example.com/team"))?;
+    let parsed = from_str(&card("URL;TYPE=work:https://example.com/team"))?;
     assert_eq!(parsed.urls.len(), 1);
     assert_eq!(parsed.urls[0].url, "https://example.com/team");
     assert_eq!(parsed.urls[0].label.as_deref(), Some("work"));
@@ -26,14 +26,14 @@ fn urls_parse_and_serialize() -> TestResult {
     assert!(vcf.contains("URL"), "{vcf}");
     assert!(vcf.contains("https://example.com/team"), "{vcf}");
 
-    let reparsed = from_str::<VCard>(&vcf)?;
+    let reparsed = from_str(&vcf)?;
     assert_eq!(reparsed.urls, parsed.urls);
     Ok(())
 }
 
 #[test]
 fn social_profiles_parse_and_serialize() -> TestResult {
-    let parsed = from_str::<VCard>(&card(
+    let parsed = from_str(&card(
         "X-SOCIALPROFILE;TYPE=twitter;x-user=ada:https://twitter.com/ada",
     ))?;
     assert_eq!(parsed.social_profiles.len(), 1);
@@ -44,14 +44,14 @@ fn social_profiles_parse_and_serialize() -> TestResult {
     let vcf = unfolded(&to_string(&parsed)?);
     assert!(vcf.contains("X-SOCIALPROFILE"), "{vcf}");
 
-    let reparsed = from_str::<VCard>(&vcf)?;
+    let reparsed = from_str(&vcf)?;
     assert_eq!(reparsed.social_profiles, parsed.social_profiles);
     Ok(())
 }
 
 #[test]
 fn impp_is_read_as_a_social_profile() -> TestResult {
-    let parsed = from_str::<VCard>(&card("IMPP;X-SERVICE-TYPE=Skype:skype:ada.lovelace"))?;
+    let parsed = from_str(&card("IMPP;X-SERVICE-TYPE=Skype:skype:ada.lovelace"))?;
     let profile = parsed
         .social_profiles
         .first()
@@ -63,7 +63,7 @@ fn impp_is_read_as_a_social_profile() -> TestResult {
 #[test]
 fn unknown_properties_are_preserved() -> TestResult {
     // These all fell through the `_ => {}` arm and were dropped.
-    let parsed = from_str::<VCard>(&card(
+    let parsed = from_str(&card(
         "CATEGORIES:friends,colleagues\r\nROLE:Engineer\r\nGEO:geo:37.4,-122.1",
     ))?;
     assert_eq!(parsed.unknown.len(), 3);
@@ -80,7 +80,7 @@ fn unknown_properties_are_preserved() -> TestResult {
     assert!(vcf.contains("ROLE:Engineer"), "{vcf}");
     assert!(vcf.contains("GEO:geo:37.4,-122.1"), "{vcf}");
 
-    let reparsed = from_str::<VCard>(&vcf)?;
+    let reparsed = from_str(&vcf)?;
     assert_eq!(reparsed.unknown, parsed.unknown);
     Ok(())
 }
@@ -90,7 +90,7 @@ fn v3_photo_input_becomes_v4_output() -> TestResult {
     // "hello" as base64.
     let v3 = "BEGIN:VCARD\r\nVERSION:3.0\r\nFN:Photo Person\r\n\
               PHOTO;ENCODING=b;TYPE=JPEG:aGVsbG8=\r\nEND:VCARD\r\n";
-    let parsed = from_str::<VCard>(v3)?;
+    let parsed = from_str(v3)?;
     let photo = parsed.photo.clone().ok_or("expected a photo")?;
     assert_eq!(
         photo,
@@ -108,7 +108,7 @@ fn v3_photo_input_becomes_v4_output() -> TestResult {
     );
     assert!(!vcf.contains("ENCODING=b"), "{vcf}");
 
-    let reparsed = from_str::<VCard>(&vcf)?;
+    let reparsed = from_str(&vcf)?;
     assert_eq!(reparsed.photo, parsed.photo);
     Ok(())
 }
@@ -117,7 +117,7 @@ fn v3_photo_input_becomes_v4_output() -> TestResult {
 fn v4_data_uri_photo_parses_instead_of_failing_the_whole_card() -> TestResult {
     // Base64-decoding the raw value made this error, and the error propagated
     // out of apply_line, so a valid vCard 4 card failed to parse entirely.
-    let parsed = from_str::<VCard>(&card("PHOTO:data:image/png;base64,aGVsbG8="))?;
+    let parsed = from_str(&card("PHOTO:data:image/png;base64,aGVsbG8="))?;
     assert_eq!(parsed.formatted_name.as_deref(), Some("Test Person"));
     assert_eq!(
         parsed.photo,
@@ -131,7 +131,7 @@ fn v4_data_uri_photo_parses_instead_of_failing_the_whole_card() -> TestResult {
 
 #[test]
 fn photo_uris_stay_uris() -> TestResult {
-    let parsed = from_str::<VCard>(&card("PHOTO:https://example.com/ada.jpg"))?;
+    let parsed = from_str(&card("PHOTO:https://example.com/ada.jpg"))?;
     assert_eq!(
         parsed.photo,
         Some(Photo::Uri {
@@ -146,7 +146,7 @@ fn photo_uris_stay_uris() -> TestResult {
 
 #[test]
 fn unterminated_cards_are_an_error() -> TestResult {
-    let error = from_str::<VCard>("BEGIN:VCARD\r\nVERSION:4.0\r\nFN:Truncated\r\n")
+    let error = from_str("BEGIN:VCARD\r\nVERSION:4.0\r\nFN:Truncated\r\n")
         .err()
         .ok_or("expected an unterminated-card error")?;
     assert!(
@@ -160,7 +160,7 @@ fn unterminated_cards_are_an_error() -> TestResult {
 fn quoted_parameter_values_may_contain_a_colon() -> TestResult {
     // Splitting at the first colon regardless of quoting cut this line inside
     // the parameter and produced a nonsense property.
-    let parsed = from_str::<VCard>(&card("TEL;TYPE=\"work:main\":+15551234567"))?;
+    let parsed = from_str(&card("TEL;TYPE=\"work:main\":+15551234567"))?;
     assert_eq!(parsed.phones.len(), 1);
     assert_eq!(parsed.phones[0].number, "+15551234567");
     assert_eq!(parsed.phones[0].label.as_deref(), Some("work:main"));
@@ -173,7 +173,7 @@ fn apple_group_labels_become_the_property_label() -> TestResult {
                  item1.TEL:+15551230000\r\n\
                  item1.X-ABLabel:_$!<School>!$_\r\n\
                  END:VCARD\r\n";
-    let parsed = from_str::<VCard>(apple)?;
+    let parsed = from_str(apple)?;
     assert_eq!(parsed.phones.len(), 1);
     assert_eq!(parsed.phones[0].label.as_deref(), Some("School"));
     Ok(())
@@ -183,7 +183,7 @@ fn apple_group_labels_become_the_property_label() -> TestResult {
 fn type_is_written_once_per_property() -> TestResult {
     // label and phone_type were both filled from TYPE, so the serializer
     // emitted TYPE= twice on every phone.
-    let parsed = from_str::<VCard>(&card("TEL;TYPE=CELL:+15551234567"))?;
+    let parsed = from_str(&card("TEL;TYPE=CELL:+15551234567"))?;
     let vcf = unfolded(&to_string(&parsed)?);
     let tel_line = vcf
         .lines()
@@ -195,7 +195,7 @@ fn type_is_written_once_per_property() -> TestResult {
 
 #[test]
 fn bare_type_parameters_are_understood() -> TestResult {
-    let parsed = from_str::<VCard>(&card("TEL;WORK;VOICE:+15551234567"))?;
+    let parsed = from_str(&card("TEL;WORK;VOICE:+15551234567"))?;
     assert_eq!(parsed.phones[0].label.as_deref(), Some("WORK"));
     Ok(())
 }
@@ -205,7 +205,7 @@ fn folded_values_keep_significant_spaces() -> TestResult {
     // Continuations were trimmed, which silently ate spaces inside a value.
     let folded =
         "BEGIN:VCARD\r\nVERSION:4.0\r\nFN:Fold Person\r\nNOTE:first\r\n  second\r\nEND:VCARD\r\n";
-    let parsed = from_str::<VCard>(folded)?;
+    let parsed = from_str(folded)?;
     assert_eq!(parsed.note.as_deref(), Some("first second"));
     Ok(())
 }
@@ -241,7 +241,7 @@ fn a_full_card_round_trips_without_loss() -> TestResult {
         ..VCard::default()
     };
 
-    let reparsed = from_str::<VCard>(&to_string(&original)?)?;
+    let reparsed = from_str(&to_string(&original)?)?;
     assert_eq!(reparsed.formatted_name, original.formatted_name);
     assert_eq!(reparsed.urls, original.urls);
     assert_eq!(reparsed.photo, original.photo);

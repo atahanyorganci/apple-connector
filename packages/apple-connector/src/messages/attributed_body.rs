@@ -9,7 +9,7 @@ use crate::apple_types::AttachmentId;
 pub const MAX_DECODE_BYTES: usize = 1024 * 1024;
 
 pub fn decode(data: &[u8]) -> Result<MessageBody, AttributedBodyDecodeError> {
-    let value = apple_typedstream::from_slice(data)
+    let value = apple_typedstream::value_from_slice(data)
         .map_err(|_| AttributedBodyDecodeError::InvalidTypedStream)?;
     let Value::Archived(object) = value else {
         return Err(AttributedBodyDecodeError::NotAttributedString);

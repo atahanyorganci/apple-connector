@@ -1,6 +1,6 @@
 //! Embedded vCard text must be XML-escaped, not written verbatim.
 
-use serde_carddav::{CardDavAddressObject, from_str, to_string};
+use serde_carddav::{CardDavAddressObject, address_object_to_string, parse_address_object};
 use serde_vcard::VCard;
 
 type TestResult = Result<(), Box<dyn std::error::Error>>;
@@ -33,7 +33,7 @@ fn assert_well_formed(xml: &str) -> TestResult {
 #[test]
 fn ampersands_and_angle_brackets_round_trip() -> TestResult {
     let object = object_with("R&D <lab> notes");
-    let xml = to_string(&object)?;
+    let xml = address_object_to_string(&object)?;
 
     assert_well_formed(&xml)?;
     assert!(xml.contains("&amp;"), "ampersand was not escaped:\n{xml}");
@@ -42,7 +42,7 @@ fn ampersands_and_angle_brackets_round_trip() -> TestResult {
         "angle bracket was not escaped:\n{xml}"
     );
 
-    let decoded: CardDavAddressObject = from_str(&xml)?;
+    let decoded = parse_address_object(xml.as_bytes())?;
     assert_eq!(decoded.vcard.note.as_deref(), Some("R&D <lab> notes"));
     Ok(())
 }
@@ -50,10 +50,10 @@ fn ampersands_and_angle_brackets_round_trip() -> TestResult {
 #[test]
 fn plain_text_is_unchanged() -> TestResult {
     let object = object_with("Nothing special here");
-    let xml = to_string(&object)?;
+    let xml = address_object_to_string(&object)?;
 
     assert_well_formed(&xml)?;
-    let decoded: CardDavAddressObject = from_str(&xml)?;
+    let decoded = parse_address_object(xml.as_bytes())?;
     assert_eq!(decoded.vcard.note.as_deref(), Some("Nothing special here"));
     assert!(!xml.contains("&amp;amp;"), "{xml}");
     Ok(())

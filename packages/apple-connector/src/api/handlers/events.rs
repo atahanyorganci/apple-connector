@@ -251,8 +251,8 @@ fn event_detail_caldav(event: &EventDetail) -> Result<Response, ApiError> {
         content_type: Some("text/calendar; charset=utf-8".to_owned()),
         event: ics_event,
     };
-    let body =
-        serde_caldav::to_string(&object).map_err(|_| ApiError::internal("serialization failed"))?;
+    let body = serde_caldav::calendar_object_to_string(&object)
+        .map_err(|_| ApiError::internal("serialization failed"))?;
     Ok((
         StatusCode::OK,
         [(axum::http::header::CONTENT_TYPE, CALDAV_CONTENT_TYPE)],

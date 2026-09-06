@@ -153,7 +153,7 @@ pub fn contact_detail_carddav(
         content_type: Some(VCARD_CONTENT_TYPE.to_owned()),
         vcard: contact.to_vcard(),
     };
-    let body = serde_carddav::to_string(&object)
+    let body = serde_carddav::address_object_to_string(&object)
         .map_err(|_| ApiError::internal("serialization failed"))?;
     Ok((
         StatusCode::OK,
@@ -185,23 +185,33 @@ pub fn contact_page_vcard(
 pub fn contact_page_carddav(
     contacts: &[crate::contacts::ContactDetail],
 ) -> Result<Response, ApiError> {
-    let mut xml_parts = Vec::new();
-    for contact in contacts {
-        let object = serde_carddav::CardDavAddressObject {
-            href: Some(format!("/v1/contacts/{}/carddav", contact.id)),
-            etag: None,
-            content_type: Some(VCARD_CONTENT_TYPE.to_owned()),
-            vcard: contact.to_vcard(),
-        };
-        xml_parts.push(
-            serde_carddav::to_string(&object)
-                .map_err(|_| ApiError::internal("serialization failed"))?,
-        );
-    }
+    // One multistatus with one response per contact. Serializing each contact
+    // on its own and joining produced a body with N XML declarations and N root
+    // elements, which no conformant parser accepts.
+    let responses = contacts
+        .iter()
+        .map(|contact| {
+            let href = format!("/v1/contacts/{}/carddav", contact.id);
+            serde_carddav::CardDavResponse {
+                href: Some(href.clone()),
+                etag: None,
+                status: None,
+                address_object: Some(serde_carddav::CardDavAddressObject {
+                    href: Some(href),
+                    etag: None,
+                    content_type: Some(VCARD_CONTENT_TYPE.to_owned()),
+                    vcard: contact.to_vcard(),
+                }),
+            }
+        })
+        .collect();
+    let body =
+        serde_carddav::multistatus_to_string(&serde_carddav::CardDavMultistatus { responses })
+            .map_err(|_| ApiError::internal("serialization failed"))?;
     Ok((
         StatusCode::OK,
         [(axum::http::header::CONTENT_TYPE, CARDDAV_CONTENT_TYPE)],
-        xml_parts.join("\n"),
+        body,
     )
         .into_response())
 }
