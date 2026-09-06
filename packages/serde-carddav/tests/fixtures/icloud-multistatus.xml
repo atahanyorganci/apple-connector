@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<multistatus xmlns="DAV:" xmlns:CARD="urn:ietf:params:xml:ns:carddav">
+  <response>
+    <href>/1234567/carddavhome/card/ada.vcf</href>
+    <propstat>
+      <prop>
+        <getetag>"C=1@U=abc"</getetag>
+        <getcontenttype>text/vcard; charset=utf-8</getcontenttype>
+        <CARD:address-data>BEGIN:VCARD&#13;
+VERSION:3.0&#13;
+FN:Ada Lovelace&#13;
+N:Lovelace;Ada;;;&#13;
+EMAIL;TYPE=WORK:ada@example.com&#13;
+END:VCARD&#13;
+</CARD:address-data>
+      </prop>
+      <status>HTTP/1.1 200 OK</status>
+    </propstat>
+  </response>
+  <response>
+    <href>/1234567/carddavhome/card/grace.vcf</href>
+    <propstat>
+      <prop>
+        <getetag>"C=2@U=def"</getetag>
+        <CARD:address-data>BEGIN:VCARD&#13;
+VERSION:3.0&#13;
+FN:Grace Hopper&#13;
+NOTE:Ask about the multistatus report format&#13;
+END:VCARD&#13;
+</CARD:address-data>
+      </prop>
+      <status>HTTP/1.1 200 OK</status>
+    </propstat>
+  </response>
+  <response>
+    <href>/1234567/carddavhome/card/missing.vcf</href>
+    <propstat>
+      <prop>
+        <CARD:address-data/>
+      </prop>
+      <status>HTTP/1.1 404 Not Found</status>
+    </propstat>
+  </response>
+</multistatus>

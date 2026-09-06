@@ -8,11 +8,12 @@ pub mod xmlns;
 
 use std::io::{Read, Write};
 
-pub use de::{parse_multistatus, parse_xml};
+pub use de::{parse_address_object, parse_multistatus, parse_xml};
 pub use error::{Error, Result};
 pub use model::{
     CardDavAddressBookResource, CardDavAddressObject, CardDavMultistatus, CardDavResponse,
 };
+pub use ser::{address_object_to_string, multistatus_to_string};
 use serde::{Serialize, de::DeserializeOwned};
 
 /// Serialize a value into CardDAV XML with embedded vCard address-data.
@@ -43,20 +44,30 @@ where
 }
 
 /// Deserialize a value from a CardDAV XML byte slice.
+///
+/// The document is always parsed as a multistatus, and the result is shaped to
+/// `T` structurally. Routing used to depend on `std::any::type_name::<T>()`
+/// containing "CardDavMultistatus" and on the word "multistatus" appearing
+/// anywhere in the document — including inside a vCard NOTE — so a type alias
+/// or a wrapper changed which parser ran.
 pub fn from_slice<T>(input: &[u8]) -> Result<T>
 where
     T: DeserializeOwned,
 {
-    let text = std::str::from_utf8(input).map_err(|e| Error::Parse(e.to_string()))?;
-    let value = if text.contains("multistatus")
-        && std::any::type_name::<T>().contains("CardDavMultistatus")
-    {
-        serde_json::to_value(de::parse_multistatus(input)?)
-            .map_err(|e| Error::Parse(e.to_string()))?
-    } else {
-        serde_json::to_value(de::parse_xml(input)?).map_err(|e| Error::Parse(e.to_string()))?
-    };
-    serde_json::from_value(value).map_err(|e| Error::Parse(e.to_string()))
+    let multistatus = de::parse_multistatus(input)?;
+    let as_multistatus =
+        serde_json::to_value(&multistatus).map_err(|e| Error::Parse(e.to_string()))?;
+    if let Ok(value) = serde_json::from_value::<T>(as_multistatus) {
+        return Ok(value);
+    }
+
+    let object = multistatus
+        .responses
+        .into_iter()
+        .find_map(|response| response.address_object)
+        .ok_or_else(|| Error::Parse("no address-data found in multistatus".to_owned()))?;
+    serde_json::from_value(serde_json::to_value(object).map_err(|e| Error::Parse(e.to_string()))?)
+        .map_err(|e| Error::Parse(e.to_string()))
 }
 
 /// Deserialize a value from a reader containing CardDAV XML.
@@ -102,6 +113,8 @@ mod tests {
         let multistatus = CardDavMultistatus {
             responses: vec![super::CardDavResponse {
                 href: Some("/contacts/1.vcf".to_owned()),
+                etag: None,
+                status: None,
                 address_object: Some(CardDavAddressObject {
                     href: Some("/contacts/1.vcf".to_owned()),
                     etag: None,
