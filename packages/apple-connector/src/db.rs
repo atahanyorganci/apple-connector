@@ -19,20 +19,31 @@ pub const QUERY_TIMEOUT: Duration = Duration::from_secs(15);
 
 #[cfg(test)]
 pub mod query_budget {
-    use std::sync::atomic::{AtomicUsize, Ordering};
+    use std::cell::Cell;
 
-    static COUNT: AtomicUsize = AtomicUsize::new(0);
+    thread_local! {
+        /// Counts queries on the current thread only.
+        ///
+        /// This was a process-wide atomic, which made the budget assertions
+        /// depend on what else happened to be running: the test harness runs
+        /// tests in parallel threads, so any other test issuing a Contacts or
+        /// Reminders query between one test's `reset` and its `get` inflated
+        /// the count. Every `#[tokio::test]` here uses the default
+        /// current-thread runtime, so a test's queries run on the test's own
+        /// thread and a thread-local counter measures exactly that test.
+        static COUNT: Cell<usize> = const { Cell::new(0) };
+    }
 
     pub fn reset() {
-        COUNT.store(0, Ordering::SeqCst);
+        COUNT.set(0);
     }
 
     pub fn bump() {
-        COUNT.fetch_add(1, Ordering::SeqCst);
+        COUNT.set(COUNT.get().saturating_add(1));
     }
 
     pub fn get() -> usize {
-        COUNT.load(Ordering::SeqCst)
+        COUNT.get()
     }
 }
 
