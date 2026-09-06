@@ -236,3 +236,58 @@ fn attendees_are_written_back_out() -> TestResult {
     assert_eq!(reparsed.attendees, event.attendees);
     Ok(())
 }
+
+#[test]
+fn an_absurd_trigger_duration_is_rejected_not_a_panic() -> TestResult {
+    // Found by the icalendar_parse fuzz target: iso8601::duration unwraps
+    // internally when a digit run overflows, so serializing this aborted the
+    // process.
+    let ics = "BEGIN:VCALENDAR\r\nVERSION:2.0\r\nBEGIN:VEVENT\r\n\
+               UID:overflow@example.com\r\nDTSTAMP:20240101T000000Z\r\n\
+               BEGIN:VALARM\r\nACTION:DISPLAY\r\nDESCRIPTION:Boom\r\n\
+               TRIGGER:-P5444444444444444444444444444444444444444444D\r\n\
+               END:VALARM\r\nEND:VEVENT\r\nEND:VCALENDAR\r\n";
+
+    let event = from_str(ics)?;
+    let error = to_string(&event)
+        .err()
+        .ok_or("expected an out-of-range duration error")?;
+    assert!(
+        error.to_string().contains("out of range"),
+        "unexpected error: {error}"
+    );
+    Ok(())
+}
+
+#[test]
+fn malformed_trigger_durations_are_rejected() -> TestResult {
+    for bad in [
+        "PT15M",  // no sign is fine, but the P must be present after it
+        "-15M",   // missing P
+        "-P",     // no components
+        "-PT",    // no components
+        "-P15",   // no unit
+        "-PT15X", // unknown unit
+        "-P15H",  // hour outside the time part
+    ] {
+        let event = CalendarEvent {
+            uid: Some("bad@example.com".to_owned()),
+            alarms: vec![Alarm {
+                action: Some("DISPLAY".to_owned()),
+                trigger: Some(AlarmTrigger::Duration {
+                    value: bad.to_owned(),
+                    related: None,
+                }),
+                ..Alarm::default()
+            }],
+            ..CalendarEvent::default()
+        };
+        let result = to_string(&event);
+        if bad == "PT15M" {
+            assert!(result.is_ok(), "{bad} should be accepted");
+        } else {
+            assert!(result.is_err(), "{bad} should have been rejected");
+        }
+    }
+    Ok(())
+}

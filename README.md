@@ -209,6 +209,32 @@ different filters returns `400 validation_error`.
 
 ## Development
 
+### Parser limits and fuzzing
+
+Every parser treats its input as hostile: Notes bodies, Messages
+`attributedBody` blobs, vCards, iCalendar text and DAV XML all arrive from
+outside the process.
+
+Each format crate documents a `MAX_INPUT_BYTES` ceiling that its `from_reader`
+entry points enforce, with `from_reader_with_limit` to choose another. Exceeding
+a budget returns a structured `LimitExceeded { limit, actual, max }` error naming
+which budget tripped, rather than a message you would have to match on.
+`apple-notes-protobuf` additionally exposes a `Limits` struct covering gzip
+expansion, protobuf field count and nesting, legacy plist depth, and attribute
+run count.
+
+Fuzz targets for every public parser live in [`fuzz/`](fuzz/), with committed
+seed corpora under `fuzz/seeds/`:
+
+```bash
+bash scripts/fuzz-smoke.sh                        # brief run of every target
+cargo fuzz run vcard_parse -- -max_total_time=300 # a real campaign
+```
+
+`nix flake check` runs the smoke pass, so the targets keep compiling against the
+current APIs. Generated inputs go to a scratch directory; add a genuinely
+interesting input to `fuzz/seeds/<target>/` to keep it.
+
 ### Fixtures
 
 An empty Messages schema lives in

@@ -53,9 +53,11 @@ pub fn from_reader_with_limit<R: Read>(reader: R, limit: usize) -> Result<Calend
         .read_to_end(&mut bytes)
         .map_err(|error| Error::Parse(error.to_string()))?;
     if bytes.len() > limit {
-        return Err(Error::Parse(format!(
-            "iCalendar input exceeds the {limit} byte limit"
-        )));
+        return Err(Error::LimitExceeded {
+            limit: "iCalendar input size",
+            actual: bytes.len(),
+            max: limit,
+        });
     }
     from_slice(&bytes)
 }

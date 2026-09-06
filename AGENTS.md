@@ -29,6 +29,13 @@ nix fmt                                         # fix formatting (also checked i
 nix flake check --no-write-lock-file            # audit, deny, clippy, test, treefmt
 ```
 
+Fuzz targets for every public parser live in `fuzz/` (outside the workspace, so
+`cargo test --workspace` ignores them). `nix flake check` runs a smoke pass:
+
+```bash
+bash scripts/fuzz-smoke.sh
+```
+
 Ignored macOS integration tests (permissions + live stores):
 
 ```bash

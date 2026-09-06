@@ -54,9 +54,11 @@ pub fn from_reader_with_limit<R: Read>(reader: R, limit: usize) -> Result<CardDa
         .read_to_end(&mut bytes)
         .map_err(|error| Error::Parse(error.to_string()))?;
     if bytes.len() > limit {
-        return Err(Error::Parse(format!(
-            "CardDAV input exceeds the {limit} byte limit"
-        )));
+        return Err(Error::LimitExceeded {
+            limit: "CardDAV input size",
+            actual: bytes.len(),
+            max: limit,
+        });
     }
     from_slice(&bytes)
 }

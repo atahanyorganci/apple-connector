@@ -64,9 +64,11 @@ fn read_bounded<R: Read>(reader: R, limit: usize) -> Result<Vec<u8>> {
         .read_to_end(&mut bytes)
         .map_err(|error| Error::Parse(error.to_string()))?;
     if bytes.len() > limit {
-        return Err(Error::Parse(format!(
-            "vCard input exceeds the {limit} byte limit"
-        )));
+        return Err(Error::LimitExceeded {
+            limit: "vCard input size",
+            actual: bytes.len(),
+            max: limit,
+        });
     }
     Ok(bytes)
 }

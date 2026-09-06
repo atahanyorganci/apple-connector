@@ -52,8 +52,10 @@
         (lib.fileset.maybeMissing (projectRoot + "/packages/serde-icalendar/tests/fixtures"))
         (lib.fileset.maybeMissing (projectRoot + "/packages/serde-caldav/tests/fixtures"))
         (lib.fileset.maybeMissing (projectRoot + "/packages/serde-carddav/tests/fixtures"))
+        (lib.fileset.maybeMissing (projectRoot + "/fuzz"))
         (lib.fileset.maybeMissing (projectRoot + "/docs/openapi.json"))
         (lib.fileset.maybeMissing (projectRoot + "/scripts/check-api-error-leakage.sh"))
+        (lib.fileset.maybeMissing (projectRoot + "/scripts/fuzz-smoke.sh"))
       ];
     };
     workspaceArgs = {
@@ -84,6 +86,12 @@
       };
 
     apple-connector = craneLibNightly.buildPackage individualCrateArgs;
+
+    # The fuzz crate lives outside the workspace, so its dependencies are
+    # vendored separately; the check sandbox has no network.
+    fuzzVendorDir = craneLib.vendorCargoDeps {
+      cargoLock = projectRoot + "/fuzz/Cargo.lock";
+    };
   in {
     checks = {
       workspace-audit = craneLib.cargoAudit (workspaceArgs
@@ -122,6 +130,23 @@
           touch $out
         '';
 
+      workspace-fuzz-smoke =
+        pkgs.runCommand "apple-connector-fuzz-smoke" {
+          inherit src;
+          nativeBuildInputs = [rustToolchain pkgs.cargo-fuzz pkgs.bash pkgs.clang];
+          buildInputs = lib.optionals pkgs.stdenv.isDarwin [pkgs.libiconv];
+        } ''
+          cp -r $src source
+          chmod -R u+w source
+          cd source
+          export CARGO_HOME=$TMPDIR/cargo
+          mkdir -p $CARGO_HOME
+          cp ${fuzzVendorDir}/config.toml $CARGO_HOME/config.toml
+          export FUZZ_MAX_TOTAL_TIME=10
+          bash scripts/fuzz-smoke.sh
+          touch $out
+        '';
+
       workspace-api-error-leakage =
         pkgs.runCommand "apple-connector-api-error-leakage-check" {
           inherit src;
@@ -138,7 +163,7 @@
     };
     devShells.default = craneLibNightly.devShell {
       checks = self'.checks;
-      packages = [rustToolchain pkgs.cargo-watch];
+      packages = [rustToolchain pkgs.cargo-watch pkgs.cargo-fuzz];
       RUST_SRC_PATH = "${rustToolchain.passthru.availableComponents.rust-src}/lib/rustlib/src/rust/library";
       SQLX_OFFLINE = "true";
       SQLX_OFFLINE_DIR = "packages/apple-connector/sqlx";

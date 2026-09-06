@@ -7,6 +7,13 @@ pub enum Error {
     Parse(String),
     Serialize(String),
     Custom(String),
+    /// An input budget was exhausted. `limit` names the budget so callers can
+    /// tell which one tripped without matching on message text.
+    LimitExceeded {
+        limit: &'static str,
+        actual: usize,
+        max: usize,
+    },
 }
 
 impl fmt::Display for Error {
@@ -14,6 +21,9 @@ impl fmt::Display for Error {
         match self {
             Self::Parse(message) | Self::Serialize(message) | Self::Custom(message) => {
                 f.write_str(message)
+            }
+            Self::LimitExceeded { limit, actual, max } => {
+                write!(f, "{limit} limit exceeded: {actual} exceeds maximum {max}")
             }
         }
     }

@@ -1,0 +1,64 @@
+[package]
+name = "apple-connector-fuzz"
+version = "0.0.0"
+publish = false
+edition = "2024"
+
+# Deliberately outside the workspace: the fuzz targets need cargo-fuzz's
+# instrumented build, so `cargo test --workspace` must not try to build them.
+[workspace]
+members = []
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+apple-notes-protobuf = { path = "../packages/apple-notes-protobuf" }
+apple-typedstream = { path = "../packages/apple-typedstream" }
+libfuzzer-sys = "0.4"
+serde-caldav = { path = "../packages/serde-caldav" }
+serde-carddav = { path = "../packages/serde-carddav" }
+serde-icalendar = { path = "../packages/serde-icalendar" }
+serde-vcard = { path = "../packages/serde-vcard" }
+
+[[bin]]
+name = "typedstream_parse"
+path = "fuzz_targets/typedstream_parse.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "notes_body_decode"
+path = "fuzz_targets/notes_body_decode.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "vcard_parse"
+path = "fuzz_targets/vcard_parse.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "icalendar_parse"
+path = "fuzz_targets/icalendar_parse.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "caldav_multistatus"
+path = "fuzz_targets/caldav_multistatus.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "carddav_multistatus"
+path = "fuzz_targets/carddav_multistatus.rs"
+test = false
+doc = false
+bench = false

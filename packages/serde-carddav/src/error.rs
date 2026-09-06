@@ -8,4 +8,12 @@ pub enum Error {
     Serialize(String),
     #[error("parse error: {0}")]
     Parse(String),
+    /// An input budget was exhausted. `limit` names the budget so callers can
+    /// tell which one tripped without matching on message text.
+    #[error("{limit} limit exceeded: {actual} exceeds maximum {max}")]
+    LimitExceeded {
+        limit: &'static str,
+        actual: usize,
+        max: usize,
+    },
 }

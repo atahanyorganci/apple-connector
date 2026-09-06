@@ -188,22 +188,83 @@ fn attendee_property(attendee: &Attendee) -> Property {
     property.done()
 }
 
-/// Validate an ISO 8601 duration, including the leading sign RFC 5545 uses for
+fn invalid_duration(value: &str, reason: &str) -> Error {
+    Error::Serialize(format!("invalid duration {value:?}: {reason}"))
+}
+
+/// Consume one digit run, rejecting overflow instead of panicking on it.
+fn read_digits(
+    characters: &mut std::iter::Peekable<std::str::Chars<'_>>,
+    value: &str,
+) -> Result<()> {
+    let mut seen = 0_usize;
+    let mut magnitude = 0_u64;
+    while let Some(digit) = characters
+        .peek()
+        .and_then(|character| character.to_digit(10))
+    {
+        characters.next();
+        seen += 1;
+        magnitude = magnitude
+            .checked_mul(10)
+            .and_then(|scaled| scaled.checked_add(u64::from(digit)))
+            .ok_or_else(|| invalid_duration(value, "component is out of range"))?;
+    }
+    if seen == 0 {
+        return Err(invalid_duration(value, "component has no digits"));
+    }
+    Ok(())
+}
+
+/// Validate an RFC 5545 duration (§3.3.6), including the leading sign used by
 /// alarms that fire before their event.
 ///
-/// The parsed value is discarded: the original spelling is written back
-/// verbatim so a round trip does not rewrite `-PT15M` as `-PT900S`. Parsing is
-/// still done so a malformed duration is reported rather than emitted.
+/// The value is only checked, never rewritten: the original spelling is written
+/// back verbatim so a round trip does not turn `-PT15M` into `-PT900S`.
+///
+/// This is hand-rolled rather than delegated to `iso8601::duration`, which
+/// unwraps internally when a digit run overflows — a TRIGGER of
+/// `-P5444444444444444444444444444D` aborted the process instead of being
+/// rejected. Found by the `icalendar_parse` fuzz target.
 fn validate_duration(value: &str) -> Result<()> {
     let rest = value
-        .strip_prefix('-')
-        .or_else(|| value.strip_prefix('+'))
-        .unwrap_or(value);
-    let parsed = iso8601::duration(rest)
-        .map_err(|error| Error::Serialize(format!("invalid duration {value:?}: {error}")))?;
-    Duration::from_std(parsed.into()).map_err(|error| {
-        Error::Serialize(format!("duration {value:?} is out of range: {error}"))
-    })?;
+        .strip_prefix(['-', '+'])
+        .unwrap_or(value)
+        .strip_prefix('P')
+        .ok_or_else(|| invalid_duration(value, "missing the P designator"))?;
+
+    let mut characters = rest.chars().peekable();
+    let mut in_time = false;
+    let mut components = 0_usize;
+
+    while let Some(&character) = characters.peek() {
+        if character == 'T' {
+            characters.next();
+            if in_time {
+                return Err(invalid_duration(value, "repeated T designator"));
+            }
+            in_time = true;
+            continue;
+        }
+
+        read_digits(&mut characters, value)?;
+        let unit = characters
+            .next()
+            .ok_or_else(|| invalid_duration(value, "component has no unit"))?;
+        let expected = if in_time {
+            matches!(unit, 'H' | 'M' | 'S')
+        } else {
+            matches!(unit, 'D' | 'W')
+        };
+        if !expected {
+            return Err(invalid_duration(value, "unexpected unit designator"));
+        }
+        components += 1;
+    }
+
+    if components == 0 {
+        return Err(invalid_duration(value, "no duration components"));
+    }
     Ok(())
 }
 

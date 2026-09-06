@@ -1,0 +1,8 @@
+BEGIN:VCARD
+VERSION:4.0
+FN:Ada Lovelace
+N:Lovelace;Ada;;;
+TEL;TYPE=CELL:+15551234567
+EMAIL:ada@example.com
+PHOTO:data:image/png;base64,aGVsbG8=
+END:VCARD

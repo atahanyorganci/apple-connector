@@ -1755,7 +1755,6 @@ dependencies = [
  "chrono",
  "chrono-tz",
  "icalendar",
- "iso8601",
  "serde",
  "serde_json",
 ]
