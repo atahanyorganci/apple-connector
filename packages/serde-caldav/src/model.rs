@@ -29,10 +29,16 @@ pub struct CalDavMultistatus {
     pub responses: Vec<CalDavResponse>,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 pub struct CalDavResponse {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub href: Option<String>,
+    /// The `getetag` property, when the server returned one.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub etag: Option<String>,
+    /// The response or propstat status line, e.g. `HTTP/1.1 200 OK`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub status: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub calendar_object: Option<CalDavCalendarObject>,
 }

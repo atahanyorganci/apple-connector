@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<multistatus xmlns="DAV:" xmlns:C="urn:ietf:params:xml:ns:caldav">
+  <response>
+    <href>/1234567/calendars/home/event-one.ics</href>
+    <propstat>
+      <prop>
+        <getetag>"C=1@U=abc"</getetag>
+        <getcontenttype>text/calendar; charset=utf-8; component=VEVENT</getcontenttype>
+        <C:calendar-data>BEGIN:VCALENDAR&#13;
+VERSION:2.0&#13;
+PRODID:-//Apple Inc.//Mac OS X 14.5//EN&#13;
+BEGIN:VEVENT&#13;
+UID:event-one@icloud.com&#13;
+DTSTAMP:20240401T090000Z&#13;
+DTSTART:20240402T140000Z&#13;
+SUMMARY:First event&#13;
+END:VEVENT&#13;
+END:VCALENDAR&#13;
+</C:calendar-data>
+      </prop>
+      <status>HTTP/1.1 200 OK</status>
+    </propstat>
+  </response>
+  <response>
+    <href>/1234567/calendars/home/event-two.ics</href>
+    <propstat>
+      <prop>
+        <getetag>"C=2@U=def"</getetag>
+        <C:calendar-data>BEGIN:VCALENDAR&#13;
+VERSION:2.0&#13;
+BEGIN:VEVENT&#13;
+UID:event-two@icloud.com&#13;
+DTSTAMP:20240401T090000Z&#13;
+DTSTART:20240403T140000Z&#13;
+SUMMARY:Second event&#13;
+END:VEVENT&#13;
+END:VCALENDAR&#13;
+</C:calendar-data>
+      </prop>
+      <status>HTTP/1.1 200 OK</status>
+    </propstat>
+  </response>
+  <response>
+    <href>/1234567/calendars/home/event-three.ics</href>
+    <propstat>
+      <prop>
+        <getetag>"C=3@U=ghi"</getetag>
+        <C:calendar-data>BEGIN:VCALENDAR&#13;
+VERSION:2.0&#13;
+BEGIN:VEVENT&#13;
+UID:event-three@icloud.com&#13;
+DTSTAMP:20240401T090000Z&#13;
+DTSTART:20240404T140000Z&#13;
+SUMMARY:Third event&#13;
+END:VEVENT&#13;
+END:VCALENDAR&#13;
+</C:calendar-data>
+      </prop>
+      <status>HTTP/1.1 200 OK</status>
+    </propstat>
+  </response>
+</multistatus>

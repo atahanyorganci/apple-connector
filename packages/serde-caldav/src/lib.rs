@@ -8,9 +8,10 @@ pub mod xmlns;
 
 use std::io::{Read, Write};
 
-pub use de::{parse_multistatus, parse_xml};
+pub use de::{parse_calendar_object, parse_multistatus, parse_xml};
 pub use error::{Error, Result};
 pub use model::{CalDavCalendarObject, CalDavCalendarResource, CalDavMultistatus, CalDavResponse};
+pub use ser::{calendar_object_to_string, multistatus_to_string};
 use serde::{Serialize, de::DeserializeOwned};
 
 /// Serialize a value into CalDAV XML with embedded ICS calendar-data.

@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<d:multistatus xmlns:d="DAV:" xmlns:c="urn:ietf:params:xml:ns:caldav">
+  <d:response>
+    <d:href>/calendars/user/default/meeting.ics</d:href>
+    <d:propstat>
+      <d:prop>
+        <d:getetag>"etag-meeting"</d:getetag>
+        <c:calendar-data>BEGIN:VCALENDAR
+VERSION:2.0
+BEGIN:VEVENT
+UID:meeting@example.org
+DTSTAMP:20240401T090000Z
+DTSTART:20240405T100000Z
+SUMMARY:Weekly meeting
+END:VEVENT
+END:VCALENDAR
+</c:calendar-data>
+      </d:prop>
+      <d:status>HTTP/1.1 200 OK</d:status>
+    </d:propstat>
+  </d:response>
+  <d:response>
+    <d:href>/calendars/user/default/missing.ics</d:href>
+    <d:propstat>
+      <d:prop>
+        <c:calendar-data/>
+      </d:prop>
+      <d:status>HTTP/1.1 404 Not Found</d:status>
+    </d:propstat>
+  </d:response>
+</d:multistatus>
