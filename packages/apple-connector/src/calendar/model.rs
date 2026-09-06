@@ -229,10 +229,11 @@ impl Event {
         use serde_icalendar::{Attendee, CalendarEvent, EventDateTime, EventStatus, Organizer};
 
         fn ts_to_dt(ts: i64, all_day: bool) -> EventDateTime {
-            EventDateTime {
-                timestamp: Utc.timestamp_opt(ts, 0).single().unwrap_or_else(Utc::now),
-                all_day,
-                tzid: None,
+            let timestamp = Utc.timestamp_opt(ts, 0).single().unwrap_or_else(Utc::now);
+            if all_day {
+                EventDateTime::date(timestamp.date_naive())
+            } else {
+                EventDateTime::utc(timestamp)
             }
         }
 

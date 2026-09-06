@@ -1,8 +1,9 @@
 use std::io::Write;
 
+use chrono::{DateTime, NaiveDateTime, Utc};
 use icalendar::{
-    Alarm as IcsAlarm, Calendar, Component, Event, EventLike, EventStatus as IcsStatus, Parameter,
-    Property,
+    Alarm as IcsAlarm, Calendar, CalendarDateTime, Component, DatePerhapsTime, Event, EventLike,
+    EventStatus as IcsStatus, Parameter, Property,
 };
 
 use crate::{
@@ -50,10 +51,12 @@ fn event_to_ics(event: &CalendarEvent) -> Result<String> {
         });
     }
     if let Some(start) = &event.start {
-        apply_start(&mut ics_event, start);
+        ics_event.starts(to_date_perhaps_time(start)?);
     }
     if let Some(end) = &event.end {
-        apply_end(&mut ics_event, end);
+        // A DATE-valued DTEND is exclusive per RFC 5545 §3.8.2.2; it is written
+        // exactly as the model carries it rather than shifted.
+        ics_event.ends(to_date_perhaps_time(end)?);
     }
     if let Some(organizer) = &event.organizer {
         let mut prop = Property::new("ORGANIZER", format!("mailto:{}", organizer.email));
@@ -66,7 +69,9 @@ fn event_to_ics(event: &CalendarEvent) -> Result<String> {
         ics_event.append_property(Property::new("RRULE", rrule));
     }
     for exdate in &event.exception_dates {
-        ics_event.append_property(Property::new("EXDATE", format_datetime(exdate)));
+        // EXDATE is multi-valued: append_property writes into a map keyed by
+        // property name, so using it here kept only the last exception.
+        ics_event.append_multi_property(exdate_property(exdate)?);
     }
     if let Some(sequence) = event.sequence {
         ics_event.sequence(sequence);
@@ -96,26 +101,51 @@ fn event_to_ics(event: &CalendarEvent) -> Result<String> {
     Ok(calendar.to_string())
 }
 
-fn apply_start(event: &mut Event, dt: &EventDateTime) {
-    if dt.all_day {
-        event.starts(dt.timestamp.date_naive());
-    } else {
-        event.starts(dt.timestamp);
+/// Recover the wall-clock time a zoned value denotes in its own zone.
+fn local_in_zone(timestamp: DateTime<Utc>, tzid: &str) -> Result<NaiveDateTime> {
+    let zone: chrono_tz::Tz = tzid
+        .parse()
+        .map_err(|_| Error::Serialize(format!("unknown time zone {tzid:?}")))?;
+    Ok(timestamp.with_timezone(&zone).naive_local())
+}
+
+fn to_date_perhaps_time(value: &EventDateTime) -> Result<DatePerhapsTime> {
+    match value {
+        EventDateTime::Date { date } => Ok(DatePerhapsTime::Date(*date)),
+        EventDateTime::Utc { timestamp } => {
+            Ok(DatePerhapsTime::DateTime(CalendarDateTime::Utc(*timestamp)))
+        }
+        EventDateTime::Floating { local } => Ok(DatePerhapsTime::DateTime(
+            CalendarDateTime::Floating(*local),
+        )),
+        EventDateTime::Zoned { timestamp, tzid } => {
+            Ok(DatePerhapsTime::DateTime(CalendarDateTime::WithTimezone {
+                date_time: local_in_zone(*timestamp, tzid)?,
+                tzid: tzid.clone(),
+            }))
+        }
     }
 }
 
-fn apply_end(event: &mut Event, dt: &EventDateTime) {
-    if dt.all_day {
-        event.ends(dt.timestamp.date_naive());
-    } else {
-        event.ends(dt.timestamp);
-    }
-}
-
-fn format_datetime(dt: &EventDateTime) -> String {
-    if dt.all_day {
-        dt.timestamp.format("%Y%m%d").to_string()
-    } else {
-        dt.timestamp.format("%Y%m%dT%H%M%SZ").to_string()
-    }
+fn exdate_property(value: &EventDateTime) -> Result<Property> {
+    let property = match value {
+        EventDateTime::Date { date } => {
+            let mut property = Property::new("EXDATE", date.format("%Y%m%d").to_string());
+            property.append_parameter(Parameter::new("VALUE", "DATE"));
+            property.done()
+        }
+        EventDateTime::Utc { timestamp } => {
+            Property::new("EXDATE", timestamp.format("%Y%m%dT%H%M%SZ").to_string())
+        }
+        EventDateTime::Floating { local } => {
+            Property::new("EXDATE", local.format("%Y%m%dT%H%M%S").to_string())
+        }
+        EventDateTime::Zoned { timestamp, tzid } => {
+            let local = local_in_zone(*timestamp, tzid)?;
+            let mut property = Property::new("EXDATE", local.format("%Y%m%dT%H%M%S").to_string());
+            property.append_parameter(Parameter::new("TZID", tzid));
+            property.done()
+        }
+    };
+    Ok(property)
 }

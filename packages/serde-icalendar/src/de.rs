@@ -27,8 +27,14 @@ pub fn parse_ics(input: &[u8]) -> Result<CalendarEvent> {
             icalendar::EventStatus::Tentative => EventStatus::Tentative,
             icalendar::EventStatus::Cancelled => EventStatus::Cancelled,
         }),
-        start: ics_event.get_start().map(date_perhaps_time_to_event),
-        end: ics_event.get_end().map(date_perhaps_time_to_event),
+        start: ics_event
+            .get_start()
+            .map(date_perhaps_time_to_event)
+            .transpose()?,
+        end: ics_event
+            .get_end()
+            .map(date_perhaps_time_to_event)
+            .transpose()?,
         organizer: ics_event
             .property_value("ORGANIZER")
             .and_then(parse_organizer),
@@ -56,26 +62,18 @@ pub fn parse_ics(input: &[u8]) -> Result<CalendarEvent> {
     })
 }
 
-fn date_perhaps_time_to_event(dt: DatePerhapsTime) -> EventDateTime {
+fn date_perhaps_time_to_event(dt: DatePerhapsTime) -> Result<EventDateTime> {
     match dt {
-        DatePerhapsTime::Date(date) => EventDateTime {
-            timestamp: Utc.from_utc_datetime(&date.and_hms_opt(0, 0, 0).unwrap_or_default()),
-            all_day: true,
-            tzid: None,
-        },
-        DatePerhapsTime::DateTime(calendar_dt) => {
-            let (timestamp, tzid) = match calendar_dt {
-                CalendarDateTime::Utc(value) => (value, None),
-                CalendarDateTime::Floating(value) => (Utc.from_utc_datetime(&value), None),
-                CalendarDateTime::WithTimezone { date_time, tzid } => {
-                    (Utc.from_utc_datetime(&date_time), Some(tzid))
-                }
-            };
-            EventDateTime {
-                timestamp,
-                all_day: false,
-                tzid,
-            }
+        DatePerhapsTime::Date(date) => Ok(EventDateTime::date(date)),
+        DatePerhapsTime::DateTime(CalendarDateTime::Utc(value)) => Ok(EventDateTime::utc(value)),
+        DatePerhapsTime::DateTime(CalendarDateTime::Floating(value)) => {
+            Ok(EventDateTime::floating(value))
+        }
+        // A wall-clock time in a named zone is not a UTC instant. Reading it as
+        // one shifts the event by the zone's offset.
+        DatePerhapsTime::DateTime(CalendarDateTime::WithTimezone { date_time, tzid }) => {
+            let timestamp = resolve_zoned(date_time, &tzid)?;
+            Ok(EventDateTime::zoned(timestamp, tzid))
         }
     }
 }
@@ -113,37 +111,24 @@ fn parse_exdate(value: &str, tzid: Option<String>) -> Result<EventDateTime> {
     if !value.contains('T') {
         let date = NaiveDate::parse_from_str(value, "%Y%m%d")
             .map_err(|error| Error::Parse(format!("invalid EXDATE value {value:?}: {error}")))?;
-        let midnight = date
-            .and_hms_opt(0, 0, 0)
-            .ok_or_else(|| Error::Parse(format!("invalid EXDATE date {value:?}")))?;
-        return Ok(EventDateTime {
-            timestamp: Utc.from_utc_datetime(&midnight),
-            all_day: true,
-            tzid,
-        });
+        return Ok(EventDateTime::date(date));
     }
 
     // UTC form: 20240101T120000Z. The trailing Z wins over any TZID parameter.
     if let Some(without_zulu) = value.strip_suffix('Z') {
         let naive = parse_ics_naive(without_zulu, value)?;
-        return Ok(EventDateTime {
-            timestamp: Utc.from_utc_datetime(&naive),
-            all_day: false,
-            tzid: None,
-        });
+        return Ok(EventDateTime::utc(Utc.from_utc_datetime(&naive)));
     }
 
     // Zoned or floating form: 20240101T120000
     let naive = parse_ics_naive(value, value)?;
-    let timestamp = match tzid.as_deref() {
-        Some(zone) => resolve_zoned(naive, zone)?,
-        None => Utc.from_utc_datetime(&naive),
-    };
-    Ok(EventDateTime {
-        timestamp,
-        all_day: false,
-        tzid,
-    })
+    match tzid {
+        Some(zone) => {
+            let timestamp = resolve_zoned(naive, &zone)?;
+            Ok(EventDateTime::zoned(timestamp, zone))
+        }
+        None => Ok(EventDateTime::floating(naive)),
+    }
 }
 
 fn parse_ics_naive(value: &str, original: &str) -> Result<NaiveDateTime> {

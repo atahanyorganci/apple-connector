@@ -64,7 +64,7 @@ fn comma_separated_values_are_all_retained() -> TestResult {
     let event = parse("EXDATE:20240101T120000Z,20240102T120000Z,20240103T120000Z")?;
     assert_eq!(event.exception_dates.len(), 3);
     assert_eq!(
-        event.exception_dates[1].timestamp.to_rfc3339(),
+        event.exception_dates[1].timestamp().to_rfc3339(),
         "2024-01-02T12:00:00+00:00"
     );
     Ok(())
@@ -74,7 +74,7 @@ fn comma_separated_values_are_all_retained() -> TestResult {
 fn date_only_values_are_marked_all_day() -> TestResult {
     let event = parse("EXDATE;VALUE=DATE:20240101,20240102")?;
     assert_eq!(event.exception_dates.len(), 2);
-    assert!(event.exception_dates.iter().all(|date| date.all_day));
+    assert!(event.exception_dates.iter().all(|date| date.is_all_day()));
     Ok(())
 }
 
@@ -86,9 +86,9 @@ fn tzid_is_preserved_and_converted_to_utc() -> TestResult {
         .exception_dates
         .first()
         .ok_or("expected one exception date")?;
-    assert_eq!(exception.tzid.as_deref(), Some("Europe/Istanbul"));
+    assert_eq!(exception.tzid(), Some("Europe/Istanbul"));
     assert_eq!(
-        exception.timestamp.to_rfc3339(),
+        exception.timestamp().to_rfc3339(),
         "2024-07-01T09:00:00+00:00"
     );
     Ok(())
@@ -102,7 +102,7 @@ fn tzid_applies_to_every_value_in_the_list() -> TestResult {
         event
             .exception_dates
             .iter()
-            .all(|date| date.tzid.as_deref() == Some("Europe/Istanbul"))
+            .all(|date| date.tzid() == Some("Europe/Istanbul"))
     );
     Ok(())
 }

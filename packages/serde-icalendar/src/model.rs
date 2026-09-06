@@ -1,6 +1,6 @@
 use std::collections::BTreeMap;
 
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, NaiveDate, NaiveDateTime, TimeZone, Utc};
 use serde::{Deserialize, Serialize};
 
 /// Vendor or unknown iCalendar properties preserved for round-trip.
@@ -53,12 +53,74 @@ pub enum EventStatus {
     Cancelled,
 }
 
+/// A point in time as RFC 5545 expresses it.
+///
+/// The four forms are kept distinct because they serialize differently and
+/// cannot be recovered from a bare UTC instant: a floating time has no zone at
+/// all, and a DATE is a calendar day rather than an instant.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct EventDateTime {
-    pub timestamp: DateTime<Utc>,
-    pub all_day: bool,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub tzid: Option<String>,
+#[serde(tag = "kind", rename_all = "snake_case")]
+pub enum EventDateTime {
+    /// A `VALUE=DATE` value. RFC 5545 §3.8.2.2 makes a DATE-valued `DTEND`
+    /// **exclusive**: a one-day event ends on the following day.
+    Date { date: NaiveDate },
+    /// A UTC instant, written with a trailing `Z`.
+    Utc { timestamp: DateTime<Utc> },
+    /// A wall-clock time in a named zone, alongside the instant it denotes.
+    Zoned {
+        timestamp: DateTime<Utc>,
+        tzid: String,
+    },
+    /// A wall-clock time with no zone. It denotes whatever local time the
+    /// reader is in, so no instant is implied.
+    Floating { local: NaiveDateTime },
+}
+
+impl EventDateTime {
+    pub fn date(date: NaiveDate) -> Self {
+        Self::Date { date }
+    }
+
+    pub fn utc(timestamp: DateTime<Utc>) -> Self {
+        Self::Utc { timestamp }
+    }
+
+    pub fn zoned(timestamp: DateTime<Utc>, tzid: impl Into<String>) -> Self {
+        Self::Zoned {
+            timestamp,
+            tzid: tzid.into(),
+        }
+    }
+
+    pub fn floating(local: NaiveDateTime) -> Self {
+        Self::Floating { local }
+    }
+
+    /// Best-effort UTC instant.
+    ///
+    /// A DATE resolves to midnight UTC on that day and a floating time is read
+    /// as if it were UTC; neither is a statement about the originating zone.
+    pub fn timestamp(&self) -> DateTime<Utc> {
+        match self {
+            Self::Date { date } => date
+                .and_hms_opt(0, 0, 0)
+                .map(|midnight| Utc.from_utc_datetime(&midnight))
+                .unwrap_or_default(),
+            Self::Utc { timestamp } | Self::Zoned { timestamp, .. } => *timestamp,
+            Self::Floating { local } => Utc.from_utc_datetime(local),
+        }
+    }
+
+    pub fn is_all_day(&self) -> bool {
+        matches!(self, Self::Date { .. })
+    }
+
+    pub fn tzid(&self) -> Option<&str> {
+        match self {
+            Self::Zoned { tzid, .. } => Some(tzid),
+            _ => None,
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
