@@ -30,7 +30,9 @@ pub struct NoteBody {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct NoteRun {
+    /// Offset of this run in the note text, in UTF-16 code units.
     pub start: usize,
+    /// Length of this run, in UTF-16 code units, as Apple encodes it.
     pub length: u32,
     pub paragraph_style: Option<ParagraphStyle>,
     pub font_hints: Option<u32>,
