@@ -299,7 +299,6 @@ impl From<EventSpanDto> for EventSpan {
         match value {
             EventSpanDto::This => Self::This,
             EventSpanDto::Future => Self::Future,
-            EventSpanDto::All => Self::All,
         }
     }
 }

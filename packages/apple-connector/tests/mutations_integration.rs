@@ -131,6 +131,60 @@ async fn event_status_is_rejected_as_immutable() -> Result<(), Box<dyn std::erro
     Ok(())
 }
 
+/// `EKSpan` has only `ThisEvent` and `FutureEvents`, so `all` is gone from the API. The value now
+/// fails to deserialize — and that failure has to stay inside the typed error catalog rather than
+/// falling back to axum's plain-text rejection.
+#[tokio::test]
+async fn event_span_all_is_rejected_with_a_typed_error() -> Result<(), Box<dyn std::error::Error>> {
+    let fixture = CalendarFixtureDb::seeded().await?;
+    let pool = connect_pool(fixture.path()).await?;
+    let app = router(AppState::with_eventkit(None, None, None, Some(pool), None));
+
+    let (status, body) = patch_json_body(
+        app.clone(),
+        "/v1/events/00000000-0000-0000-0000-000000000001",
+        r#"{"span":"all"}"#,
+    )
+    .await?;
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
+    assert_eq!(body["error"]["code"], "unprocessable_entity");
+    assert!(body["error"]["details"]["reason"].is_string());
+
+    let response = app
+        .oneshot(
+            Request::builder()
+                .method("DELETE")
+                .uri("/v1/events/00000000-0000-0000-0000-000000000001?span=all")
+                .body(Body::empty())?,
+        )
+        .await?;
+    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+    Ok(())
+}
+
+/// The two spans that remain must keep reaching the handler; a 503 here means the request parsed
+/// and only the absent EventKit store stopped it.
+#[tokio::test]
+async fn this_and_future_spans_are_both_accepted() -> Result<(), Box<dyn std::error::Error>> {
+    let fixture = CalendarFixtureDb::seeded().await?;
+    let pool = connect_pool(fixture.path()).await?;
+    let app = router(AppState::with_eventkit(None, None, None, Some(pool), None));
+
+    for span in ["this", "future"] {
+        assert_eq!(
+            patch_json(
+                app.clone(),
+                "/v1/events/00000000-0000-0000-0000-000000000001",
+                &format!(r#"{{"span":"{span}"}}"#)
+            )
+            .await?,
+            StatusCode::SERVICE_UNAVAILABLE,
+            "span `{span}` should parse"
+        );
+    }
+    Ok(())
+}
+
 #[tokio::test]
 async fn reminder_mutations_return_503_without_eventkit() -> Result<(), Box<dyn std::error::Error>>
 {

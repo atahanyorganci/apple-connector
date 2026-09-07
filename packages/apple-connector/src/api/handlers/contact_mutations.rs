@@ -15,6 +15,7 @@ use crate::{
             CreateContactRequest, CreateGroupRequest, UpdateContactRequest, UpdateGroupRequest,
         },
         error::{ApiError, ErrorCode, ErrorResponse},
+        extract::ApiJson,
         hydrate::{SyncPendingContactDetailDto, SyncPendingGroupDetailDto, mutation_status},
         params::{ContactGroupPath, ContactIdPath, ContainerIdPath, GroupIdPath},
         router::AppState,
@@ -40,7 +41,7 @@ use crate::{
 pub async fn create_contact(
     State(state): State<AppState>,
     Path(path): Path<ContainerIdPath>,
-    Json(request): Json<CreateContactRequest>,
+    ApiJson(request): ApiJson<CreateContactRequest>,
 ) -> Result<(StatusCode, Json<SyncPendingContactDetailDto>), ApiError> {
     let sources = require_contacts_sources(&state.contacts_sources)?;
     let store = require_contacts_access(&state).await?;
@@ -96,7 +97,7 @@ pub async fn create_contact(
 pub async fn update_contact(
     State(state): State<AppState>,
     Path(path): Path<ContactIdPath>,
-    Json(request): Json<UpdateContactRequest>,
+    ApiJson(request): ApiJson<UpdateContactRequest>,
 ) -> Result<(StatusCode, Json<SyncPendingContactDetailDto>), ApiError> {
     let sources = require_contacts_sources(&state.contacts_sources)?;
     let store = require_contacts_access(&state).await?;
@@ -174,7 +175,7 @@ pub async fn delete_contact(
 pub async fn create_group(
     State(state): State<AppState>,
     Path(path): Path<ContainerIdPath>,
-    Json(request): Json<CreateGroupRequest>,
+    ApiJson(request): ApiJson<CreateGroupRequest>,
 ) -> Result<(StatusCode, Json<SyncPendingGroupDetailDto>), ApiError> {
     let sources = require_contacts_sources(&state.contacts_sources)?;
     let store = require_contacts_access(&state).await?;
@@ -230,7 +231,7 @@ pub async fn create_group(
 pub async fn update_group(
     State(state): State<AppState>,
     Path(path): Path<GroupIdPath>,
-    Json(request): Json<UpdateGroupRequest>,
+    ApiJson(request): ApiJson<UpdateGroupRequest>,
 ) -> Result<(StatusCode, Json<SyncPendingGroupDetailDto>), ApiError> {
     let sources = require_contacts_sources(&state.contacts_sources)?;
     let store = require_contacts_access(&state).await?;

@@ -211,12 +211,16 @@ pub struct EventPageDto {
     pub page: PageMetaDto,
 }
 
+/// How far a change to a recurring event reaches.
+///
+/// EventKit implements exactly these two scopes, so the API offers no more than it can deliver.
 #[derive(Debug, Clone, Copy, Deserialize, ToSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum EventSpanDto {
+    /// Only the occurrence identified by `occurrence_start`. Later occurrences are untouched.
     This,
+    /// That occurrence and every later one. Earlier occurrences keep their current values.
     Future,
-    All,
 }
 
 #[derive(Debug, Clone, Copy, Deserialize, ToSchema)]

@@ -8,6 +8,7 @@ mod error;
 mod error_codes;
 mod eventkit;
 mod eventkit_convert;
+pub(crate) mod extract;
 mod handlers;
 mod hydrate;
 mod media;

@@ -13,18 +13,24 @@ use crate::{
     store::EventKitStore,
 };
 
+/// How far a change to a recurring event reaches.
+///
+/// These are the only two scopes EventKit implements: `EKSpan` has exactly `ThisEvent` and
+/// `FutureEvents`. An "all occurrences" variant used to exist here and mapped to `FutureEvents`,
+/// which silently left earlier occurrences untouched.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum EventSpan {
+    /// Only the occurrence identified by `occurrence_start`.
     This,
+    /// That occurrence and every later one; earlier occurrences keep their current values.
     Future,
-    All,
 }
 
 impl EventSpan {
     fn to_ek(self) -> EKSpan {
         match self {
             Self::This => EKSpan::ThisEvent,
-            Self::Future | Self::All => EKSpan::FutureEvents,
+            Self::Future => EKSpan::FutureEvents,
         }
     }
 }

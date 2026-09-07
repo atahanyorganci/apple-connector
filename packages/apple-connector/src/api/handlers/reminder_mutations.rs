@@ -16,6 +16,7 @@ use crate::{
             create_reminder_input, map_eventkit_error, reminder_list_hint, update_reminder_input,
             validate_create_reminder, validate_update_reminder,
         },
+        extract::ApiJson,
         hydrate::{SyncPendingReminderDetailDto, mutation_status},
         params::{ReminderIdPath, ReminderListIdPath},
         router::AppState,
@@ -44,7 +45,7 @@ use crate::{
 pub async fn create_reminder(
     State(state): State<AppState>,
     Path(path): Path<ReminderListIdPath>,
-    Json(request): Json<CreateReminderRequest>,
+    ApiJson(request): ApiJson<CreateReminderRequest>,
 ) -> Result<(StatusCode, Json<SyncPendingReminderDetailDto>), ApiError> {
     validate_create_reminder(&request)?;
     let pool = require_reminders_db(&state.reminders_db)?;
@@ -107,7 +108,7 @@ pub async fn create_reminder(
 pub async fn update_reminder(
     State(state): State<AppState>,
     Path(path): Path<ReminderIdPath>,
-    Json(request): Json<UpdateReminderRequest>,
+    ApiJson(request): ApiJson<UpdateReminderRequest>,
 ) -> Result<(StatusCode, Json<SyncPendingReminderDetailDto>), ApiError> {
     validate_update_reminder(&request)?;
     let pool = require_reminders_db(&state.reminders_db)?;

@@ -8615,10 +8615,10 @@
       },
       "EventSpanDto": {
         "type": "string",
+        "description": "How far a change to a recurring event reaches.\n\nEventKit implements exactly these two scopes, so the API offers no more than it can deliver.",
         "enum": [
           "this",
-          "future",
-          "all"
+          "future"
         ]
       },
       "EventStatusDto": {

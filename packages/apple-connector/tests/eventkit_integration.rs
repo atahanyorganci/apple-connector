@@ -204,7 +204,8 @@ async fn recurring_event_edit_with_span_this() -> Result<(), Box<dyn std::error:
             &saved.calendar_item_id,
             Some(saved.external_id.as_str()),
             DeleteEventInput {
-                span: EventSpan::All,
+                // Deleting the series root with `Future` removes every occurrence.
+                span: EventSpan::Future,
                 occurrence_start: None,
             },
         )
@@ -294,4 +295,64 @@ fn empty_event_update() -> UpdateEventInput {
         recurrence: None,
         span: EventSpan::This,
     }
+}
+
+/// `this` and `future` have to mean different things — an "all" span used to map to `future` and
+/// silently claim a scope EventKit never applied.
+#[tokio::test]
+#[ignore = "requires EventKit permissions and live Apple data stores"]
+async fn recurring_event_edit_with_span_future() -> Result<(), Box<dyn std::error::Error>> {
+    let store = store().await?;
+    let calendar = calendar_hint();
+    let start = chrono::Utc::now().timestamp() + 345_600;
+    let end = start + 3_600;
+
+    let saved = store
+        .create_event(
+            calendar.clone(),
+            CreateEventInput {
+                summary: "apple-connector span future".into(),
+                description: None,
+                start,
+                end,
+                all_day: false,
+                url: None,
+                location: None,
+                alarms: Vec::new(),
+                recurrence: Some(apple_eventkit::RecurrenceInput {
+                    frequency: apple_eventkit::RecurrenceFrequency::Daily,
+                    interval: 1,
+                    count: Some(3),
+                    end_date: None,
+                }),
+            },
+        )
+        .await?;
+
+    // The second occurrence forward, leaving the first as it was.
+    store
+        .update_event(
+            &saved.calendar_item_id,
+            Some(saved.external_id.as_str()),
+            Some(start + 86_400),
+            UpdateEventInput {
+                summary: Some("apple-connector span future updated".into()),
+                calendar_hint: Some(calendar),
+                span: EventSpan::Future,
+                ..empty_event_update()
+            },
+        )
+        .await?;
+
+    store
+        .delete_event(
+            &saved.calendar_item_id,
+            Some(saved.external_id.as_str()),
+            DeleteEventInput {
+                span: EventSpan::Future,
+                occurrence_start: None,
+            },
+        )
+        .await?;
+    Ok(())
 }
