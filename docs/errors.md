@@ -19,6 +19,7 @@ Internal SQL, filesystem paths, and framework diagnostics are never returned to 
 
 | Code | Default message |
 | --- | --- |
+| `ambiguous_contacts_match` | ambiguous Contacts match |
 | `ambiguous_event_kit_match` | ambiguous EventKit match |
 | `byte_range_not_satisfiable` | requested byte range is not satisfiable |
 | `calendar_account_not_found` | calendar account not found |
@@ -31,17 +32,18 @@ Internal SQL, filesystem paths, and framework diagnostics are never returned to 
 | `contact_photo_not_found` | contact photo not found |
 | `contacts_access_denied` | Contacts access denied |
 | `contacts_database_unavailable` | Contacts databases are unavailable |
-| `contacts_unavailable` |  |
+| `contacts_unavailable` | Contacts framework is unavailable on this platform or could not be initialized |
 | `container_not_found` | container not found |
 | `event_attachment_not_found` | event attachment not found |
 | `event_attachment_unavailable` | event attachment is not available |
 | `event_end_before_start` | end must be greater than or equal to start |
 | `event_not_found` | event not found |
 | `eventkit_access_denied` | EventKit access denied |
-| `eventkit_unavailable` |  |
+| `eventkit_unavailable` | EventKit is unavailable on this platform or could not be initialized |
 | `forbidden` | forbidden |
 | `gateway_timeout` | upstream operation timed out |
 | `group_not_found` | group not found |
+| `immutable_event_field` | event field cannot be written through EventKit |
 | `internal_error` | internal server error |
 | `invalid_cursor` | invalid cursor |
 | `invalid_limit` | invalid limit |
