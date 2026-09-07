@@ -106,11 +106,22 @@ fn auth_status_to_dto(status: AuthStatus) -> EventKitAuthStatusDto {
 mod tests {
     use super::*;
 
+    /// `/healthz` reports whatever the store's snapshot says, so every status has to survive the
+    /// trip: a denial must never surface as "not determined".
     #[test]
-    fn maps_denied_auth_status() {
-        assert_eq!(
-            auth_status_to_dto(AuthStatus::Denied),
-            EventKitAuthStatusDto::Denied
-        );
+    fn every_auth_status_maps_to_its_own_dto() {
+        for (status, expected) in [
+            (
+                AuthStatus::NotDetermined,
+                EventKitAuthStatusDto::NotDetermined,
+            ),
+            (AuthStatus::Restricted, EventKitAuthStatusDto::Restricted),
+            (AuthStatus::Denied, EventKitAuthStatusDto::Denied),
+            (AuthStatus::Authorized, EventKitAuthStatusDto::Authorized),
+            (AuthStatus::WriteOnly, EventKitAuthStatusDto::WriteOnly),
+            (AuthStatus::Unavailable, EventKitAuthStatusDto::Unavailable),
+        ] {
+            assert_eq!(auth_status_to_dto(status), expected);
+        }
     }
 }

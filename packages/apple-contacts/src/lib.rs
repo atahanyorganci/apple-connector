@@ -15,7 +15,7 @@ mod group;
 mod store;
 mod worker;
 
-pub use auth::AuthStatus;
+pub use auth::{AuthOutcome, AuthStatus};
 pub use contact::{
     CreateContactInput, LabeledStringInput, PostalAddressInput, SavedContact, UpdateContactInput,
 };

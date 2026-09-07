@@ -4,15 +4,16 @@ use objc2::rc::Retained;
 use objc2_contacts::CNContactStore;
 
 use crate::{
-    auth::{AuthSnapshot, AuthStatus, current_auth_status, ensure_contacts_access},
+    auth::{
+        AuthOutcome, AuthSnapshot, AuthStatus, PROMPT_JOB_BUDGET, current_auth_status,
+        ensure_contacts_access,
+    },
     error::{ContactsError, ContactsResult},
     worker::{Worker, WorkerError},
 };
 
 /// Budget for a single framework operation.
 const OPERATION_TIMEOUT: Duration = Duration::from_secs(30);
-/// Authorization waits on a person answering a system prompt, so it gets its own budget.
-const AUTH_TIMEOUT: Duration = Duration::from_secs(180);
 
 struct Inner {
     worker: Worker<Retained<CNContactStore>>,
@@ -61,10 +62,11 @@ impl ContactsStore {
         }
     }
 
-    /// Prompt for Contacts access when status is `NotDetermined`.
-    pub async fn request_access(&self) -> ContactsResult<()> {
+    /// Prompts for Contacts access when the status is `NotDetermined`, and reports what
+    /// happened.
+    pub async fn request_access(&self) -> ContactsResult<AuthOutcome> {
         let outcome = self
-            .run_with_timeout(AUTH_TIMEOUT, crate::auth::request_pending_access)
+            .run_with_timeout(PROMPT_JOB_BUDGET, crate::auth::request_pending_access)
             .await;
         self.refresh_auth_status().await;
         outcome
@@ -72,14 +74,14 @@ impl ContactsStore {
 
     pub async fn ensure_contacts_access(&self) -> ContactsResult<()> {
         let outcome = self
-            .run_with_timeout(AUTH_TIMEOUT, ensure_contacts_access)
+            .run_with_timeout(PROMPT_JOB_BUDGET, ensure_contacts_access)
             .await;
         self.refresh_auth_status().await;
         outcome
     }
 
     pub(crate) async fn ensure_contacts(&self) -> ContactsResult<()> {
-        self.run_with_timeout(AUTH_TIMEOUT, ensure_contacts_access)
+        self.run_with_timeout(PROMPT_JOB_BUDGET, ensure_contacts_access)
             .await
     }
 

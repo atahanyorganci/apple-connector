@@ -103,3 +103,43 @@ fn auth_status_to_dto(status: apple_contacts::AuthStatus) -> ContactsAuthStatusD
         apple_contacts::AuthStatus::Unavailable => ContactsAuthStatusDto::Unavailable,
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::auth_status_to_dto;
+    use crate::api::dto::common::ContactsAuthStatusDto;
+
+    /// `/healthz` reports whatever the store's snapshot says, so every status has to survive the
+    /// trip: a denial must never surface as "not determined".
+    #[test]
+    fn every_auth_status_maps_to_its_own_dto() {
+        for (status, expected) in [
+            (
+                apple_contacts::AuthStatus::NotDetermined,
+                ContactsAuthStatusDto::NotDetermined,
+            ),
+            (
+                apple_contacts::AuthStatus::Restricted,
+                ContactsAuthStatusDto::Restricted,
+            ),
+            (
+                apple_contacts::AuthStatus::Denied,
+                ContactsAuthStatusDto::Denied,
+            ),
+            (
+                apple_contacts::AuthStatus::Authorized,
+                ContactsAuthStatusDto::Authorized,
+            ),
+            (
+                apple_contacts::AuthStatus::Limited,
+                ContactsAuthStatusDto::Limited,
+            ),
+            (
+                apple_contacts::AuthStatus::Unavailable,
+                ContactsAuthStatusDto::Unavailable,
+            ),
+        ] {
+            assert_eq!(auth_status_to_dto(status), expected);
+        }
+    }
+}

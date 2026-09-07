@@ -5,8 +5,8 @@ use objc2_event_kit::EKEventStore;
 
 use crate::{
     auth::{
-        AuthSnapshot, EntityAuthStatus, current_auth_status, ensure_events_authorized,
-        ensure_reminders_authorized,
+        AccessRequestOutcome, AuthSnapshot, EntityAuthStatus, PROMPT_JOB_BUDGET,
+        current_auth_status, ensure_events_authorized, ensure_reminders_authorized,
     },
     error::{EventKitError, EventKitResult},
     worker::{Worker, WorkerError},
@@ -14,8 +14,6 @@ use crate::{
 
 /// Budget for a single framework operation.
 const OPERATION_TIMEOUT: Duration = Duration::from_secs(30);
-/// Authorization waits on a person answering a system prompt, so it gets its own budget.
-const AUTH_TIMEOUT: Duration = Duration::from_secs(180);
 
 struct Inner {
     worker: Worker<Retained<EKEventStore>>,
@@ -64,10 +62,11 @@ impl EventKitStore {
         }
     }
 
-    /// Prompt for Reminders and Calendar access when status is `NotDetermined`.
-    pub async fn request_access(&self) -> EventKitResult<()> {
+    /// Prompts for Reminders and Calendar access when either status is `NotDetermined`, and
+    /// reports what happened to each entity.
+    pub async fn request_access(&self) -> EventKitResult<AccessRequestOutcome> {
         let outcome = self
-            .run_with_timeout(AUTH_TIMEOUT, crate::auth::request_pending_access)
+            .run_with_timeout(PROMPT_JOB_BUDGET, crate::auth::request_pending_access)
             .await;
         self.refresh_auth_status().await;
         outcome
@@ -75,7 +74,7 @@ impl EventKitStore {
 
     pub async fn ensure_reminders_access(&self) -> EventKitResult<()> {
         let outcome = self
-            .run_with_timeout(AUTH_TIMEOUT, ensure_reminders_authorized)
+            .run_with_timeout(PROMPT_JOB_BUDGET, ensure_reminders_authorized)
             .await;
         self.refresh_auth_status().await;
         outcome
@@ -83,19 +82,19 @@ impl EventKitStore {
 
     pub async fn ensure_events_access(&self) -> EventKitResult<()> {
         let outcome = self
-            .run_with_timeout(AUTH_TIMEOUT, ensure_events_authorized)
+            .run_with_timeout(PROMPT_JOB_BUDGET, ensure_events_authorized)
             .await;
         self.refresh_auth_status().await;
         outcome
     }
 
     pub(crate) async fn ensure_reminders(&self) -> EventKitResult<()> {
-        self.run_with_timeout(AUTH_TIMEOUT, ensure_reminders_authorized)
+        self.run_with_timeout(PROMPT_JOB_BUDGET, ensure_reminders_authorized)
             .await
     }
 
     pub(crate) async fn ensure_events(&self) -> EventKitResult<()> {
-        self.run_with_timeout(AUTH_TIMEOUT, ensure_events_authorized)
+        self.run_with_timeout(PROMPT_JOB_BUDGET, ensure_events_authorized)
             .await
     }
 

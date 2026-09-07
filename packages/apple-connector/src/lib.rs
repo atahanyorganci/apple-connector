@@ -110,26 +110,12 @@ pub async fn run(cli: Cli) -> Result<(), Box<dyn Error>> {
             info!("Requesting EventKit permissions; approve the macOS prompts when they appear");
             tokio::spawn(async move {
                 match auth_store.request_access().await {
-                    Ok(()) => {
-                        let status = auth_store.auth_status().await;
-                        if status.reminders == apple_eventkit::AuthStatus::NotDetermined
-                            || status.events == apple_eventkit::AuthStatus::NotDetermined
-                        {
-                            warn!(
-                                reminders = ?status.reminders,
-                                events = ?status.events,
-                                "EventKit access not granted yet; enable access in System Settings → Privacy & Security"
-                            );
-                        } else {
-                            info!(
-                                reminders = ?status.reminders,
-                                events = ?status.events,
-                                "EventKit access ready"
-                            );
-                        }
+                    Ok(outcome) => {
+                        log_access_outcome("Reminders", outcome.reminders);
+                        log_access_outcome("Calendars", outcome.events);
                     }
                     Err(error) => {
-                        warn!(error = %error, "EventKit access request failed; write routes may be unavailable");
+                        warn!(error = %error, "EventKit access request failed; write routes will report unavailable");
                     }
                 }
             });
@@ -147,19 +133,9 @@ pub async fn run(cli: Cli) -> Result<(), Box<dyn Error>> {
             info!("Requesting Contacts permissions; approve the macOS prompt when it appears");
             tokio::spawn(async move {
                 match auth_store.request_access().await {
-                    Ok(()) => {
-                        let status = auth_store.auth_status().await;
-                        if status == apple_contacts::AuthStatus::NotDetermined {
-                            warn!(
-                                ?status,
-                                "Contacts access not granted yet; enable access in System Settings → Privacy & Security"
-                            );
-                        } else {
-                            info!(?status, "Contacts access ready");
-                        }
-                    }
+                    Ok(outcome) => log_access_outcome("Contacts", outcome),
                     Err(error) => {
-                        warn!(error = %error, "Contacts access request failed; write routes may be unavailable");
+                        warn!(error = %error, "Contacts access request failed; write routes will report unavailable");
                     }
                 }
             });
@@ -201,6 +177,74 @@ pub async fn run(cli: Cli) -> Result<(), Box<dyn Error>> {
 
     info!("apple-connector shut down");
     Ok(())
+}
+
+/// What an authorization request did, in the terms startup logging needs.
+///
+/// EventKit and Contacts report the same set of outcomes; this keeps the two startup paths from
+/// drifting apart in what they tell the operator.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum AccessOutcome {
+    Granted,
+    Denied,
+    Restricted,
+    TimedOut,
+    Unavailable,
+    Failed,
+}
+
+impl From<apple_eventkit::AuthOutcome> for AccessOutcome {
+    fn from(outcome: apple_eventkit::AuthOutcome) -> Self {
+        use apple_eventkit::AuthOutcome;
+        match outcome {
+            AuthOutcome::AlreadyGranted | AuthOutcome::Granted => Self::Granted,
+            AuthOutcome::Denied => Self::Denied,
+            AuthOutcome::Restricted => Self::Restricted,
+            AuthOutcome::TimedOut => Self::TimedOut,
+            AuthOutcome::Unavailable => Self::Unavailable,
+            AuthOutcome::Failed => Self::Failed,
+        }
+    }
+}
+
+impl From<apple_contacts::AuthOutcome> for AccessOutcome {
+    fn from(outcome: apple_contacts::AuthOutcome) -> Self {
+        use apple_contacts::AuthOutcome;
+        match outcome {
+            AuthOutcome::AlreadyGranted | AuthOutcome::Granted => Self::Granted,
+            AuthOutcome::Denied => Self::Denied,
+            AuthOutcome::Restricted => Self::Restricted,
+            AuthOutcome::TimedOut => Self::TimedOut,
+            AuthOutcome::Unavailable => Self::Unavailable,
+            AuthOutcome::Failed => Self::Failed,
+        }
+    }
+}
+
+fn log_access_outcome(entity: &str, outcome: impl Into<AccessOutcome>) {
+    match outcome.into() {
+        AccessOutcome::Granted => info!(entity, "access granted; write routes are available"),
+        AccessOutcome::Denied => warn!(
+            entity,
+            "access denied; grant it in System Settings → Privacy & Security, then restart"
+        ),
+        AccessOutcome::Restricted => warn!(
+            entity,
+            "access restricted by device policy; write routes will report unavailable"
+        ),
+        AccessOutcome::TimedOut => warn!(
+            entity,
+            "permission prompt was not answered in time; restart to be asked again"
+        ),
+        AccessOutcome::Unavailable => warn!(
+            entity,
+            "not available on this system; write routes will report unavailable"
+        ),
+        AccessOutcome::Failed => warn!(
+            entity,
+            "access request failed; write routes will report unavailable"
+        ),
+    }
 }
 
 async fn resolve_reminders_path(cli: &Cli) -> Option<PathBuf> {

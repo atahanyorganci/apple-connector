@@ -20,7 +20,7 @@ mod store;
 mod worker;
 
 pub use alarm::{AlarmInput, AlarmKind};
-pub use auth::{AuthStatus, EntityAuthStatus};
+pub use auth::{AccessRequestOutcome, AuthOutcome, AuthStatus, EntityAuthStatus};
 pub use calendar_resolve::{CalendarResolveHint, CalendarStoreType, ReminderListResolveHint};
 pub use error::{EventKitError, EventKitResult};
 pub use event::{
