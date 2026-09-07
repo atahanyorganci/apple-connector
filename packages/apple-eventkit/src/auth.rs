@@ -1,5 +1,5 @@
 use std::{
-    sync::{Mutex, mpsc},
+    sync::mpsc,
     time::{Duration, Instant},
 };
 
@@ -89,13 +89,11 @@ pub(crate) fn ensure_events_authorized(store: &EKEventStore) -> EventKitResult<(
 
 fn request_reminders_access(store: &EKEventStore) -> EventKitResult<()> {
     let (tx, rx) = mpsc::sync_channel(1);
-    let slot = Mutex::new(Some(tx));
+    // `SyncSender` needs no lock: the channel has room for exactly one value, so a second
+    // completion callback is discarded by `try_send` instead of being lost behind a poisoned
+    // mutex — which previously stalled the caller for the whole authorization timeout.
     let block = block2::RcBlock::new(move |granted: objc2::runtime::Bool, _| {
-        if let Ok(mut guard) = slot.lock()
-            && let Some(tx) = guard.take()
-        {
-            let _ = tx.send(granted.as_bool());
-        }
+        let _ = tx.try_send(granted.as_bool());
     });
     unsafe {
         store.requestFullAccessToRemindersWithCompletion(block2::RcBlock::as_ptr(&block));
@@ -105,13 +103,11 @@ fn request_reminders_access(store: &EKEventStore) -> EventKitResult<()> {
 
 fn request_events_access(store: &EKEventStore) -> EventKitResult<()> {
     let (tx, rx) = mpsc::sync_channel(1);
-    let slot = Mutex::new(Some(tx));
+    // `SyncSender` needs no lock: the channel has room for exactly one value, so a second
+    // completion callback is discarded by `try_send` instead of being lost behind a poisoned
+    // mutex — which previously stalled the caller for the whole authorization timeout.
     let block = block2::RcBlock::new(move |granted: objc2::runtime::Bool, _| {
-        if let Ok(mut guard) = slot.lock()
-            && let Some(tx) = guard.take()
-        {
-            let _ = tx.send(granted.as_bool());
-        }
+        let _ = tx.try_send(granted.as_bool());
     });
     unsafe {
         store.requestFullAccessToEventsWithCompletion(block2::RcBlock::as_ptr(&block));

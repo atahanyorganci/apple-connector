@@ -5,7 +5,7 @@ use crate::{
     alarm::{AlarmInput, apply_alarms_to_item},
     calendar_resolve::{ReminderListResolveHint, resolve_reminder_list},
     datetime::unix_to_date_components,
-    error::{EventKitError, EventKitResult},
+    error::{EventKitError, EventKitResult, map_ek_error},
     item_lookup::lookup_reminder,
     recurrence::{RecurrenceInput, apply_recurrence_to_item},
     store::EventKitStore,
@@ -103,9 +103,7 @@ impl EventKitStore {
             let reminder = lookup_reminder(store, &api_id, external_id.as_deref())?;
             match unsafe { store.removeReminder_commit_error(&reminder, true) } {
                 Ok(()) => Ok(()),
-                Err(err) => Err(EventKitError::Framework(
-                    err.localizedDescription().to_string(),
-                )),
+                Err(err) => Err(map_ek_error(err)),
             }
         })
         .await
@@ -127,9 +125,7 @@ fn save_reminder(store: &EKEventStore, reminder: &EKReminder) -> EventKitResult<
                 calendar_item_id,
             })
         }
-        Err(err) => Err(EventKitError::Framework(
-            err.localizedDescription().to_string(),
-        )),
+        Err(err) => Err(map_ek_error(err)),
     }
 }
 

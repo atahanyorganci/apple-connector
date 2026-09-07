@@ -1,6 +1,8 @@
-use crate::error::{ContactsError, ContactsResult};
-#[cfg(target_os = "macos")]
-use crate::{container::ContainerResolveHint, store::ContactsStore};
+use crate::{
+    container::ContainerResolveHint,
+    error::{ContactsError, ContactsResult},
+    store::ContactsStore,
+};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct LabeledStringInput {
@@ -55,7 +57,6 @@ pub struct SavedContact {
     pub identifier: String,
 }
 
-#[cfg_attr(not(target_os = "macos"), allow(dead_code))]
 pub(crate) fn validate_create_contact_input(input: &CreateContactInput) -> ContactsResult<()> {
     let has_name = [input.given_name.as_deref(), input.family_name.as_deref()]
         .into_iter()
@@ -85,7 +86,6 @@ pub(crate) fn validate_create_contact_input(input: &CreateContactInput) -> Conta
     Ok(())
 }
 
-#[cfg_attr(not(target_os = "macos"), allow(dead_code))]
 pub(crate) fn validate_labeled_value(
     input: &LabeledStringInput,
     field: &str,

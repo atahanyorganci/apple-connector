@@ -2,6 +2,11 @@
 //!
 //! All Objective-C / `unsafe` code is confined to this crate.
 
+#[cfg(not(target_os = "macos"))]
+compile_error!(
+    "apple-eventkit links against macOS-only Apple frameworks; it cannot be built for other targets"
+);
+
 mod alarm;
 mod auth;
 mod calendar_resolve;

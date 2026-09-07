@@ -7,7 +7,7 @@ use crate::{
     alarm::{AlarmInput, apply_alarms_to_item},
     calendar_resolve::{CalendarResolveHint, resolve_event_calendar},
     datetime::{retained_date_to_unix, unix_to_ns_date},
-    error::{EventKitError, EventKitResult},
+    error::{EventKitError, EventKitResult, map_ek_error},
     item_lookup::lookup_event,
     recurrence::{RecurrenceInput, apply_recurrence_to_item},
     reminder::LocationInput,
@@ -136,9 +136,7 @@ impl EventKitStore {
             )?;
             match unsafe { store.removeEvent_span_error(&event, input.span.to_ek()) } {
                 Ok(()) => Ok(()),
-                Err(err) => Err(EventKitError::Framework(
-                    err.localizedDescription().to_string(),
-                )),
+                Err(err) => Err(map_ek_error(err)),
             }
         })
         .await
@@ -164,9 +162,7 @@ fn save_event(
                 calendar_item_id,
             })
         }
-        Err(err) => Err(EventKitError::Framework(
-            err.localizedDescription().to_string(),
-        )),
+        Err(err) => Err(map_ek_error(err)),
     }
 }
 

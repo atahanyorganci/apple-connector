@@ -1,4 +1,3 @@
-#[cfg(target_os = "macos")]
 use crate::error::{ContactsError, ContactsResult};
 
 #[derive(Debug, Clone)]

@@ -1,6 +1,8 @@
-use crate::error::{ContactsError, ContactsResult};
-#[cfg(target_os = "macos")]
-use crate::{container::ContainerResolveHint, store::ContactsStore};
+use crate::{
+    container::ContainerResolveHint,
+    error::{ContactsError, ContactsResult},
+    store::ContactsStore,
+};
 
 #[derive(Debug, Clone)]
 pub struct CreateGroupInput {
@@ -137,7 +139,6 @@ fn mutable_group(group: &CNGroup) -> ContactsResult<Retained<CNMutableGroup>> {
     Ok(group.mutableCopy())
 }
 
-#[cfg_attr(not(target_os = "macos"), allow(dead_code))]
 pub(crate) fn validate_group_name(name: &str) -> ContactsResult<()> {
     if name.trim().is_empty() {
         return Err(ContactsError::ValidationFailed(
