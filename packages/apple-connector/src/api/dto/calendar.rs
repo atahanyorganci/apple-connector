@@ -234,6 +234,8 @@ pub struct CreateEventRequest {
     pub description: Option<String>,
     pub start: UnixTimestamp,
     pub end: UnixTimestamp,
+    /// When true, `start` and `end` are read as the local calendar days containing them, and both
+    /// are stored snapped to local midnight. When false, both are stored as exact instants.
     #[serde(default)]
     pub all_day: bool,
     #[serde(default)]
@@ -258,6 +260,8 @@ pub struct UpdateEventRequest {
     pub start: Option<UnixTimestamp>,
     #[serde(default)]
     pub end: Option<UnixTimestamp>,
+    /// When true, `start` and `end` are read as the local calendar days containing them, and both
+    /// are stored snapped to local midnight. When false, both are stored as exact instants.
     #[serde(default)]
     pub all_day: Option<bool>,
     #[serde(default)]

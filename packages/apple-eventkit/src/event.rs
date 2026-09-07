@@ -6,7 +6,7 @@ use objc2_foundation::{NSString, NSURL};
 use crate::{
     alarm::{AlarmInput, apply_alarms_to_item},
     calendar_resolve::{CalendarResolveHint, resolve_event_calendar},
-    datetime::{retained_date_to_unix, unix_to_ns_date},
+    datetime::{retained_date_to_unix, start_of_local_day, unix_to_ns_date},
     error::{EventKitError, EventKitResult, map_ek_error},
     item_lookup::lookup_event,
     recurrence::{RecurrenceInput, apply_recurrence_to_item},
@@ -247,6 +247,14 @@ fn apply_update_fields(
 }
 
 fn apply_dates(event: &EKEvent, start: i64, end: i64, all_day: bool) -> EventKitResult<()> {
+    // EventKit reads an all-day event's dates as calendar days in the default timezone, so an
+    // instant taken from anywhere else in the day can name the day either side of the one the
+    // caller meant. Snapping both ends to local midnight pins the days that get stored.
+    let (start, end) = if all_day {
+        (start_of_local_day(start)?, start_of_local_day(end)?)
+    } else {
+        (start, end)
+    };
     let start_date = unix_to_ns_date(start)?;
     let end_date = unix_to_ns_date(end)?;
     unsafe { event.setAllDay(all_day) };

@@ -212,7 +212,10 @@ pub fn due_to_dto(due: &crate::reminders::Due) -> DueDto {
 
 #[derive(Debug, Clone, Deserialize, ToSchema)]
 pub struct DueInputDto {
+    /// Instant the reminder is due, as UTC Unix seconds.
     pub at: UnixTimestamp,
+    /// When true, the due date is the local calendar day containing `at`, and the time of day is
+    /// discarded. When false, `at` is stored as an exact instant.
     pub all_day: bool,
 }
 
