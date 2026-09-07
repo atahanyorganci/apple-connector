@@ -56,6 +56,7 @@ pub enum ErrorCode {
     EventAttachmentNotFound,
     EventAttachmentUnavailable,
     EventEndBeforeStart,
+    ImmutableEventField,
     UnsupportedAlarmKind,
     AmbiguousEventKitMatch,
 
@@ -119,6 +120,7 @@ impl ErrorCode {
 
             Self::UnsupportedReminderField
             | Self::EventEndBeforeStart
+            | Self::ImmutableEventField
             | Self::UnsupportedAlarmKind
             | Self::UnprocessableEntity => StatusCode::UNPROCESSABLE_ENTITY,
 
@@ -195,6 +197,7 @@ impl ErrorCode {
             Self::EventAttachmentNotFound => "event attachment not found",
             Self::EventAttachmentUnavailable => "event attachment is not available",
             Self::EventEndBeforeStart => "end must be greater than or equal to start",
+            Self::ImmutableEventField => "event field cannot be written through EventKit",
             Self::UnsupportedAlarmKind => "unsupported alarm kind",
             Self::AmbiguousEventKitMatch => "ambiguous EventKit match",
             Self::ContactNotFound => "contact not found",
@@ -260,6 +263,7 @@ impl ErrorCode {
             Self::EventAttachmentNotFound => "event_attachment_not_found",
             Self::EventAttachmentUnavailable => "event_attachment_unavailable",
             Self::EventEndBeforeStart => "event_end_before_start",
+            Self::ImmutableEventField => "immutable_event_field",
             Self::UnsupportedAlarmKind => "unsupported_alarm_kind",
             Self::AmbiguousEventKitMatch => "ambiguous_event_kit_match",
             Self::ContactNotFound => "contact_not_found",
@@ -287,7 +291,7 @@ impl ErrorCode {
         &Self::ALL
     }
 
-    const ALL: [Self; 56] = [
+    const ALL: [Self; 57] = [
         Self::RouteNotFound,
         Self::MethodNotAllowed,
         Self::InvalidCursor,
@@ -325,6 +329,7 @@ impl ErrorCode {
         Self::EventAttachmentNotFound,
         Self::EventAttachmentUnavailable,
         Self::EventEndBeforeStart,
+        Self::ImmutableEventField,
         Self::UnsupportedAlarmKind,
         Self::AmbiguousEventKitMatch,
         Self::ContactNotFound,

@@ -61,6 +61,76 @@ async fn delete_route(app: Router, uri: &str) -> Result<StatusCode, Box<dyn std:
     Ok(response.status())
 }
 
+async fn post_json_body(
+    app: Router,
+    uri: &str,
+    body: &str,
+) -> Result<(StatusCode, serde_json::Value), Box<dyn std::error::Error>> {
+    json_body(app, "POST", uri, body).await
+}
+
+async fn patch_json_body(
+    app: Router,
+    uri: &str,
+    body: &str,
+) -> Result<(StatusCode, serde_json::Value), Box<dyn std::error::Error>> {
+    json_body(app, "PATCH", uri, body).await
+}
+
+async fn json_body(
+    app: Router,
+    method: &str,
+    uri: &str,
+    body: &str,
+) -> Result<(StatusCode, serde_json::Value), Box<dyn std::error::Error>> {
+    use http_body_util::BodyExt;
+
+    let response = app
+        .oneshot(
+            Request::builder()
+                .method(method)
+                .uri(uri)
+                .header("content-type", "application/json")
+                .body(Body::from(body.to_owned()))?,
+        )
+        .await?;
+    let status = response.status();
+    let bytes = response.into_body().collect().await?.to_bytes();
+    let payload = serde_json::from_slice(&bytes)
+        .unwrap_or(serde_json::json!({ "raw": String::from_utf8_lossy(&bytes) }));
+    Ok((status, payload))
+}
+
+/// EventKit exposes `EKEvent.status` as read-only, so the API rejects the field instead of
+/// accepting it and dropping it. The check runs before any store is consulted, which is why this
+/// answers 422 rather than the 503 an absent EventKit would otherwise produce.
+#[tokio::test]
+async fn event_status_is_rejected_as_immutable() -> Result<(), Box<dyn std::error::Error>> {
+    let fixture = CalendarFixtureDb::seeded().await?;
+    let pool = connect_pool(fixture.path()).await?;
+    let app = router(AppState::with_eventkit(None, None, None, Some(pool), None));
+
+    let (status, body) = post_json_body(
+        app.clone(),
+        &format!("/v1/calendars/{SEED_CALENDAR_ID}/events"),
+        r#"{"summary":"Test","start":1705320000,"end":1705323600,"status":"cancelled"}"#,
+    )
+    .await?;
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
+    assert_eq!(body["error"]["code"], "immutable_event_field");
+    assert_eq!(body["error"]["details"]["field"], "status");
+
+    let (status, body) = patch_json_body(
+        app,
+        "/v1/events/00000000-0000-0000-0000-000000000001",
+        r#"{"status":"confirmed"}"#,
+    )
+    .await?;
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
+    assert_eq!(body["error"]["code"], "immutable_event_field");
+    Ok(())
+}
+
 #[tokio::test]
 async fn reminder_mutations_return_503_without_eventkit() -> Result<(), Box<dyn std::error::Error>>
 {

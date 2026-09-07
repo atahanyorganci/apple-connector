@@ -30,13 +30,10 @@ impl EventSpan {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum EventStatusInput {
-    Confirmed,
-    Tentative,
-    Cancelled,
-}
-
+/// Fields an event can be created with.
+///
+/// EventKit exposes `EKEvent.status` as read-only — Apple's guidance is to remove the event to
+/// cancel it — so status is deliberately absent here rather than accepted and dropped.
 #[derive(Debug, Clone)]
 pub struct CreateEventInput {
     pub summary: String,
@@ -45,7 +42,6 @@ pub struct CreateEventInput {
     pub end: i64,
     pub all_day: bool,
     pub url: Option<String>,
-    pub status: Option<EventStatusInput>,
     pub location: Option<LocationInput>,
     pub alarms: Vec<AlarmInput>,
     pub recurrence: Option<RecurrenceInput>,
@@ -59,7 +55,6 @@ pub struct UpdateEventInput {
     pub end: Option<i64>,
     pub all_day: Option<bool>,
     pub url: Option<Option<String>>,
-    pub status: Option<EventStatusInput>,
     pub calendar_hint: Option<CalendarResolveHint>,
     pub location: Option<Option<LocationInput>>,
     pub alarms: Option<Vec<AlarmInput>>,
@@ -176,7 +171,6 @@ fn apply_create_fields(event: &EKEvent, input: &CreateEventInput) -> EventKitRes
             .ok_or_else(|| EventKitError::ValidationFailed("invalid event url".into()))?;
         unsafe { event.setURL(Some(&ns)) };
     }
-    let _ = input.status;
     apply_structured_location(event, input.location.as_ref())?;
     apply_alarms_to_item(event, &input.alarms)?;
     if let Some(recurrence) = &input.recurrence {
@@ -222,7 +216,6 @@ fn apply_update_fields(
             None => unsafe { event.setURL(None) },
         }
     }
-    let _ = input.status;
     if let Some(calendar_hint) = input.calendar_hint {
         let calendar = resolve_event_calendar(store, &calendar_hint)?;
         unsafe { event.setCalendar(Some(&calendar)) };

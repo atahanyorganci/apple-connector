@@ -1,14 +1,14 @@
 use apple_eventkit::{
     AlarmInput, AlarmKind, CalendarResolveHint, CalendarStoreType, CreateEventInput,
-    CreateReminderInput, DeleteEventInput, DueInput, EventKitError, EventSpan, EventStatusInput,
-    LocationInput, RecurrenceFrequency, RecurrenceInput, ReminderListResolveHint, UpdateEventInput,
+    CreateReminderInput, DeleteEventInput, DueInput, EventKitError, EventSpan, LocationInput,
+    RecurrenceFrequency, RecurrenceInput, ReminderListResolveHint, UpdateEventInput,
     UpdateReminderInput,
 };
 
 use crate::{
     api::{
         dto::{
-            calendar::{CreateEventRequest, EventSpanDto, EventStatusInputDto, UpdateEventRequest},
+            calendar::{CreateEventRequest, EventSpanDto, UpdateEventRequest},
             reminder::{
                 AlarmInputDto, AlarmKindDto, CreateReminderRequest, DueInputDto, LocationInputDto,
                 RecurrenceFrequencyDto, RecurrenceInputDto, UpdateReminderRequest,
@@ -37,6 +37,23 @@ pub fn map_eventkit_error(error: EventKitError) -> ApiError {
         EventKitError::Framework(_message) => ApiError::new(ErrorCode::InternalError),
         EventKitError::Timeout => ApiError::new(ErrorCode::GatewayTimeout),
     }
+}
+
+/// Request-level checks for event creation, run before any store is consulted.
+pub fn validate_create_event(request: &CreateEventRequest) -> Result<(), ApiError> {
+    reject_event_status(request.status.is_some())?;
+    if request.end.seconds() < request.start.seconds() {
+        return Err(ApiError::new(ErrorCode::EventEndBeforeStart));
+    }
+    Ok(())
+}
+
+/// Request-level checks for an event update.
+///
+/// The date range is deliberately not checked here: a partial update only inverts against the
+/// stored event, so that check belongs behind the framework boundary (see `merged_range`).
+pub fn validate_update_event(request: &UpdateEventRequest) -> Result<(), ApiError> {
+    reject_event_status(request.status.is_some())
 }
 
 pub fn validate_create_reminder(request: &CreateReminderRequest) -> Result<(), ApiError> {
@@ -190,6 +207,7 @@ pub fn update_reminder_input(
 }
 
 pub fn create_event_input(request: CreateEventRequest) -> Result<CreateEventInput, ApiError> {
+    reject_event_status(request.status.is_some())?;
     Ok(CreateEventInput {
         summary: request.summary,
         description: request.description,
@@ -197,7 +215,6 @@ pub fn create_event_input(request: CreateEventRequest) -> Result<CreateEventInpu
         end: request.end.seconds(),
         all_day: request.all_day,
         url: request.url,
-        status: request.status.map(event_status_input),
         location: request.location.map(location_input),
         alarms: request
             .alarms
@@ -213,6 +230,7 @@ pub fn update_event_input(
     calendar_hint: Option<CalendarResolveHint>,
     span: EventSpanDto,
 ) -> Result<UpdateEventInput, ApiError> {
+    reject_event_status(request.status.is_some())?;
     Ok(UpdateEventInput {
         summary: request.summary,
         description: request.description,
@@ -220,7 +238,6 @@ pub fn update_event_input(
         end: request.end.map(|value| value.seconds()),
         all_day: request.all_day,
         url: request.url,
-        status: request.status.map(event_status_input),
         calendar_hint,
         location: request
             .location
@@ -319,19 +336,29 @@ fn recurrence_input(recurrence: RecurrenceInputDto) -> RecurrenceInput {
     }
 }
 
-fn event_status_input(status: EventStatusInputDto) -> EventStatusInput {
-    match status {
-        EventStatusInputDto::Confirmed => EventStatusInput::Confirmed,
-        EventStatusInputDto::Tentative => EventStatusInput::Tentative,
-        EventStatusInputDto::Cancelled => EventStatusInput::Cancelled,
+/// EventKit exposes `EKEvent.status` as read-only, so there is no supported status to apply.
+///
+/// Accepting the field and dropping it left clients believing a status had been set, which is why
+/// this rejects rather than ignores. Cancelling an event means deleting it.
+fn reject_event_status(present: bool) -> Result<(), ApiError> {
+    if present {
+        return Err(ApiError::with_details(
+            ErrorCode::ImmutableEventField,
+            "EventKit does not allow event status to be written; delete the event to cancel it",
+            serde_json::json!({ "field": "status" }),
+        ));
     }
+    Ok(())
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::{
-        api::dto::reminder::{CreateReminderRequest, UpdateReminderRequest},
+        api::dto::{
+            calendar::EventStatusInputDto,
+            reminder::{CreateReminderRequest, UpdateReminderRequest},
+        },
         apple_types::SectionId,
     };
 
@@ -385,6 +412,54 @@ mod tests {
             .err()
             .ok_or("expected update reminder validation error")?;
         assert_eq!(error.status(), axum::http::StatusCode::UNPROCESSABLE_ENTITY);
+        Ok(())
+    }
+
+    #[test]
+    fn create_rejects_event_status_as_immutable() -> Result<(), Box<dyn std::error::Error>> {
+        let request = CreateEventRequest {
+            summary: "Test".into(),
+            description: None,
+            start: crate::apple_types::UnixTimestamp::from_seconds(1_700_000_000),
+            end: crate::apple_types::UnixTimestamp::from_seconds(1_700_003_600),
+            all_day: false,
+            url: None,
+            status: Some(EventStatusInputDto::Cancelled),
+            location: None,
+            alarms: Vec::new(),
+            recurrence: None,
+        };
+        let error = create_event_input(request)
+            .err()
+            .ok_or("expected event status to be rejected")?;
+        assert_eq!(error.status(), axum::http::StatusCode::UNPROCESSABLE_ENTITY);
+        let body = serde_json::to_value(error.body())?;
+        assert_eq!(body["code"], "immutable_event_field");
+        assert_eq!(body["details"]["field"], "status");
+        Ok(())
+    }
+
+    #[test]
+    fn update_rejects_event_status_as_immutable() -> Result<(), Box<dyn std::error::Error>> {
+        let request = UpdateEventRequest {
+            status: Some(EventStatusInputDto::Confirmed),
+            ..UpdateEventRequest::default()
+        };
+        let error = update_event_input(request, None, EventSpanDto::This)
+            .err()
+            .ok_or("expected event status to be rejected")?;
+        assert_eq!(error.status(), axum::http::StatusCode::UNPROCESSABLE_ENTITY);
+        assert_eq!(
+            serde_json::to_value(error.body())?["code"],
+            "immutable_event_field"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn an_event_without_status_still_converts() -> Result<(), Box<dyn std::error::Error>> {
+        let input = update_event_input(UpdateEventRequest::default(), None, EventSpanDto::This)?;
+        assert_eq!(input.span, EventSpan::This);
         Ok(())
     }
 
