@@ -105,9 +105,6 @@ impl EventKitStore {
         input: UpdateEventInput,
     ) -> EventKitResult<SavedEvent> {
         self.ensure_events().await?;
-        if let (Some(start), Some(end)) = (input.start, input.end) {
-            validate_range(start, end)?;
-        }
         let api_id = api_id.to_owned();
         let external_id = external_id.map(str::to_owned);
         self.run(move |store| {
@@ -207,12 +204,11 @@ fn apply_update_fields(
         }
     }
     if input.start.is_some() || input.end.is_some() || input.all_day.is_some() {
-        let start = input
-            .start
-            .unwrap_or_else(|| retained_date_to_unix(&unsafe { event.startDate() }));
-        let end = input
-            .end
-            .unwrap_or_else(|| retained_date_to_unix(&unsafe { event.endDate() }));
+        let existing = (
+            retained_date_to_unix(&unsafe { event.startDate() }),
+            retained_date_to_unix(&unsafe { event.endDate() }),
+        );
+        let (start, end) = merged_range(existing, input.start, input.end)?;
         let all_day = input.all_day.unwrap_or_else(|| unsafe { event.isAllDay() });
         apply_dates(event, start, end, all_day)?;
     }
@@ -287,11 +283,26 @@ fn apply_structured_location(
     Ok(())
 }
 
+/// Merges a partial update's dates with the stored ones, then checks the result.
+///
+/// A start-only or end-only update inverts the range against dates the request never mentioned,
+/// so validating the request on its own cannot catch it — the check has to happen here, after the
+/// stored event has been read.
+fn merged_range(
+    existing: (i64, i64),
+    start: Option<i64>,
+    end: Option<i64>,
+) -> EventKitResult<(i64, i64)> {
+    let (existing_start, existing_end) = existing;
+    let start = start.unwrap_or(existing_start);
+    let end = end.unwrap_or(existing_end);
+    validate_range(start, end)?;
+    Ok((start, end))
+}
+
 fn validate_range(start: i64, end: i64) -> EventKitResult<()> {
     if end < start {
-        return Err(EventKitError::ValidationFailed(
-            "end must be greater than or equal to start".into(),
-        ));
+        return Err(EventKitError::EndBeforeStart);
     }
     Ok(())
 }
@@ -300,8 +311,50 @@ fn validate_range(start: i64, end: i64) -> EventKitResult<()> {
 mod tests {
     use super::*;
 
+    const STORED: (i64, i64) = (1_000, 2_000);
+
     #[test]
     fn end_before_start_is_invalid() {
-        assert!(validate_range(10, 5).is_err());
+        assert_eq!(validate_range(10, 5), Err(EventKitError::EndBeforeStart));
+    }
+
+    #[test]
+    fn an_empty_range_is_valid() {
+        assert_eq!(validate_range(10, 10), Ok(()));
+    }
+
+    #[test]
+    fn moving_start_past_the_stored_end_is_rejected() {
+        assert_eq!(
+            merged_range(STORED, Some(3_000), None),
+            Err(EventKitError::EndBeforeStart)
+        );
+    }
+
+    #[test]
+    fn moving_end_before_the_stored_start_is_rejected() {
+        assert_eq!(
+            merged_range(STORED, None, Some(500)),
+            Err(EventKitError::EndBeforeStart)
+        );
+    }
+
+    #[test]
+    fn a_partial_update_keeps_the_field_it_does_not_mention() {
+        assert_eq!(merged_range(STORED, Some(1_500), None), Ok((1_500, 2_000)));
+        assert_eq!(merged_range(STORED, None, Some(2_500)), Ok((1_000, 2_500)));
+        assert_eq!(merged_range(STORED, None, None), Ok(STORED));
+    }
+
+    #[test]
+    fn both_fields_together_are_still_checked() {
+        assert_eq!(
+            merged_range(STORED, Some(9_000), Some(8_000)),
+            Err(EventKitError::EndBeforeStart)
+        );
+        assert_eq!(
+            merged_range(STORED, Some(8_000), Some(9_000)),
+            Ok((8_000, 9_000))
+        );
     }
 }

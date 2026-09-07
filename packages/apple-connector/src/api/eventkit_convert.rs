@@ -29,6 +29,7 @@ pub fn map_eventkit_error(error: EventKitError) -> ApiError {
         EventKitError::ValidationFailed(message) => {
             ApiError::with_message(ErrorCode::UnprocessableEntity, message)
         }
+        EventKitError::EndBeforeStart => ApiError::new(ErrorCode::EventEndBeforeStart),
         EventKitError::AmbiguousMatch(message) => {
             ApiError::with_message(ErrorCode::AmbiguousEventKitMatch, message)
         }
@@ -391,6 +392,15 @@ mod tests {
     fn map_eventkit_read_only_to_forbidden() {
         let error = map_eventkit_error(EventKitError::ReadOnlyCalendar);
         assert_eq!(error.status(), axum::http::StatusCode::FORBIDDEN);
+    }
+
+    /// A partial update that inverts the range has to answer with the same code a create does,
+    /// so a client sees one error for one mistake.
+    #[test]
+    fn map_eventkit_end_before_start_matches_the_create_path() {
+        let error = map_eventkit_error(EventKitError::EndBeforeStart);
+        assert_eq!(error.status(), axum::http::StatusCode::UNPROCESSABLE_ENTITY);
+        assert_eq!(error.body().code, ErrorCode::EventEndBeforeStart);
     }
 
     #[test]

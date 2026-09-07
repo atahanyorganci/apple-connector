@@ -12,6 +12,8 @@ pub enum EventKitError {
     ReadOnlyCalendar,
     #[error("validation failed: {0}")]
     ValidationFailed(String),
+    #[error("end must be greater than or equal to start")]
+    EndBeforeStart,
     #[error("ambiguous match: {0}")]
     AmbiguousMatch(String),
     #[error("EventKit is unavailable on this platform")]

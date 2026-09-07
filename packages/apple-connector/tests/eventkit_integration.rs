@@ -9,8 +9,8 @@
 
 use apple_eventkit::{
     CalendarResolveHint, CalendarStoreType, CreateEventInput, CreateReminderInput,
-    DeleteEventInput, EventKitStore, EventSpan, ReminderListResolveHint, UpdateEventInput,
-    UpdateReminderInput,
+    DeleteEventInput, EventKitError, EventKitStore, EventSpan, ReminderListResolveHint,
+    UpdateEventInput, UpdateReminderInput,
 };
 
 fn reminder_list_hint() -> ReminderListResolveHint {
@@ -214,4 +214,90 @@ async fn recurring_event_edit_with_span_this() -> Result<(), Box<dyn std::error:
         )
         .await?;
     Ok(())
+}
+
+/// A start-only update cannot be checked against the request alone: the stored end is what it
+/// inverts. The rejection has to come from EventKit's side of the boundary.
+#[tokio::test]
+#[ignore = "requires EventKit permissions and live Apple data stores"]
+async fn partial_update_cannot_invert_the_stored_range() -> Result<(), Box<dyn std::error::Error>> {
+    let store = store().await?;
+    let calendar = calendar_hint();
+    let start = chrono::Utc::now().timestamp() + 259_200;
+    let end = start + 3_600;
+
+    let saved = store
+        .create_event(
+            calendar.clone(),
+            CreateEventInput {
+                summary: "apple-connector partial range".into(),
+                description: None,
+                start,
+                end,
+                all_day: false,
+                url: None,
+                status: None,
+                location: None,
+                alarms: Vec::new(),
+                recurrence: None,
+            },
+        )
+        .await?;
+
+    let start_only = store
+        .update_event(
+            &saved.calendar_item_id,
+            Some(saved.external_id.as_str()),
+            None,
+            UpdateEventInput {
+                start: Some(end + 3_600),
+                span: EventSpan::This,
+                ..empty_event_update()
+            },
+        )
+        .await;
+    assert_eq!(start_only.err(), Some(EventKitError::EndBeforeStart));
+
+    let end_only = store
+        .update_event(
+            &saved.calendar_item_id,
+            Some(saved.external_id.as_str()),
+            None,
+            UpdateEventInput {
+                end: Some(start - 3_600),
+                span: EventSpan::This,
+                ..empty_event_update()
+            },
+        )
+        .await;
+    assert_eq!(end_only.err(), Some(EventKitError::EndBeforeStart));
+
+    store
+        .delete_event(
+            &saved.calendar_item_id,
+            Some(saved.external_id.as_str()),
+            DeleteEventInput {
+                span: EventSpan::This,
+                occurrence_start: None,
+            },
+        )
+        .await?;
+    Ok(())
+}
+
+fn empty_event_update() -> UpdateEventInput {
+    UpdateEventInput {
+        summary: None,
+        description: None,
+        start: None,
+        end: None,
+        all_day: None,
+        url: None,
+        status: None,
+        calendar_hint: None,
+        location: None,
+        alarms: None,
+        recurrence: None,
+        span: EventSpan::This,
+    }
 }
