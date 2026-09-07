@@ -142,24 +142,22 @@ fn wait_for_auth(rx: mpsc::Receiver<bool>) -> EventKitResult<()> {
     }
 }
 
+/// Last observed authorization status.
+///
+/// The snapshot is only ever written with a value read on the worker thread, so it cannot drift
+/// from what the framework reports.
 pub(crate) struct AuthSnapshot(RwLock<EntityAuthStatus>);
 
 impl AuthSnapshot {
-    pub fn new() -> Self {
-        Self(RwLock::new(current_auth_status()))
+    pub fn new(initial: EntityAuthStatus) -> Self {
+        Self(RwLock::new(initial))
     }
 
-    pub async fn refresh(&self) {
-        *self.0.write().await = current_auth_status();
+    pub async fn store(&self, status: EntityAuthStatus) {
+        *self.0.write().await = status;
     }
 
     pub async fn status(&self) -> EntityAuthStatus {
         *self.0.read().await
-    }
-}
-
-impl Default for AuthSnapshot {
-    fn default() -> Self {
-        Self::new()
     }
 }

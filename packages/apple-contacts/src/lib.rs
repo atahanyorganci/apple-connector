@@ -8,6 +8,7 @@ mod container;
 mod error;
 mod group;
 mod store;
+mod worker;
 
 pub use auth::AuthStatus;
 pub use contact::{

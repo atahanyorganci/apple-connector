@@ -1,114 +1,116 @@
-use std::sync::Mutex;
+use std::{sync::Arc, time::Duration};
 
 use objc2::rc::Retained;
 use objc2_contacts::CNContactStore;
-use tokio::task::JoinError;
 
 use crate::{
-    auth::{AuthSnapshot, ensure_contacts_access, request_pending_access},
+    auth::{AuthSnapshot, AuthStatus, current_auth_status, ensure_contacts_access},
     error::{ContactsError, ContactsResult},
+    worker::{Worker, WorkerError},
 };
 
-const OPERATION_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(30);
+/// Budget for a single framework operation.
+const OPERATION_TIMEOUT: Duration = Duration::from_secs(30);
+/// Authorization waits on a person answering a system prompt, so it gets its own budget.
+const AUTH_TIMEOUT: Duration = Duration::from_secs(180);
 
-pub struct ContactsStore {
-    pub(crate) inner: Mutex<Retained<CNContactStore>>,
+struct Inner {
+    worker: Worker<Retained<CNContactStore>>,
     auth: AuthSnapshot,
 }
 
-// Contacts objects are only accessed while holding the mutex or on the main queue.
-unsafe impl Send for ContactsStore {}
-unsafe impl Sync for ContactsStore {}
+/// Handle to the process-wide Contacts store.
+///
+/// The `CNContactStore` lives on the worker thread and is never shared: callers submit closures
+/// that borrow it for one job, and only `Send` results come back. Cloning shares the same worker
+/// and the same authorization snapshot, so a clone cannot forget that access was granted.
+#[derive(Clone)]
+pub struct ContactsStore {
+    inner: Arc<Inner>,
+}
 
 impl ContactsStore {
     pub fn new() -> ContactsResult<Self> {
-        let store = unsafe { CNContactStore::new() };
+        let (worker, initial) = Worker::spawn("apple-contacts", || {
+            let store = unsafe { CNContactStore::new() };
+            let status = current_auth_status();
+            (store, status)
+        })
+        .map_err(worker_error)?;
+
         Ok(Self {
-            inner: Mutex::new(store),
-            auth: AuthSnapshot::new(),
+            inner: Arc::new(Inner {
+                worker,
+                auth: AuthSnapshot::new(initial),
+            }),
         })
     }
 
-    pub(crate) fn with_store<F, T>(&self, f: F) -> ContactsResult<T>
-    where
-        F: FnOnce(&CNContactStore) -> ContactsResult<T>,
-    {
-        let store = self
-            .inner
-            .lock()
-            .map_err(|_| ContactsError::Framework("Contacts store lock poisoned".into()))?;
-        f(&store)
-    }
-
-    pub async fn auth_status(&self) -> crate::auth::AuthStatus {
-        self.auth.status().await
+    pub async fn auth_status(&self) -> AuthStatus {
+        self.inner.auth.status().await
     }
 
     pub async fn refresh_auth_status(&self) {
-        self.auth.refresh().await;
-    }
-
-    async fn run_blocking<F, T>(&self, f: F) -> ContactsResult<T>
-    where
-        F: FnOnce(&CNContactStore) -> ContactsResult<T> + Send + 'static,
-        T: Send + 'static,
-    {
-        let store_ptr = {
-            let store = self
-                .inner
-                .lock()
-                .map_err(|_| ContactsError::Framework("Contacts store lock poisoned".into()))?;
-            Retained::as_ptr(&store) as usize
-        };
-        tokio::task::spawn_blocking(move || {
-            let store = unsafe { &*(store_ptr as *const CNContactStore) };
-            f(store)
-        })
-        .await
-        .map_err(join_error)?
+        if let Ok(status) = self
+            .inner
+            .worker
+            .run(OPERATION_TIMEOUT, |_| current_auth_status())
+            .await
+        {
+            self.inner.auth.store(status).await;
+        }
     }
 
     /// Prompt for Contacts access when status is `NotDetermined`.
     pub async fn request_access(&self) -> ContactsResult<()> {
-        self.run_blocking(request_pending_access).await?;
+        let outcome = self
+            .run_with_timeout(AUTH_TIMEOUT, crate::auth::request_pending_access)
+            .await;
         self.refresh_auth_status().await;
-        Ok(())
+        outcome
     }
 
     pub async fn ensure_contacts_access(&self) -> ContactsResult<()> {
-        self.run_blocking(ensure_contacts_access).await?;
+        let outcome = self
+            .run_with_timeout(AUTH_TIMEOUT, ensure_contacts_access)
+            .await;
         self.refresh_auth_status().await;
-        Ok(())
+        outcome
     }
 
-    pub(crate) fn ensure_contacts(&self) -> ContactsResult<()> {
-        self.with_store(ensure_contacts_access)
+    pub(crate) async fn ensure_contacts(&self) -> ContactsResult<()> {
+        self.run_with_timeout(AUTH_TIMEOUT, ensure_contacts_access)
+            .await
     }
 
-    pub(crate) async fn run_on_main<F, T>(&self, f: F) -> ContactsResult<T>
+    /// Runs `f` against the store on the worker thread.
+    pub(crate) async fn run<F, T>(&self, f: F) -> ContactsResult<T>
     where
         F: FnOnce(&CNContactStore) -> ContactsResult<T> + Send + 'static,
         T: Send + 'static,
     {
-        tokio::time::timeout(OPERATION_TIMEOUT, self.run_blocking(f))
+        self.run_with_timeout(OPERATION_TIMEOUT, f).await
+    }
+
+    async fn run_with_timeout<F, T>(&self, budget: Duration, f: F) -> ContactsResult<T>
+    where
+        F: FnOnce(&CNContactStore) -> ContactsResult<T> + Send + 'static,
+        T: Send + 'static,
+    {
+        self.inner
+            .worker
+            .run(budget, move |store: &Retained<CNContactStore>| f(store))
             .await
-            .map_err(|_| ContactsError::Timeout)?
+            .map_err(worker_error)?
     }
 }
 
-fn join_error(_: JoinError) -> ContactsError {
-    ContactsError::Framework("blocking task failed".into())
-}
-
-impl Clone for ContactsStore {
-    fn clone(&self) -> Self {
-        let store = match self.inner.lock() {
-            Ok(guard) => guard.clone(),
-            Err(poisoned) => poisoned.into_inner().clone(),
-        };
-        Self {
-            inner: Mutex::new(store),
-            auth: AuthSnapshot::new(),
+fn worker_error(error: WorkerError) -> ContactsError {
+    match error {
+        WorkerError::Stopped => ContactsError::Framework("Contacts worker is not running".into()),
+        WorkerError::Lost => {
+            ContactsError::Framework("Contacts worker dropped the operation".into())
         }
+        WorkerError::TimedOut => ContactsError::Timeout,
     }
 }

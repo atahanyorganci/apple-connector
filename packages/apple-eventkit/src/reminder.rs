@@ -63,8 +63,8 @@ impl EventKitStore {
         list_hint: ReminderListResolveHint,
         input: CreateReminderInput,
     ) -> EventKitResult<SavedReminder> {
-        self.ensure_reminders()?;
-        self.run_on_main(move |store| {
+        self.ensure_reminders().await?;
+        self.run(move |store| {
             let calendar = resolve_reminder_list(store, &list_hint)?;
             let reminder = unsafe { EKReminder::reminderWithEventStore(store) };
             unsafe { reminder.setCalendar(Some(&calendar)) };
@@ -80,10 +80,10 @@ impl EventKitStore {
         external_id: Option<&str>,
         input: UpdateReminderInput,
     ) -> EventKitResult<SavedReminder> {
-        self.ensure_reminders()?;
+        self.ensure_reminders().await?;
         let api_id = api_id.to_owned();
         let external_id = external_id.map(str::to_owned);
-        self.run_on_main(move |store| {
+        self.run(move |store| {
             let reminder = lookup_reminder(store, &api_id, external_id.as_deref())?;
             apply_update_fields(store, &reminder, input)?;
             save_reminder(store, &reminder)
@@ -96,10 +96,10 @@ impl EventKitStore {
         api_id: &str,
         external_id: Option<&str>,
     ) -> EventKitResult<()> {
-        self.ensure_reminders()?;
+        self.ensure_reminders().await?;
         let api_id = api_id.to_owned();
         let external_id = external_id.map(str::to_owned);
-        self.run_on_main(move |store| {
+        self.run(move |store| {
             let reminder = lookup_reminder(store, &api_id, external_id.as_deref())?;
             match unsafe { store.removeReminder_commit_error(&reminder, true) } {
                 Ok(()) => Ok(()),

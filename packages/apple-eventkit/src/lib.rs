@@ -12,6 +12,7 @@ mod item_lookup;
 mod recurrence;
 mod reminder;
 mod store;
+mod worker;
 
 pub use alarm::{AlarmInput, AlarmKind};
 pub use auth::{AuthStatus, EntityAuthStatus};

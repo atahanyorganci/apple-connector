@@ -111,9 +111,9 @@ impl ContactsStore {
         container_hint: ContainerResolveHint,
         input: CreateContactInput,
     ) -> ContactsResult<SavedContact> {
-        self.ensure_contacts()?;
+        self.ensure_contacts().await?;
         validate_create_contact_input(&input)?;
-        self.run_on_main(move |store| {
+        self.run(move |store| {
             let (container, _) = crate::container::resolve_container(store, &container_hint)?;
             let container_id = unsafe { container.identifier() };
             let contact = unsafe { CNMutableContact::new() };
@@ -135,9 +135,9 @@ impl ContactsStore {
         contact_id: &str,
         input: UpdateContactInput,
     ) -> ContactsResult<SavedContact> {
-        self.ensure_contacts()?;
+        self.ensure_contacts().await?;
         let contact_id = contact_id.to_owned();
-        self.run_on_main(move |store| {
+        self.run(move |store| {
             let contact = lookup_contact(store, &contact_id)?;
             let mutable = mutable_contact(&contact)?;
             apply_update_fields(&mutable, input)?;
@@ -152,9 +152,9 @@ impl ContactsStore {
     }
 
     pub async fn delete_contact(&self, contact_id: &str) -> ContactsResult<()> {
-        self.ensure_contacts()?;
+        self.ensure_contacts().await?;
         let contact_id = contact_id.to_owned();
-        self.run_on_main(move |store| {
+        self.run(move |store| {
             let contact = lookup_contact(store, &contact_id)?;
             let mutable = mutable_contact(&contact)?;
             let request = unsafe { CNSaveRequest::new() };

@@ -1,125 +1,132 @@
-use std::sync::Mutex;
+use std::{sync::Arc, time::Duration};
 
 use objc2::rc::Retained;
 use objc2_event_kit::EKEventStore;
-use tokio::task::JoinError;
 
 use crate::{
-    auth::{AuthSnapshot, EntityAuthStatus, ensure_events_authorized, ensure_reminders_authorized},
+    auth::{
+        AuthSnapshot, EntityAuthStatus, current_auth_status, ensure_events_authorized,
+        ensure_reminders_authorized,
+    },
     error::{EventKitError, EventKitResult},
+    worker::{Worker, WorkerError},
 };
 
-const OPERATION_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(30);
+/// Budget for a single framework operation.
+const OPERATION_TIMEOUT: Duration = Duration::from_secs(30);
+/// Authorization waits on a person answering a system prompt, so it gets its own budget.
+const AUTH_TIMEOUT: Duration = Duration::from_secs(180);
 
-pub struct EventKitStore {
-    pub(crate) inner: Mutex<Retained<EKEventStore>>,
+struct Inner {
+    worker: Worker<Retained<EKEventStore>>,
     auth: AuthSnapshot,
 }
 
-// EventKit objects are only accessed while holding the mutex or on the main queue.
-unsafe impl Send for EventKitStore {}
-unsafe impl Sync for EventKitStore {}
+/// Handle to the process-wide EventKit store.
+///
+/// The `EKEventStore` lives on the worker thread and is never shared: callers submit closures
+/// that borrow it for one job, and only `Send` results come back. Cloning shares the same worker
+/// and the same authorization snapshot, so a clone cannot forget that access was granted.
+#[derive(Clone)]
+pub struct EventKitStore {
+    inner: Arc<Inner>,
+}
 
 impl EventKitStore {
     pub fn new() -> EventKitResult<Self> {
-        let store = unsafe { EKEventStore::new() };
-        Ok(Self {
-            inner: Mutex::new(store),
-            auth: AuthSnapshot::new(),
+        let (worker, initial) = Worker::spawn("apple-eventkit", || {
+            let store = unsafe { EKEventStore::new() };
+            let status = current_auth_status();
+            (store, status)
         })
-    }
+        .map_err(worker_error)?;
 
-    pub(crate) fn with_store<F, T>(&self, f: F) -> EventKitResult<T>
-    where
-        F: FnOnce(&EKEventStore) -> EventKitResult<T>,
-    {
-        let store = self
-            .inner
-            .lock()
-            .map_err(|_| EventKitError::Framework("EventKit store lock poisoned".into()))?;
-        f(&store)
+        Ok(Self {
+            inner: Arc::new(Inner {
+                worker,
+                auth: AuthSnapshot::new(initial),
+            }),
+        })
     }
 
     pub async fn auth_status(&self) -> EntityAuthStatus {
-        self.auth.status().await
+        self.inner.auth.status().await
     }
 
     pub async fn refresh_auth_status(&self) {
-        self.auth.refresh().await;
-    }
-
-    async fn run_blocking<F, T>(&self, f: F) -> EventKitResult<T>
-    where
-        F: FnOnce(&EKEventStore) -> EventKitResult<T> + Send + 'static,
-        T: Send + 'static,
-    {
-        let store_ptr = {
-            let store = self
-                .inner
-                .lock()
-                .map_err(|_| EventKitError::Framework("EventKit store lock poisoned".into()))?;
-            Retained::as_ptr(&store) as usize
-        };
-        tokio::task::spawn_blocking(move || {
-            let store = unsafe { &*(store_ptr as *const EKEventStore) };
-            f(store)
-        })
-        .await
-        .map_err(join_error)?
+        if let Ok(status) = self
+            .inner
+            .worker
+            .run(OPERATION_TIMEOUT, |_| current_auth_status())
+            .await
+        {
+            self.inner.auth.store(status).await;
+        }
     }
 
     /// Prompt for Reminders and Calendar access when status is `NotDetermined`.
     pub async fn request_access(&self) -> EventKitResult<()> {
-        self.run_blocking(crate::auth::request_pending_access)
-            .await?;
+        let outcome = self
+            .run_with_timeout(AUTH_TIMEOUT, crate::auth::request_pending_access)
+            .await;
         self.refresh_auth_status().await;
-        Ok(())
+        outcome
     }
 
     pub async fn ensure_reminders_access(&self) -> EventKitResult<()> {
-        self.run_blocking(ensure_reminders_authorized).await?;
+        let outcome = self
+            .run_with_timeout(AUTH_TIMEOUT, ensure_reminders_authorized)
+            .await;
         self.refresh_auth_status().await;
-        Ok(())
+        outcome
     }
 
     pub async fn ensure_events_access(&self) -> EventKitResult<()> {
-        self.run_blocking(ensure_events_authorized).await?;
+        let outcome = self
+            .run_with_timeout(AUTH_TIMEOUT, ensure_events_authorized)
+            .await;
         self.refresh_auth_status().await;
-        Ok(())
+        outcome
     }
 
-    pub(crate) fn ensure_reminders(&self) -> EventKitResult<()> {
-        self.with_store(ensure_reminders_authorized)
+    pub(crate) async fn ensure_reminders(&self) -> EventKitResult<()> {
+        self.run_with_timeout(AUTH_TIMEOUT, ensure_reminders_authorized)
+            .await
     }
 
-    pub(crate) fn ensure_events(&self) -> EventKitResult<()> {
-        self.with_store(ensure_events_authorized)
+    pub(crate) async fn ensure_events(&self) -> EventKitResult<()> {
+        self.run_with_timeout(AUTH_TIMEOUT, ensure_events_authorized)
+            .await
     }
 
-    pub(crate) async fn run_on_main<F, T>(&self, f: F) -> EventKitResult<T>
+    /// Runs `f` against the store on the worker thread.
+    pub(crate) async fn run<F, T>(&self, f: F) -> EventKitResult<T>
     where
         F: FnOnce(&EKEventStore) -> EventKitResult<T> + Send + 'static,
         T: Send + 'static,
     {
-        tokio::time::timeout(OPERATION_TIMEOUT, self.run_blocking(f))
+        self.run_with_timeout(OPERATION_TIMEOUT, f).await
+    }
+
+    async fn run_with_timeout<F, T>(&self, budget: Duration, f: F) -> EventKitResult<T>
+    where
+        F: FnOnce(&EKEventStore) -> EventKitResult<T> + Send + 'static,
+        T: Send + 'static,
+    {
+        self.inner
+            .worker
+            .run(budget, move |store: &Retained<EKEventStore>| f(store))
             .await
-            .map_err(|_| EventKitError::Timeout)?
+            .map_err(worker_error)?
     }
 }
 
-fn join_error(_: JoinError) -> EventKitError {
-    EventKitError::Framework("blocking task failed".into())
-}
-
-impl Clone for EventKitStore {
-    fn clone(&self) -> Self {
-        let store = match self.inner.lock() {
-            Ok(guard) => guard.clone(),
-            Err(poisoned) => poisoned.into_inner().clone(),
-        };
-        Self {
-            inner: Mutex::new(store),
-            auth: AuthSnapshot::new(),
+fn worker_error(error: WorkerError) -> EventKitError {
+    match error {
+        WorkerError::Stopped => EventKitError::Framework("EventKit worker is not running".into()),
+        WorkerError::Lost => {
+            EventKitError::Framework("EventKit worker dropped the operation".into())
         }
+        WorkerError::TimedOut => EventKitError::Timeout,
     }
 }

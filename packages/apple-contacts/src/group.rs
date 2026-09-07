@@ -27,9 +27,9 @@ impl ContactsStore {
         container_hint: ContainerResolveHint,
         input: CreateGroupInput,
     ) -> ContactsResult<SavedGroup> {
-        self.ensure_contacts()?;
+        self.ensure_contacts().await?;
         validate_group_name(&input.name)?;
-        self.run_on_main(move |store| {
+        self.run(move |store| {
             let (container, _) = crate::container::resolve_container(store, &container_hint)?;
             let container_id = unsafe { container.identifier() };
             let group = unsafe { CNMutableGroup::new() };
@@ -52,9 +52,9 @@ impl ContactsStore {
         group_id: &str,
         input: UpdateGroupInput,
     ) -> ContactsResult<SavedGroup> {
-        self.ensure_contacts()?;
+        self.ensure_contacts().await?;
         let group_id = group_id.to_owned();
-        self.run_on_main(move |store| {
+        self.run(move |store| {
             let group = lookup_group(store, &group_id)?;
             let mutable = mutable_group(&group)?;
             if let Some(name) = input.name {
@@ -73,9 +73,9 @@ impl ContactsStore {
     }
 
     pub async fn delete_group(&self, group_id: &str) -> ContactsResult<()> {
-        self.ensure_contacts()?;
+        self.ensure_contacts().await?;
         let group_id = group_id.to_owned();
-        self.run_on_main(move |store| {
+        self.run(move |store| {
             let group = lookup_group(store, &group_id)?;
             let mutable = mutable_group(&group)?;
             let request = unsafe { CNSaveRequest::new() };
@@ -90,10 +90,10 @@ impl ContactsStore {
         contact_id: &str,
         group_id: &str,
     ) -> ContactsResult<()> {
-        self.ensure_contacts()?;
+        self.ensure_contacts().await?;
         let contact_id = contact_id.to_owned();
         let group_id = group_id.to_owned();
-        self.run_on_main(move |store| {
+        self.run(move |store| {
             let contact = crate::contact::lookup_contact(store, &contact_id)?;
             let group = lookup_group(store, &group_id)?;
             let request = unsafe { CNSaveRequest::new() };
@@ -108,10 +108,10 @@ impl ContactsStore {
         contact_id: &str,
         group_id: &str,
     ) -> ContactsResult<()> {
-        self.ensure_contacts()?;
+        self.ensure_contacts().await?;
         let contact_id = contact_id.to_owned();
         let group_id = group_id.to_owned();
-        self.run_on_main(move |store| {
+        self.run(move |store| {
             let contact = crate::contact::lookup_contact(store, &contact_id)?;
             let group = lookup_group(store, &group_id)?;
             let request = unsafe { CNSaveRequest::new() };

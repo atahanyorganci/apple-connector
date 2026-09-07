@@ -85,9 +85,9 @@ impl EventKitStore {
         calendar_hint: CalendarResolveHint,
         input: CreateEventInput,
     ) -> EventKitResult<SavedEvent> {
-        self.ensure_events()?;
+        self.ensure_events().await?;
         validate_range(input.start, input.end)?;
-        self.run_on_main(move |store| {
+        self.run(move |store| {
             let calendar = resolve_event_calendar(store, &calendar_hint)?;
             let event = unsafe { EKEvent::eventWithEventStore(store) };
             unsafe { event.setCalendar(Some(&calendar)) };
@@ -104,13 +104,13 @@ impl EventKitStore {
         occurrence_start: Option<i64>,
         input: UpdateEventInput,
     ) -> EventKitResult<SavedEvent> {
-        self.ensure_events()?;
+        self.ensure_events().await?;
         if let (Some(start), Some(end)) = (input.start, input.end) {
             validate_range(start, end)?;
         }
         let api_id = api_id.to_owned();
         let external_id = external_id.map(str::to_owned);
-        self.run_on_main(move |store| {
+        self.run(move |store| {
             let event = lookup_event(store, &api_id, external_id.as_deref(), occurrence_start)?;
             apply_update_fields(store, &event, input.clone())?;
             save_event(store, &event, input.span)
@@ -124,10 +124,10 @@ impl EventKitStore {
         external_id: Option<&str>,
         input: DeleteEventInput,
     ) -> EventKitResult<()> {
-        self.ensure_events()?;
+        self.ensure_events().await?;
         let api_id = api_id.to_owned();
         let external_id = external_id.map(str::to_owned);
-        self.run_on_main(move |store| {
+        self.run(move |store| {
             let event = lookup_event(
                 store,
                 &api_id,
