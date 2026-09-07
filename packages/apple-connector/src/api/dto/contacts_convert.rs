@@ -26,7 +26,6 @@ pub fn container_summary_to_dto(container: &Container) -> ContainerSummaryDto {
         source_id: container.source_id.clone(),
         name: container.name.clone(),
         container_type: container.container_type,
-        read_only: container.read_only,
     }
 }
 

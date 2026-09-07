@@ -29,6 +29,9 @@ pub fn map_contacts_error(error: ContactsError) -> ApiError {
         ContactsError::ValidationFailed(message) => {
             ApiError::with_message(ErrorCode::UnprocessableEntity, message)
         }
+        ContactsError::AmbiguousMatch(message) => {
+            ApiError::with_message(ErrorCode::AmbiguousContactsMatch, message)
+        }
         ContactsError::UnsupportedPlatform => ApiError::contacts_unavailable(),
         ContactsError::Framework(_message) => ApiError::new(ErrorCode::InternalError),
         ContactsError::Timeout => ApiError::new(ErrorCode::GatewayTimeout),
@@ -43,7 +46,6 @@ pub fn container_hint(
         api_id: metadata.api_id,
         external_id: Some(metadata.external_id),
         name: metadata.name.or(container.name.clone()),
-        read_only: container.read_only,
     }
 }
 
@@ -238,5 +240,21 @@ mod tests {
     fn map_contacts_validation_failed() {
         let error = map_contacts_error(ContactsError::ValidationFailed("invalid".into()));
         assert_eq!(error.status(), StatusCode::UNPROCESSABLE_ENTITY);
+    }
+
+    /// A hint that matches more than one container is the same class of failure as an ambiguous
+    /// EventKit identifier, and the two frameworks must answer it the same way. This used to be a
+    /// 422 on the Contacts side and a 409 on the EventKit side.
+    #[test]
+    fn ambiguity_answers_the_same_way_as_eventkit() {
+        let contacts = map_contacts_error(ContactsError::AmbiguousMatch("two matches".into()));
+        let eventkit = crate::api::eventkit_convert::map_eventkit_error(
+            apple_eventkit::EventKitError::AmbiguousMatch("two matches".into()),
+        );
+
+        assert_eq!(contacts.status(), StatusCode::CONFLICT);
+        assert_eq!(contacts.status(), eventkit.status());
+        assert_eq!(contacts.body().code, ErrorCode::AmbiguousContactsMatch);
+        assert_eq!(contacts.body().message, "two matches");
     }
 }

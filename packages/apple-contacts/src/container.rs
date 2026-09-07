@@ -1,11 +1,20 @@
-use crate::error::{ContactsError, ContactsResult};
+use objc2::rc::Retained;
+use objc2_contacts::{CNContactStore, CNContainer, CNContainerType};
+use objc2_foundation::{NSArray, NSString};
 
+use crate::error::{ContactsError, ContactsResult, map_cn_error};
+
+/// What the SQLite read path knows about a container, used to find it in the framework.
+///
+/// The hint deliberately carries no writability flag. The SQLite row cannot know whether the
+/// framework will accept a write, and a hint that claims otherwise is stale by construction — the
+/// Contacts framework is the only authority, and it answers at save time with
+/// `CNErrorCodeParentContainerNotWritable` and friends.
 #[derive(Debug, Clone)]
 pub struct ContainerResolveHint {
     pub api_id: String,
     pub external_id: Option<String>,
     pub name: Option<String>,
-    pub read_only: bool,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -23,70 +32,90 @@ pub struct ContainerResolveMetadata {
     pub container_type: ContainerStoreType,
 }
 
-use objc2::rc::Retained;
-use objc2_contacts::{CNContactStore, CNContainer, CNContainerType};
-use objc2_foundation::{NSArray, NSString};
-
 pub(crate) fn resolve_container(
     store: &CNContactStore,
     hint: &ContainerResolveHint,
 ) -> ContactsResult<(Retained<CNContainer>, ContainerResolveMetadata)> {
-    if hint.read_only {
-        return Err(ContactsError::ReadOnlyContainer);
+    let mut identifiers = Vec::new();
+    if let Some(external_id) = &hint.external_id {
+        identifiers.push(external_id.as_str());
+    }
+    identifiers.push(hint.api_id.as_str());
+
+    for identifier in identifiers {
+        if let Some(container) = container_with_identifier(store, identifier)? {
+            // The predicate filters by identifier, so a container that comes back under a
+            // different one means the stored row no longer names anything real. Writing to
+            // whatever the framework returned instead would silently target another account.
+            if unsafe { container.identifier().to_string() } != identifier {
+                return Err(ContactsError::NotFound);
+            }
+            let metadata = container_metadata(&container);
+            return Ok((container, metadata));
+        }
     }
 
-    if let Some(container) = lookup_container(store, &hint.external_id, &hint.api_id) {
-        return Ok((container.clone(), container_metadata(&container)));
-    }
-
-    if let Some(title) = &hint.name {
-        let containers = unsafe { store.containersMatchingPredicate_error(None) }
-            .map_err(crate::error::map_cn_error)?;
-        let lowered = title.to_ascii_lowercase();
-        let mut matches = containers
-            .iter()
-            .filter(|container| unsafe {
-                container.name().to_string().to_ascii_lowercase() == lowered
-            })
-            .collect::<Vec<_>>();
-
-        if matches.len() == 1 {
-            let container = matches.remove(0).clone();
-            return Ok((container.clone(), container_metadata(&container)));
-        }
-        if matches.len() > 1 {
-            return Err(ContactsError::ValidationFailed(format!(
-                "multiple containers named '{title}'"
-            )));
-        }
+    if let Some(name) = &hint.name {
+        return container_with_name(store, name);
     }
 
     Err(ContactsError::NotFound)
 }
 
-fn lookup_container(
+fn container_with_identifier(
     store: &CNContactStore,
-    external_id: &Option<String>,
-    api_id: &str,
-) -> Option<Retained<CNContainer>> {
-    let mut candidates = Vec::new();
-    if let Some(external_id) = external_id {
-        candidates.push(external_id.as_str());
-    }
-    candidates.push(api_id);
+    identifier: &str,
+) -> ContactsResult<Option<Retained<CNContainer>>> {
+    let ns_id = NSString::from_str(identifier);
+    let ids = NSArray::from_slice(&[&*ns_id]);
+    let predicate = unsafe { CNContainer::predicateForContainersWithIdentifiers(&ids) };
 
-    for candidate in candidates {
-        let ns_id = NSString::from_str(candidate);
-        let ids = NSArray::from_slice(&[&*ns_id]);
-        let predicate = unsafe { CNContainer::predicateForContainersWithIdentifiers(&ids) };
-        let containers =
-            unsafe { store.containersMatchingPredicate_error(Some(&predicate)) }.ok()?;
-        if let Some(container) = containers.iter().next() {
-            return Some(container.clone());
+    let containers = match unsafe { store.containersMatchingPredicate_error(Some(&predicate)) } {
+        Ok(containers) => containers,
+        Err(error) => {
+            // "No container with this identifier" is a miss, not a failure — fall through to the
+            // next candidate and then to name resolution. Anything else is a real framework
+            // error and must not be mistaken for an absent container.
+            return match map_cn_error(error) {
+                ContactsError::NotFound => Ok(None),
+                other => Err(other),
+            };
         }
-    }
+    };
 
-    None
+    let mut matches = containers.iter();
+    let Some(container) = matches.next() else {
+        return Ok(None);
+    };
+    if matches.next().is_some() {
+        return Err(ContactsError::AmbiguousMatch(format!(
+            "multiple containers share identifier '{identifier}'"
+        )));
+    }
+    Ok(Some(container))
+}
+
+fn container_with_name(
+    store: &CNContactStore,
+    name: &str,
+) -> ContactsResult<(Retained<CNContainer>, ContainerResolveMetadata)> {
+    let containers =
+        unsafe { store.containersMatchingPredicate_error(None) }.map_err(map_cn_error)?;
+    let wanted = name.to_ascii_lowercase();
+    let mut matches = containers
+        .iter()
+        .filter(|container| unsafe { container.name().to_string().to_ascii_lowercase() } == wanted);
+
+    let Some(container) = matches.next() else {
+        return Err(ContactsError::NotFound);
+    };
+    if matches.next().is_some() {
+        return Err(ContactsError::AmbiguousMatch(format!(
+            "multiple containers named '{name}'"
+        )));
+    }
+    let metadata = container_metadata(&container);
+    Ok((container, metadata))
 }
 
 fn container_metadata(container: &CNContainer) -> ContainerResolveMetadata {
@@ -108,15 +137,17 @@ fn container_metadata(container: &CNContainer) -> ContainerResolveMetadata {
 mod tests {
     use super::{ContainerResolveHint, ContainerStoreType};
 
+    /// The hint carries only identity, never a writability claim: everything here is something
+    /// the SQLite read path can actually know.
     #[test]
-    fn read_only_hint_is_detectable() {
+    fn a_hint_carries_only_identity() {
         let hint = ContainerResolveHint {
             api_id: "abc".into(),
             external_id: None,
             name: Some("Work".into()),
-            read_only: true,
         };
-        assert!(hint.read_only);
+        assert_eq!(hint.api_id, "abc");
+        assert_eq!(hint.name.as_deref(), Some("Work"));
     }
 
     #[test]

@@ -2210,7 +2210,17 @@
             }
           },
           "403": {
-            "description": "Read-only container",
+            "description": "Contacts framework refused the write to this container",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The container hint matched more than one container",
             "content": {
               "application/json": {
                 "schema": {
@@ -2281,7 +2291,17 @@
             }
           },
           "403": {
-            "description": "Read-only container",
+            "description": "Contacts framework refused the write to this container",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The container hint matched more than one container",
             "content": {
               "application/json": {
                 "schema": {
@@ -7623,11 +7643,11 @@
       },
       "ContainerSummaryDto": {
         "type": "object",
+        "description": "An AddressBook container.\n\nThere is no writability flag: the SQLite read path cannot know whether the Contacts framework\nwill accept a write, and the field this DTO used to carry was always `false`. A write to a\ncontainer the framework refuses answers `403 read_only_container`.",
         "required": [
           "id",
           "source_id",
-          "container_type",
-          "read_only"
+          "container_type"
         ],
         "properties": {
           "container_type": {
@@ -7642,9 +7662,6 @@
               "string",
               "null"
             ]
-          },
-          "read_only": {
-            "type": "boolean"
           },
           "source_id": {
             "$ref": "#/components/schemas/SourceId"
@@ -8088,6 +8105,7 @@
           "container_not_found",
           "contact_photo_not_found",
           "read_only_container",
+          "ambiguous_contacts_match",
           "eventkit_access_denied",
           "contacts_access_denied",
           "eventkit_unavailable",

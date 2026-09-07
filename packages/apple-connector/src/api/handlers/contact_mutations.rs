@@ -34,7 +34,8 @@ use crate::{
     responses(
         (status = 201, description = "Contact created and hydrated from SQLite", body = SyncPendingContactDetailDto),
         (status = 202, description = "Contact created; SQLite read path still syncing", body = SyncPendingContactDetailDto),
-        (status = 403, description = "Read-only container", body = ErrorResponse),
+        (status = 403, description = "Contacts framework refused the write to this container", body = ErrorResponse),
+        (status = 409, description = "The container hint matched more than one container", body = ErrorResponse),
         (status = 503, description = "Contacts databases or Contacts framework unavailable", body = ErrorResponse),
     )
 )]
@@ -52,10 +53,6 @@ pub async fn create_contact(
             .await
             .map_err(ApiError::from_sqlx)?
             .ok_or_else(|| ApiError::new(ErrorCode::ContainerNotFound))?;
-
-    if container.read_only {
-        return Err(ApiError::new(ErrorCode::ReadOnlyContainer));
-    }
 
     let metadata = run_timed_query(|| async {
         sources
@@ -168,7 +165,8 @@ pub async fn delete_contact(
     responses(
         (status = 201, description = "Group created and hydrated from SQLite", body = SyncPendingGroupDetailDto),
         (status = 202, description = "Group created; SQLite read path still syncing", body = SyncPendingGroupDetailDto),
-        (status = 403, description = "Read-only container", body = ErrorResponse),
+        (status = 403, description = "Contacts framework refused the write to this container", body = ErrorResponse),
+        (status = 409, description = "The container hint matched more than one container", body = ErrorResponse),
         (status = 503, description = "Contacts databases or Contacts framework unavailable", body = ErrorResponse),
     )
 )]
@@ -186,10 +184,6 @@ pub async fn create_group(
             .await
             .map_err(ApiError::from_sqlx)?
             .ok_or_else(|| ApiError::new(ErrorCode::ContainerNotFound))?;
-
-    if container.read_only {
-        return Err(ApiError::new(ErrorCode::ReadOnlyContainer));
-    }
 
     let metadata = run_timed_query(|| async {
         sources

@@ -10,7 +10,6 @@ pub struct Container {
     pub source_id: SourceId,
     pub name: Option<String>,
     pub container_type: i64,
-    pub read_only: bool,
 }
 
 pub type ContainerSummary = Container;

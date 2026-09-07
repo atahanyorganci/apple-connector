@@ -66,6 +66,7 @@ pub enum ErrorCode {
     ContainerNotFound,
     ContactPhotoNotFound,
     ReadOnlyContainer,
+    AmbiguousContactsMatch,
 
     // Permissions / frameworks
     EventkitAccessDenied,
@@ -138,7 +139,9 @@ impl ErrorCode {
             | Self::ContactsAccessDenied
             | Self::Forbidden => StatusCode::FORBIDDEN,
 
-            Self::AmbiguousEventKitMatch | Self::Conflict => StatusCode::CONFLICT,
+            Self::AmbiguousEventKitMatch | Self::AmbiguousContactsMatch | Self::Conflict => {
+                StatusCode::CONFLICT
+            }
 
             Self::MessagesDatabaseUnavailable
             | Self::RemindersDatabaseUnavailable
@@ -200,6 +203,7 @@ impl ErrorCode {
             Self::ImmutableEventField => "event field cannot be written through EventKit",
             Self::UnsupportedAlarmKind => "unsupported alarm kind",
             Self::AmbiguousEventKitMatch => "ambiguous EventKit match",
+            Self::AmbiguousContactsMatch => "ambiguous Contacts match",
             Self::ContactNotFound => "contact not found",
             Self::GroupNotFound => "group not found",
             Self::ContainerNotFound => "container not found",
@@ -266,6 +270,7 @@ impl ErrorCode {
             Self::ImmutableEventField => "immutable_event_field",
             Self::UnsupportedAlarmKind => "unsupported_alarm_kind",
             Self::AmbiguousEventKitMatch => "ambiguous_event_kit_match",
+            Self::AmbiguousContactsMatch => "ambiguous_contacts_match",
             Self::ContactNotFound => "contact_not_found",
             Self::GroupNotFound => "group_not_found",
             Self::ContainerNotFound => "container_not_found",
@@ -291,7 +296,7 @@ impl ErrorCode {
         &Self::ALL
     }
 
-    const ALL: [Self; 57] = [
+    const ALL: [Self; 58] = [
         Self::RouteNotFound,
         Self::MethodNotAllowed,
         Self::InvalidCursor,
@@ -337,6 +342,7 @@ impl ErrorCode {
         Self::ContainerNotFound,
         Self::ContactPhotoNotFound,
         Self::ReadOnlyContainer,
+        Self::AmbiguousContactsMatch,
         Self::EventkitAccessDenied,
         Self::ContactsAccessDenied,
         Self::EventkitUnavailable,

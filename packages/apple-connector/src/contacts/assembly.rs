@@ -30,7 +30,6 @@ pub fn container_from_row(row: ContainerRow, source_id: SourceId) -> Container {
         source_id,
         name: row.name,
         container_type: row.container_type.unwrap_or(0),
-        read_only: false,
     }
 }
 

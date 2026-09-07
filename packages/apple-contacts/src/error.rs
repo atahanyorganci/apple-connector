@@ -10,6 +10,8 @@ pub enum ContactsError {
     ReadOnlyContainer,
     #[error("validation failed: {0}")]
     ValidationFailed(String),
+    #[error("ambiguous match: {0}")]
+    AmbiguousMatch(String),
     #[error("Contacts is unavailable on this platform")]
     UnsupportedPlatform,
     #[error("Contacts framework error: {0}")]
@@ -20,6 +22,11 @@ pub enum ContactsError {
 
 pub type ContactsResult<T> = Result<T, ContactsError>;
 
+/// Classifies an `NSError` from `CNErrorDomain` into a category the API can act on.
+///
+/// The read-only codes matter most: they are how the framework — the only authority on whether a
+/// container accepts writes — reports a refusal, and they must reach the client as 403 rather
+/// than collapsing into an internal error.
 pub(crate) fn map_cn_error(err: objc2::rc::Retained<objc2_foundation::NSError>) -> ContactsError {
     use objc2_contacts::CNErrorCode;
 
@@ -51,7 +58,45 @@ pub(crate) fn map_cn_error(err: objc2::rc::Retained<objc2_foundation::NSError>) 
 
 #[cfg(test)]
 mod tests {
-    use super::ContactsError;
+    use objc2_contacts::CNErrorCode;
+    use objc2_foundation::{NSError, NSString};
+
+    use super::{ContactsError, map_cn_error};
+
+    fn cn_error(code: CNErrorCode) -> objc2::rc::Retained<NSError> {
+        let domain = unsafe { objc2_contacts::CNErrorDomain }
+            .map(objc2::rc::Retained::from)
+            .unwrap_or_else(|| NSString::from_str("CNErrorDomain"));
+        unsafe { NSError::errorWithDomain_code_userInfo(&domain, code.0, None) }
+    }
+
+    /// Writability is decided by the framework at save time, so these codes are the whole
+    /// read-only story now that the stale SQLite hint is gone.
+    #[test]
+    fn not_writable_codes_map_to_read_only_container() {
+        for code in [
+            CNErrorCode::RecordNotWritable,
+            CNErrorCode::ParentContainerNotWritable,
+            CNErrorCode::NoAccessableWritableContainers,
+        ] {
+            assert_eq!(
+                map_cn_error(cn_error(code)),
+                ContactsError::ReadOnlyContainer
+            );
+        }
+    }
+
+    #[test]
+    fn missing_records_and_denials_stay_distinct() {
+        assert_eq!(
+            map_cn_error(cn_error(CNErrorCode::RecordDoesNotExist)),
+            ContactsError::NotFound
+        );
+        assert_eq!(
+            map_cn_error(cn_error(CNErrorCode::AuthorizationDenied)),
+            ContactsError::AccessDenied
+        );
+    }
 
     #[test]
     fn unsupported_platform_error_is_distinct() {

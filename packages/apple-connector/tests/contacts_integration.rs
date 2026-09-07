@@ -178,7 +178,6 @@ async fn integration_contacts_mutations_on_macos() -> Result<(), Box<dyn std::er
             std::env::var("APPLE_CONNECTOR_TEST_CONTACTS_CONTAINER")
                 .unwrap_or_else(|_| "Contacts".into()),
         ),
-        read_only: false,
     };
 
     let saved = store

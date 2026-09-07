@@ -4,13 +4,17 @@ use utoipa::ToSchema;
 use super::pagination::PageMetaDto;
 use crate::apple_types::{ContactId, ContainerId, GroupId, SourceId, UnixTimestamp};
 
+/// An AddressBook container.
+///
+/// There is no writability flag: the SQLite read path cannot know whether the Contacts framework
+/// will accept a write, and the field this DTO used to carry was always `false`. A write to a
+/// container the framework refuses answers `403 read_only_container`.
 #[derive(Debug, Clone, Serialize, ToSchema)]
 pub struct ContainerSummaryDto {
     pub id: ContainerId,
     pub source_id: SourceId,
     pub name: Option<String>,
     pub container_type: i64,
-    pub read_only: bool,
 }
 
 pub type ContainerDetailDto = ContainerSummaryDto;
