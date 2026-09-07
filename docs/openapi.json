@@ -9021,20 +9021,23 @@
               "number",
               "null"
             ],
-            "format": "double"
+            "format": "double",
+            "description": "Events only. EventKit cannot store a coordinate on a reminder, so sending this on a\nreminder returns 422 rather than dropping it."
           },
           "longitude": {
             "type": [
               "number",
               "null"
             ],
-            "format": "double"
+            "format": "double",
+            "description": "Events only. EventKit cannot store a coordinate on a reminder, so sending this on a\nreminder returns 422 rather than dropping it."
           },
           "title": {
             "type": [
               "string",
               "null"
-            ]
+            ],
+            "description": "Free-text location. Stored for both events and reminders."
           }
         }
       },

@@ -17,11 +17,15 @@ pub struct DueInput {
     pub all_day: bool,
 }
 
+/// Location a reminder can carry.
+///
+/// `EKReminder` inherits only `EKCalendarItem.location`, a plain string — `structuredLocation`,
+/// and with it any coordinate, exists on `EKEvent` and `EKAlarm` alone. EventKit says as much
+/// with `EKErrorReminderLocationsNotSupported`. Coordinates are therefore absent here rather than
+/// accepted and dropped; a geofenced reminder needs a proximity alarm instead.
 #[derive(Debug, Clone)]
-pub struct LocationInput {
+pub struct ReminderLocationInput {
     pub title: Option<String>,
-    pub latitude: Option<f64>,
-    pub longitude: Option<f64>,
 }
 
 #[derive(Debug, Clone)]
@@ -32,7 +36,7 @@ pub struct CreateReminderInput {
     pub completed: Option<bool>,
     pub priority: Option<i64>,
     pub url: Option<String>,
-    pub location: Option<LocationInput>,
+    pub location: Option<ReminderLocationInput>,
     pub alarms: Vec<AlarmInput>,
     pub recurrence: Option<RecurrenceInput>,
 }
@@ -46,7 +50,7 @@ pub struct UpdateReminderInput {
     pub priority: Option<i64>,
     pub url: Option<Option<String>>,
     pub list_hint: Option<ReminderListResolveHint>,
-    pub location: Option<Option<LocationInput>>,
+    pub location: Option<Option<ReminderLocationInput>>,
     pub alarms: Option<Vec<AlarmInput>>,
     pub recurrence: Option<Option<RecurrenceInput>>,
 }
@@ -224,7 +228,10 @@ fn apply_update_fields(
     Ok(())
 }
 
-fn apply_location(reminder: &EKReminder, location: Option<&LocationInput>) -> EventKitResult<()> {
+fn apply_location(
+    reminder: &EKReminder,
+    location: Option<&ReminderLocationInput>,
+) -> EventKitResult<()> {
     match location {
         Some(value) => {
             let text = value.title.clone().unwrap_or_default();

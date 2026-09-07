@@ -249,10 +249,15 @@ pub struct RecurrenceInputDto {
 
 #[derive(Debug, Clone, Deserialize, ToSchema)]
 pub struct LocationInputDto {
+    /// Free-text location. Stored for both events and reminders.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub title: Option<String>,
+    /// Events only. EventKit cannot store a coordinate on a reminder, so sending this on a
+    /// reminder returns 422 rather than dropping it.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub latitude: Option<f64>,
+    /// Events only. EventKit cannot store a coordinate on a reminder, so sending this on a
+    /// reminder returns 422 rather than dropping it.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub longitude: Option<f64>,
 }

@@ -23,9 +23,11 @@ pub use alarm::{AlarmInput, AlarmKind};
 pub use auth::{AccessRequestOutcome, AuthOutcome, AuthStatus, EntityAuthStatus};
 pub use calendar_resolve::{CalendarResolveHint, CalendarStoreType, ReminderListResolveHint};
 pub use error::{EventKitError, EventKitResult};
-pub use event::{CreateEventInput, DeleteEventInput, EventSpan, SavedEvent, UpdateEventInput};
+pub use event::{
+    CreateEventInput, DeleteEventInput, EventSpan, LocationInput, SavedEvent, UpdateEventInput,
+};
 pub use recurrence::{RecurrenceFrequency, RecurrenceInput};
 pub use reminder::{
-    CreateReminderInput, DueInput, LocationInput, SavedReminder, UpdateReminderInput,
+    CreateReminderInput, DueInput, ReminderLocationInput, SavedReminder, UpdateReminderInput,
 };
 pub use store::EventKitStore;

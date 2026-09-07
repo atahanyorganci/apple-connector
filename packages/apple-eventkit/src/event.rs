@@ -10,7 +10,6 @@ use crate::{
     error::{EventKitError, EventKitResult, map_ek_error},
     item_lookup::lookup_event,
     recurrence::{RecurrenceInput, apply_recurrence_to_item},
-    reminder::LocationInput,
     store::EventKitStore,
 };
 
@@ -28,6 +27,17 @@ impl EventSpan {
             Self::Future | Self::All => EKSpan::FutureEvents,
         }
     }
+}
+
+/// Location an event can carry, including coordinates.
+///
+/// `EKEvent` supports `structuredLocation`, so latitude and longitude are stored as a
+/// `CLLocation`. Reminders cannot do this — see `ReminderLocationInput`.
+#[derive(Debug, Clone)]
+pub struct LocationInput {
+    pub title: Option<String>,
+    pub latitude: Option<f64>,
+    pub longitude: Option<f64>,
 }
 
 /// Fields an event can be created with.
