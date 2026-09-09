@@ -63,7 +63,7 @@ function docComment(schema, indent) {
 }
 
 /** Map a scalar JSON Schema `type` to its TypeScript equivalent. */
-function scalar(type, schema) {
+function scalar(type, schema, indent) {
 	switch (type) {
 		case "string":
 			return schema.enum ? union(schema.enum.map(literal)) : "string";
@@ -75,9 +75,9 @@ function scalar(type, schema) {
 		case "null":
 			return "null";
 		case "array":
-			return `${wrap(tsType(schema.items ?? {}))}[]`;
+			return `${wrap(tsType(schema.items ?? {}, indent))}[]`;
 		case "object":
-			return objectType(schema);
+			return objectType(schema, indent);
 		default:
 			throw new Error(`unsupported type: ${String(type)}`);
 	}
@@ -123,10 +123,10 @@ function tsType(schema, indent = "") {
 		return union(schema.enum.map(literal));
 	}
 	if (Array.isArray(schema.type)) {
-		return union(schema.type.map(t => scalar(t, { ...schema, type: t })));
+		return union(schema.type.map(t => scalar(t, { ...schema, type: t }, indent)));
 	}
 	if (schema.type) {
-		return scalar(schema.type, schema);
+		return scalar(schema.type, schema, indent);
 	}
 	// A schema with properties but no explicit `type` is still an object.
 	return schema.properties ? objectType(schema, indent) : "unknown";

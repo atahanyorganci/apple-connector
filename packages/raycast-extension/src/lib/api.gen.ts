@@ -75,8 +75,8 @@ export type AttachmentId = string;
 
 export type AttachmentKindDto = {
 	sticker: {
-	animated: boolean;
-};
+		animated: boolean;
+	};
 } | "image" | "video" | "audio" | "file" | "unknown";
 
 export type AttachmentSummaryDto = {
@@ -105,8 +105,8 @@ export type AudioContentDto = {
 
 export type AvailabilityDto = "busy" | "free" | "tentative" | "unavailable" | {
 	unknown: {
-	code: number;
-};
+		code: number;
+	};
 };
 
 export type CalendarAccountDto = {
@@ -449,8 +449,8 @@ export type EventAttachmentSummaryDto = {
 
 export type EventClassDto = "standard" | "birthday" | "special_day" | {
 	unknown: {
-	code: number;
-};
+		code: number;
+	};
 };
 
 export type EventDetailDto = EventSummaryDto & ({
@@ -530,8 +530,8 @@ export type EventSpanDto = "this" | "future";
 
 export type EventStatusDto = "confirmed" | "tentative" | "cancelled" | {
 	unknown: {
-	code: number;
-};
+		code: number;
+	};
 };
 
 export type EventStatusInputDto = "confirmed" | "tentative" | "cancelled";
@@ -604,8 +604,8 @@ export type HealthStatusDto = {
 
 export type InvitationStatusDto = "unknown" | "accepted" | "declined" | "tentative" | "needs_action" | {
 	raw: {
-	code: number;
-};
+		code: number;
+	};
 };
 
 export type LabeledStringDto = {
@@ -932,8 +932,8 @@ export type PostalAddressDto = {
 
 export type PrivacyLevelDto = "default" | "public" | "private" | {
 	unknown: {
-	code: number;
-};
+		code: number;
+	};
 };
 
 export type RangeRequestHeader = {
@@ -1149,8 +1149,8 @@ export type SourceId = string;
 
 export type StoreTypeDto = "local" | "cal_dav" | "exchange" | "subscription" | "birthday" | {
 	unknown: {
-	code: number;
-};
+		code: number;
+	};
 };
 
 export type SyncPendingContactDetailDto = {
