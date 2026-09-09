@@ -31,6 +31,9 @@ export default defineConfig({
 		"typescript/no-floating-promises": "error",
 		"import/no-cycle": "error",
 		"react/self-closing-comp": "error",
+		// tsconfig uses the automatic JSX runtime (`"jsx": "react-jsx"`), so JSX
+		// compiles without React in scope.
+		"react/react-in-jsx-scope": "off",
 	},
 	ignorePatterns: ["**/node_modules/**", "**/dist/**", "**/raycast-env.d.ts", "**/*.gen.ts"],
 	overrides: [
