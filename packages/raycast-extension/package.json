@@ -42,6 +42,12 @@
 			"mode": "view"
 		},
 		{
+			"name": "search-notes",
+			"title": "Search Notes",
+			"description": "Search notes across titles, snippets and decoded body text.",
+			"mode": "view"
+		},
+		{
 			"name": "search-reminders",
 			"title": "Search Reminders",
 			"description": "Search reminders across every list.",
