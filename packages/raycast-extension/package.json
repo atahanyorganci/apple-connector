@@ -48,6 +48,12 @@
 			"mode": "view"
 		},
 		{
+			"name": "search-contacts",
+			"title": "Search Contacts",
+			"description": "Search contacts with container and group scoping.",
+			"mode": "view"
+		},
+		{
 			"name": "search-reminders",
 			"title": "Search Reminders",
 			"description": "Search reminders across every list.",
