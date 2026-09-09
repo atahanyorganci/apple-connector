@@ -28,6 +28,167 @@
 		"typescript": "^7.0.2"
 	},
 	"icon": "extension-icon.png",
+	"ai": {
+		"instructions": "All timestamps in this extension are Unix seconds (UTC) as integers, never RFC 3339 strings. Convert the user's natural-language dates into Unix seconds before calling a tool, and convert returned values back into readable dates when answering.\n\nMessages is read-only: there is no tool to send, reply to, or delete a message. If the user asks to send one, say so and offer to open Messages.app instead.\n\nLocked notes never expose body text. get-note-contents returns isLocked: true with no contents for them; report that rather than implying the note is empty.\n\nTool results are capped at 25 items. If the user needs more, narrow the query rather than asking for a larger limit.\n\nReminders priority is 0 none, 1 high, 5 medium, 9 low — not a 1-5 scale.",
+		"evals": [
+			{
+				"input": "@apple-connector find messages about the lease",
+				"mocks": {
+					"search-messages": [
+						{
+							"id": "m1",
+							"text": "the lease renewal is due friday",
+							"sender": "+15551234567",
+							"direction": "received",
+							"transport": "imessage",
+							"sentAt": 1757000000
+						}
+					]
+				},
+				"expected": [
+					{
+						"callsTool": "search-messages"
+					}
+				]
+			},
+			{
+				"input": "@apple-connector what reminders are still open?",
+				"mocks": {
+					"search-reminders": [
+						{
+							"id": "r1",
+							"title": "Renew lease",
+							"list": "Home",
+							"completed": false,
+							"flagged": true,
+							"priority": 1
+						}
+					]
+				},
+				"expected": [
+					{
+						"callsTool": "search-reminders"
+					}
+				]
+			},
+			{
+				"input": "@apple-connector remind me to call the landlord tomorrow",
+				"mocks": {
+					"create-reminder": {
+						"id": "r2",
+						"title": "Call the landlord",
+						"list": "Reminders",
+						"syncPending": false
+					}
+				},
+				"expected": [
+					{
+						"callsTool": "create-reminder"
+					}
+				]
+			},
+			{
+				"input": "@apple-connector find my notes about the apartment",
+				"mocks": {
+					"search-notes": [
+						{
+							"id": "n1",
+							"title": "Apartment",
+							"folder": "Notes",
+							"snippet": "lease terms",
+							"isLocked": false,
+							"isPinned": false
+						}
+					]
+				},
+				"expected": [
+					{
+						"callsTool": "search-notes"
+					}
+				]
+			},
+			{
+				"input": "@apple-connector read my Apartment note",
+				"mocks": {
+					"search-notes": [
+						{
+							"id": "n1",
+							"title": "Apartment",
+							"folder": "Notes",
+							"isLocked": false,
+							"isPinned": false
+						}
+					],
+					"get-note-contents": {
+						"id": "n1",
+						"title": "Apartment",
+						"isLocked": false,
+						"contents": "# Apartment\n\nLease ends in June."
+					}
+				},
+				"expected": [
+					{
+						"callsTool": "get-note-contents"
+					}
+				]
+			},
+			{
+				"input": "@apple-connector what is my landlord's phone number?",
+				"mocks": {
+					"search-contacts": [
+						{
+							"id": "c1",
+							"name": "Sam Landlord",
+							"organization": null
+						}
+					]
+				},
+				"expected": [
+					{
+						"callsTool": "search-contacts"
+					}
+				]
+			},
+			{
+				"input": "@apple-connector what's on my calendar this week?",
+				"mocks": {
+					"list-events": [
+						{
+							"id": "e1",
+							"summary": "Lease signing",
+							"start": 1757000000,
+							"end": 1757003600,
+							"allDay": false,
+							"isRecurring": false,
+							"status": "confirmed"
+						}
+					]
+				},
+				"expected": [
+					{
+						"callsTool": "list-events"
+					}
+				]
+			},
+			{
+				"input": "@apple-connector schedule a lease signing for friday at 2pm",
+				"mocks": {
+					"create-event": {
+						"id": "e2",
+						"summary": "Lease signing",
+						"start": 1757000000,
+						"end": 1757003600,
+						"syncPending": false
+					}
+				},
+				"expected": [
+					{
+						"callsTool": "create-event"
+					}
+				]
+			}
+		]
+	},
 	"commands": [
 		{
 			"name": "search-messages",
@@ -88,5 +249,46 @@
 		}
 	],
 	"title": "Apple Connector",
-	"tools": []
+	"tools": [
+		{
+			"name": "search-messages",
+			"title": "Search Messages",
+			"description": "Search the user's Messages history across plain text and decoded attributed bodies. Read-only."
+		},
+		{
+			"name": "search-reminders",
+			"title": "Search Reminders",
+			"description": "Search the user's reminders across every list, with completion, flag and due-date filters."
+		},
+		{
+			"name": "create-reminder",
+			"title": "Create Reminder",
+			"description": "Create a reminder, including due date, flag, priority, URL and tags."
+		},
+		{
+			"name": "search-notes",
+			"title": "Search Notes",
+			"description": "Search Apple Notes by title, snippet and decoded body text. Returns metadata only."
+		},
+		{
+			"name": "get-note-contents",
+			"title": "Get Note Contents",
+			"description": "Read a single note's full contents as Markdown."
+		},
+		{
+			"name": "search-contacts",
+			"title": "Search Contacts",
+			"description": "Search the user's contacts by name or organization."
+		},
+		{
+			"name": "list-events",
+			"title": "List Calendar Events",
+			"description": "List or search calendar events within a time range."
+		},
+		{
+			"name": "create-event",
+			"title": "Create Calendar Event",
+			"description": "Create an event in the user's calendar."
+		}
+	]
 }
