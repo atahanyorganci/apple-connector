@@ -40,6 +40,16 @@
 	"platforms": [
 		"macOS"
 	],
+	"preferences": [
+		{
+			"name": "baseUrl",
+			"title": "Server URL",
+			"description": "Base URL of the apple-connector server.",
+			"type": "textfield",
+			"required": false,
+			"default": "http://127.0.0.1:3000"
+		}
+	],
 	"title": "Apple Connector",
 	"tools": []
 }
