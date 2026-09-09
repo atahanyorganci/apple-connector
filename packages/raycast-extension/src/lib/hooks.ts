@@ -1,5 +1,5 @@
-import { useFetch } from "@raycast/utils";
-import { urlFor } from "./client";
+import { useCachedPromise, useFetch } from "@raycast/utils";
+import { request as apiRequest, urlFor } from "./client";
 import { ApiError } from "./errors";
 import type { OperationId, Operations, PageMetaDto } from "./api.gen";
 import type { RequestOptions } from "./client";
@@ -63,5 +63,23 @@ export function useApiList<K extends ListOperationId>(
 			initialData: [],
 			execute: options.execute,
 		},
+	);
+}
+
+/**
+ * Single (non-paginated) operation.
+ *
+ * Args are deep-compared by `useCachedPromise`, so passing a fresh options
+ * object each render does not re-fire the request.
+ */
+export function useApiItem<K extends OperationId>(
+	id: K,
+	options: RequestOptions<K>,
+	config: { execute?: boolean } = {},
+) {
+	return useCachedPromise(
+		async (operationId: K, requestOptions: RequestOptions<K>) => await apiRequest(operationId, requestOptions),
+		[id, options] as const,
+		{ execute: config.execute },
 	);
 }

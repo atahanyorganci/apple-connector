@@ -42,11 +42,24 @@
 			"mode": "view"
 		},
 		{
+			"name": "search-reminders",
+			"title": "Search Reminders",
+			"description": "Search reminders across every list.",
+			"mode": "view"
+		},
+		{
 			"name": "create-reminder",
 			"title": "Create Reminder",
-			"subtitle": "",
-			"description": "Create a new reminder in Reminders app.",
-			"mode": "no-view"
+			"description": "Create a reminder, including section, flag, URL and tags.",
+			"mode": "view"
+		},
+		{
+			"name": "due-today",
+			"title": "Reminders Due Today",
+			"description": "Overdue and due-today reminders in the menu bar.",
+			"mode": "menu-bar",
+			"interval": "10m",
+			"disabledByDefault": true
 		}
 	],
 	"platforms": [
