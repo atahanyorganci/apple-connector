@@ -24,6 +24,7 @@ export type AlarmInputDto = {
 };
 
 export type AlarmKindDto = "absolute" | "relative" | "location" | "unknown";
+export const AlarmKindDtoValues = ["absolute", "relative", "location", "unknown"] as const satisfies readonly AlarmKindDto[];
 
 export type AppBalloonContentDto = {
 	bundle_id: string;
@@ -97,6 +98,7 @@ export type AttachmentSummaryDto = {
 };
 
 export type AttributedBodyErrorDto = "invalid_typed_stream" | "not_attributed_string" | "missing_text" | "payload_too_large";
+export const AttributedBodyErrorDtoValues = ["invalid_typed_stream", "not_attributed_string", "missing_text", "payload_too_large"] as const satisfies readonly AttributedBodyErrorDto[];
 
 export type AudioContentDto = {
 	attachments: AttachmentSummaryDto[];
@@ -299,6 +301,7 @@ export type ContactUrlDto = {
 };
 
 export type ContactsAuthStatusDto = "not_determined" | "restricted" | "denied" | "authorized" | "limited" | "unavailable";
+export const ContactsAuthStatusDtoValues = ["not_determined", "restricted", "denied", "authorized", "limited", "unavailable"] as const satisfies readonly ContactsAuthStatusDto[];
 
 /** Stable identifier for a contact container (its UUID). */
 export type ContainerId = string;
@@ -326,6 +329,7 @@ export type ContainerSummaryDto = {
 };
 
 export type ContentTypeFilterDto = "text" | "audio" | "attachment" | "reaction" | "group_event" | "app_balloon" | "share_play" | "share_my_location" | "system" | "unknown";
+export const ContentTypeFilterDtoValues = ["text", "audio", "attachment", "reaction", "group_event", "app_balloon", "share_play", "share_my_location", "system", "unknown"] as const satisfies readonly ContentTypeFilterDto[];
 
 export type CreateContactRequest = {
 	department_name?: string | null;
@@ -386,8 +390,10 @@ export type DeleteEventParams = {
 };
 
 export type DirectionDto = "sent" | "received";
+export const DirectionDtoValues = ["sent", "received"] as const satisfies readonly DirectionDto[];
 
 export type DirectionFilterDto = "sent" | "received";
+export const DirectionFilterDtoValues = ["sent", "received"] as const satisfies readonly DirectionFilterDto[];
 
 export type DueDto = {
 	all_day: boolean;
@@ -417,6 +423,7 @@ export type ErrorBody = {
 
 /** Stable, unique snake_case error identifiers returned in `error.code`. */
 export type ErrorCode = "route_not_found" | "method_not_allowed" | "invalid_cursor" | "invalid_limit" | "invalid_timestamp" | "invalid_parameter" | "unsupported_query_parameter" | "request_timeout" | "query_timeout" | "gateway_timeout" | "internal_error" | "byte_range_not_satisfiable" | "messages_database_unavailable" | "reminders_database_unavailable" | "notes_database_unavailable" | "calendar_database_unavailable" | "contacts_database_unavailable" | "message_not_found" | "chat_not_found" | "message_attachment_not_found" | "message_attachment_unavailable" | "note_not_found" | "note_folder_not_found" | "note_attachment_not_found" | "note_attachment_unavailable" | "reminder_not_found" | "reminder_list_not_found" | "reminder_attachment_not_found" | "reminder_attachment_unavailable" | "smart_list_read_only" | "unsupported_reminder_field" | "calendar_not_found" | "calendar_account_not_found" | "event_not_found" | "event_attachment_not_found" | "event_attachment_unavailable" | "event_end_before_start" | "immutable_event_field" | "unsupported_alarm_kind" | "ambiguous_event_kit_match" | "contact_not_found" | "group_not_found" | "container_not_found" | "contact_photo_not_found" | "read_only_container" | "ambiguous_contacts_match" | "eventkit_access_denied" | "contacts_access_denied" | "eventkit_unavailable" | "contacts_unavailable" | "calendar_read_only" | "sqlite_sync_pending" | "validation_error" | "resource_not_found" | "service_unavailable" | "forbidden" | "conflict" | "unprocessable_entity";
+export const ErrorCodeValues = ["route_not_found", "method_not_allowed", "invalid_cursor", "invalid_limit", "invalid_timestamp", "invalid_parameter", "unsupported_query_parameter", "request_timeout", "query_timeout", "gateway_timeout", "internal_error", "byte_range_not_satisfiable", "messages_database_unavailable", "reminders_database_unavailable", "notes_database_unavailable", "calendar_database_unavailable", "contacts_database_unavailable", "message_not_found", "chat_not_found", "message_attachment_not_found", "message_attachment_unavailable", "note_not_found", "note_folder_not_found", "note_attachment_not_found", "note_attachment_unavailable", "reminder_not_found", "reminder_list_not_found", "reminder_attachment_not_found", "reminder_attachment_unavailable", "smart_list_read_only", "unsupported_reminder_field", "calendar_not_found", "calendar_account_not_found", "event_not_found", "event_attachment_not_found", "event_attachment_unavailable", "event_end_before_start", "immutable_event_field", "unsupported_alarm_kind", "ambiguous_event_kit_match", "contact_not_found", "group_not_found", "container_not_found", "contact_photo_not_found", "read_only_container", "ambiguous_contacts_match", "eventkit_access_denied", "contacts_access_denied", "eventkit_unavailable", "contacts_unavailable", "calendar_read_only", "sqlite_sync_pending", "validation_error", "resource_not_found", "service_unavailable", "forbidden", "conflict", "unprocessable_entity"] as const satisfies readonly ErrorCode[];
 
 export type ErrorResponse = {
 	error: ErrorBody;
@@ -485,6 +492,7 @@ export type EventIdPath = {
 };
 
 export type EventKitAuthStatusDto = "not_determined" | "restricted" | "denied" | "authorized" | "write_only" | "unavailable";
+export const EventKitAuthStatusDtoValues = ["not_determined", "restricted", "denied", "authorized", "write_only", "unavailable"] as const satisfies readonly EventKitAuthStatusDto[];
 
 export type EventListParams = {
 	account_id?: string | null;
@@ -527,6 +535,7 @@ export type EventParticipantDto = {
  * EventKit implements exactly these two scopes, so the API offers no more than it can deliver.
  */
 export type EventSpanDto = "this" | "future";
+export const EventSpanDtoValues = ["this", "future"] as const satisfies readonly EventSpanDto[];
 
 export type EventStatusDto = "confirmed" | "tentative" | "cancelled" | {
 	unknown: {
@@ -535,6 +544,7 @@ export type EventStatusDto = "confirmed" | "tentative" | "cancelled" | {
 };
 
 export type EventStatusInputDto = "confirmed" | "tentative" | "cancelled";
+export const EventStatusInputDtoValues = ["confirmed", "tentative", "cancelled"] as const satisfies readonly EventStatusInputDto[];
 
 export type EventSummaryDto = {
 	all_day: boolean;
@@ -554,8 +564,10 @@ export type EventSummaryDto = {
 };
 
 export type FolderKindDto = "standard" | "smart" | "deleted";
+export const FolderKindDtoValues = ["standard", "smart", "deleted"] as const satisfies readonly FolderKindDto[];
 
 export type GroupActionKindDto = "participant_added" | "participant_removed" | "name_change" | "participant_left" | "group_icon_changed" | "group_icon_removed" | "chat_background_changed" | "chat_background_removed" | "phone_number_changed" | "unknown";
+export const GroupActionKindDtoValues = ["participant_added", "participant_removed", "name_change", "participant_left", "group_icon_changed", "group_icon_removed", "chat_background_changed", "chat_background_removed", "phone_number_changed", "unknown"] as const satisfies readonly GroupActionKindDto[];
 
 export type GroupEventContentDto = {
 	action: GroupActionKindDto;
@@ -590,6 +602,7 @@ export type HandleDto = {
 };
 
 export type HealthStatus = "ok" | "unavailable";
+export const HealthStatusValues = ["ok", "unavailable"] as const satisfies readonly HealthStatus[];
 
 export type HealthStatusDto = {
 	calendar: HealthStatus;
@@ -905,6 +918,7 @@ export type ParagraphStyleDto = {
 };
 
 export type ParagraphStyleKindDto = "title" | "heading" | "monospace" | "bullet_list" | "dash_list" | "numbered_list" | "checklist" | "unknown";
+export const ParagraphStyleKindDtoValues = ["title", "heading", "monospace", "bullet_list", "dash_list", "numbered_list", "checklist", "unknown"] as const satisfies readonly ParagraphStyleKindDto[];
 
 export type PhotosBalloonDto = {
 	caption?: string | null;
@@ -942,6 +956,7 @@ export type RangeRequestHeader = {
 };
 
 export type ReactionActionDto = "added" | "removed";
+export const ReactionActionDtoValues = ["added", "removed"] as const satisfies readonly ReactionActionDto[];
 
 export type ReactionContentDto = {
 	kind: ReactionKindDto;
@@ -967,6 +982,7 @@ export type RecurrenceDto = {
 };
 
 export type RecurrenceFrequencyDto = "daily" | "weekly" | "monthly" | "yearly";
+export const RecurrenceFrequencyDtoValues = ["daily", "weekly", "monthly", "yearly"] as const satisfies readonly RecurrenceFrequencyDto[];
 
 export type RecurrenceInputDto = {
 	count?: number | null;
@@ -1003,6 +1019,7 @@ export type ReminderAttachmentIdPath = {
 };
 
 export type ReminderAttachmentKindDto = "file" | "image" | "audio" | "unknown";
+export const ReminderAttachmentKindDtoValues = ["file", "image", "audio", "unknown"] as const satisfies readonly ReminderAttachmentKindDto[];
 
 export type ReminderAttachmentSummaryDto = {
 	filename?: string | null;
@@ -1065,6 +1082,7 @@ export type ReminderListIdPath = {
 };
 
 export type ReminderListKindDto = "standard" | "smart";
+export const ReminderListKindDtoValues = ["standard", "smart"] as const satisfies readonly ReminderListKindDto[];
 
 export type ReminderListPageDto = {
 	items: ReminderListSummaryDto[];
@@ -1133,6 +1151,7 @@ export type ShareMyLocationContentDto = {
 };
 
 export type ShareMyLocationStatusDto = "started" | "stopped";
+export const ShareMyLocationStatusDtoValues = ["started", "stopped"] as const satisfies readonly ShareMyLocationStatusDto[];
 
 export type SharePlayContentDto = {
 	payload: OpaquePayloadDto;
@@ -1184,6 +1203,7 @@ export type SystemContentDto = {
 };
 
 export type TapbackDto = "love" | "like" | "dislike" | "laugh" | "emphasize" | "question" | "unknown";
+export const TapbackDtoValues = ["love", "like", "dislike", "laugh", "emphasize", "question", "unknown"] as const satisfies readonly TapbackDto[];
 
 export type TextContentDto = {
 	body: MessageBodyDto;
@@ -1192,8 +1212,10 @@ export type TextContentDto = {
 };
 
 export type TransportDto = "imessage" | "sms" | "rcs" | "unknown";
+export const TransportDtoValues = ["imessage", "sms", "rcs", "unknown"] as const satisfies readonly TransportDto[];
 
 export type TransportFilterDto = "imessage" | "sms" | "rcs" | "unknown";
+export const TransportFilterDtoValues = ["imessage", "sms", "rcs", "unknown"] as const satisfies readonly TransportFilterDto[];
 
 /**
  * Whole seconds since the Unix epoch (`1970-01-01T00:00:00Z`), in UTC.

@@ -206,6 +206,12 @@ function main() {
 		const schema = schemas[name];
 		out.push(docComment(schema, "").trimEnd());
 		out.push(`export type ${name} = ${tsType(schema, "")};`);
+		// A plain string enum also gets a runtime value list, so callers can
+		// validate untrusted input and build pickers without restating the set.
+		if (schema.type === "string" && Array.isArray(schema.enum)) {
+			const values = schema.enum.map(v => JSON.stringify(v)).join(", ");
+			out.push(`export const ${name}Values = [${values}] as const satisfies readonly ${name}[];`);
+		}
 		out.push("");
 	}
 
@@ -266,7 +272,9 @@ function main() {
 	out.push("export const routes = {");
 	for (const op of sorted) {
 		const path = JSON.stringify(op.path);
-		out.push(`\t${quoteProp(op.id)}: { method: ${JSON.stringify(op.method)}, path: ${path}, kind: ${JSON.stringify(op.kind)} },`);
+		out.push(
+			`\t${quoteProp(op.id)}: { method: ${JSON.stringify(op.method)}, path: ${path}, kind: ${JSON.stringify(op.kind)} },`,
+		);
 	}
 	out.push("} as const satisfies Record<OperationId, { method: string; path: string; kind: ResponseKind }>;");
 	out.push("");
