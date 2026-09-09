@@ -32,7 +32,7 @@ export default defineConfig({
 		"import/no-cycle": "error",
 		"react/self-closing-comp": "error",
 	},
-	ignorePatterns: ["**/node_modules/**", "**/dist/**", "**/raycast-env.d.ts"],
+	ignorePatterns: ["**/node_modules/**", "**/dist/**", "**/raycast-env.d.ts", "**/*.gen.ts"],
 	overrides: [
 		{
 			files: ["src/**/*.{ts,tsx}"],

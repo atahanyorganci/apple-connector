@@ -12,6 +12,8 @@
 		"dev": "ray develop",
 		"format": "oxfmt --check",
 		"format:fix": "oxfmt",
+		"generate": "node scripts/generate-api-client.mjs",
+		"generate:check": "node scripts/generate-api-client.mjs --check",
 		"lint": "oxlint",
 		"lint:fix": "oxlint --fix",
 		"typecheck": "tsc --noEmit"
