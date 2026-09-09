@@ -30,8 +30,20 @@
 	"icon": "extension-icon.png",
 	"commands": [
 		{
+			"name": "search-messages",
+			"title": "Search Messages",
+			"description": "Search Messages across text and decoded attributed bodies.",
+			"mode": "view"
+		},
+		{
+			"name": "browse-chats",
+			"title": "Browse Chats",
+			"description": "Browse Messages conversations and their history.",
+			"mode": "view"
+		},
+		{
 			"name": "create-reminder",
-			"title": "Create reminder",
+			"title": "Create Reminder",
 			"subtitle": "",
 			"description": "Create a new reminder in Reminders app.",
 			"mode": "no-view"
