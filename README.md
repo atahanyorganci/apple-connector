@@ -294,8 +294,10 @@ cargo test --workspace --all-targets
 nix flake check --no-write-lock-file
 ```
 
-`nix flake check` runs workspace audit, deny, clippy, test, and treefmt on
-`aarch64-darwin`.
+`nix flake check` runs cargo-deny (bans, licenses, sources), clippy, tests, the
+fuzz smoke pass, the runtime-SQL and API-error-leakage scripts, and treefmt on
+`aarch64-darwin`. Advisories need a network fetch, so run `cargo deny check`
+from `nix develop` for those.
 
 ### Real database smoke test
 

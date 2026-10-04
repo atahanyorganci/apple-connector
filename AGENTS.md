@@ -26,7 +26,8 @@ cargo run -p apple-connector                    # http://127.0.0.1:3000
 cargo test --workspace --all-targets
 cargo clippy --workspace --all-targets -- -D warnings
 nix fmt                                         # fix formatting (also checked in CI)
-nix flake check --no-write-lock-file            # audit, deny, clippy, test, treefmt
+nix flake check --no-write-lock-file            # deny, clippy, test, fuzz smoke, scripts, treefmt
+cargo deny check                                # includes advisories (needs network)
 ```
 
 Fuzz targets for every public parser live in `fuzz/` (outside the workspace, so

@@ -1,14 +1,9 @@
 {
-  description = "Apple Connector development flake";
+  description = "HTTP API over Apple Messages, Reminders, Notes, Calendar, and Contacts";
   inputs = {
+    nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
     flake-parts.url = "github:hercules-ci/flake-parts";
     import-tree.url = "github:vic/import-tree";
-    nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
-    crane.url = "github:ipetkov/crane";
-    advisory-db = {
-      url = "github:rustsec/advisory-db";
-      flake = false;
-    };
     treefmt-nix = {
       url = "github:numtide/treefmt-nix";
       inputs.nixpkgs.follows = "nixpkgs";
@@ -19,6 +14,5 @@
     };
   };
   outputs = inputs:
-    inputs.flake-parts.lib.mkFlake {inherit inputs;}
-    (inputs.import-tree ./nix);
+    inputs.flake-parts.lib.mkFlake {inherit inputs;} (inputs.import-tree ./nix);
 }

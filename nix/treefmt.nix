@@ -1,38 +1,19 @@
-{inputs, ...}: {
-  imports = [
-    inputs.treefmt-nix.flakeModule
-  ];
-
-  perSystem = {pkgs, ...}: let
-    projectRoot = ../.;
-    rustToolchain = pkgs.rust-bin.selectLatestNightlyWith (toolchain: toolchain.default);
-    wrappedRustfmt = pkgs.writeShellScriptBin "rustfmt" ''
-      export LD_LIBRARY_PATH="${rustToolchain}/lib''${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
-      export DYLD_LIBRARY_PATH="${rustToolchain}/lib''${DYLD_LIBRARY_PATH:+:$DYLD_LIBRARY_PATH}"
-      exec ${rustToolchain}/bin/rustfmt "$@"
-    '';
-  in {
+{
+  perSystem = {rustToolchain, ...}: {
     treefmt = {
       projectRootFile = "flake.nix";
       programs = {
         alejandra.enable = true;
         deadnix.enable = true;
+        # Nightly rustfmt: rustfmt.toml uses unstable options.
+        rustfmt = {
+          enable = true;
+          package = rustToolchain;
+        };
         shfmt.enable = true;
         sql-formatter = {
           enable = true;
           dialect = "sqlite";
-        };
-      };
-      settings.formatter = {
-        rustfmt-nightly = {
-          command = "${wrappedRustfmt}/bin/rustfmt";
-          options = [
-            "--edition"
-            "2024"
-            "--config-path"
-            (builtins.toString (projectRoot + "/rustfmt.toml"))
-          ];
-          includes = ["*.rs"];
         };
       };
     };
