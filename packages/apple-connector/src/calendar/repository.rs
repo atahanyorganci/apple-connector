@@ -12,7 +12,7 @@ use super::{
     queries::{
         fetch_alarms_by_event_id, fetch_attachment_by_event_and_id, fetch_attachments_by_owner_id,
         fetch_calendar_by_id, fetch_calendar_resolve_metadata, fetch_calendars_page,
-        fetch_direct_events_page, fetch_event_by_id, fetch_event_external_id,
+        fetch_direct_events_page, fetch_event_by_id, fetch_event_eventkit_ids,
         fetch_exception_dates_by_owner_id, fetch_location_by_id, fetch_occurrence_events_page,
         fetch_participants_by_owner_id, fetch_recurrence_by_owner_id, fetch_stores_ordered,
     },
@@ -28,6 +28,18 @@ pub struct Page<T> {
     pub items: Vec<T>,
     pub has_more: bool,
     pub next_cursor: Option<String>,
+}
+
+/// How EventKit addresses an event the read API knows by its [`crate::apple_types::EventId`].
+///
+/// The API id is `lower(CalendarItem.UUID)`; EventKit's lookups are case-sensitive and key on the
+/// stored `UUID` and the iCalendar UID, so writes must go through these instead.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct EventKitIdentifiers {
+    /// `EKCalendarItem.calendarItemIdentifier` (`CalendarItem.UUID` as stored).
+    pub calendar_item_id: String,
+    /// `EKCalendarItem.calendarItemExternalIdentifier` (`CalendarItem.unique_identifier`).
+    pub external_id: Option<String>,
 }
 
 #[derive(Debug, Clone)]
@@ -121,18 +133,23 @@ impl<'a> CalendarRepository<'a> {
         }))
     }
 
-    pub async fn get_event_external_id(
+    pub async fn get_eventkit_identifiers(
         &self,
         event_id: &str,
-    ) -> Result<Option<String>, sqlx::Error> {
-        crate::db::run_timed_query(|| self.get_event_external_id_inner(event_id)).await
+    ) -> Result<Option<EventKitIdentifiers>, sqlx::Error> {
+        crate::db::run_timed_query(|| self.get_eventkit_identifiers_inner(event_id)).await
     }
 
-    async fn get_event_external_id_inner(
+    async fn get_eventkit_identifiers_inner(
         &self,
         event_id: &str,
-    ) -> Result<Option<String>, sqlx::Error> {
-        fetch_event_external_id(self.pool, event_id).await
+    ) -> Result<Option<EventKitIdentifiers>, sqlx::Error> {
+        Ok(fetch_event_eventkit_ids(self.pool, event_id)
+            .await?
+            .map(|row| EventKitIdentifiers {
+                calendar_item_id: row.calendar_item_id,
+                external_id: row.external_id,
+            }))
     }
 
     pub async fn list_events(

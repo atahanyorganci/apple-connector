@@ -4,8 +4,8 @@ use sqlx::SqlitePool;
 
 use super::{
     row::{
-        AlarmRow, AttachmentRow, CalendarResolveRow, CalendarRow, EventRow, ExceptionDateRow,
-        LocationRow, ParticipantRow, RecurrenceRow, StoreRow,
+        AlarmRow, AttachmentRow, CalendarResolveRow, CalendarRow, EventKitIdsRow, EventRow,
+        ExceptionDateRow, LocationRow, ParticipantRow, RecurrenceRow, StoreRow,
     },
     search::EventFilterBinds,
 };
@@ -106,13 +106,16 @@ pub async fn fetch_calendar_resolve_metadata(
     .await
 }
 
-pub async fn fetch_event_external_id(
+pub async fn fetch_event_eventkit_ids(
     pool: &SqlitePool,
     event_id: &str,
-) -> Result<Option<String>, sqlx::Error> {
-    sqlx::query_scalar!(
+) -> Result<Option<EventKitIdsRow>, sqlx::Error> {
+    sqlx::query_as!(
+        EventKitIdsRow,
         r#"
-        SELECT external_id
+        SELECT
+          UUID AS "calendar_item_id!: String",
+          unique_identifier AS external_id
         FROM CalendarItem
         WHERE lower(UUID) = lower(?1)
         "#,
@@ -120,7 +123,6 @@ pub async fn fetch_event_external_id(
     )
     .fetch_optional(pool)
     .await
-    .map(|external_id| external_id.flatten())
 }
 
 pub async fn fetch_direct_events_page(

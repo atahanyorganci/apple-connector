@@ -8,6 +8,18 @@ pub struct CalendarResolveRow {
     pub store_type: Option<i64>,
 }
 
+/// The identifiers EventKit knows a `CalendarItem` row by.
+#[derive(Debug, sqlx::FromRow, Clone)]
+pub struct EventKitIdsRow {
+    /// `CalendarItem.UUID` as stored, which is `EKCalendarItem.calendarItemIdentifier`. EventKit
+    /// compares it case-sensitively, so it must not go through the lowercased API id.
+    pub calendar_item_id: String,
+    /// `CalendarItem.unique_identifier`, which is `EKCalendarItem.calendarItemExternalIdentifier`
+    /// (the iCalendar UID). Not `CalendarItem.external_id`: that column holds the server's own
+    /// resource id (an Exchange ItemId, a CalDAV href), which EventKit does not expose.
+    pub external_id: Option<String>,
+}
+
 #[derive(Debug, sqlx::FromRow, Clone)]
 pub struct StoreRow {
     pub row_id: i64,

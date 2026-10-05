@@ -88,13 +88,15 @@ pub async fn hydrate_reminder(
 }
 
 /// Single non-blocking SQLite read after a write. Never sleeps on the request path.
+///
+/// `id` is the read API's [`EventId`], so the response carries an id that `GET /v1/events/{id}`
+/// resolves whether or not the SQLite read path has caught up yet.
 pub async fn hydrate_event(
     pool: &SqlitePool,
-    external_id: &str,
+    id: EventId,
 ) -> Result<SyncPendingEventDetailDto, ApiError> {
-    let id = EventId::new(external_id.to_owned());
     if let Some(event) = CalendarRepository::new(pool)
-        .get_event(external_id)
+        .get_event(id.as_str())
         .await
         .map_err(ApiError::from_sqlx)?
     {

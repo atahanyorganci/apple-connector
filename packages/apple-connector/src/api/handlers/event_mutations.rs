@@ -21,7 +21,8 @@ use crate::{
         params::{CalendarIdPath, EventIdPath},
         router::AppState,
     },
-    calendar::CalendarRepository,
+    apple_types::EventId,
+    calendar::{CalendarRepository, EventKitIdentifiers},
     db::run_timed_query,
 };
 
@@ -66,7 +67,9 @@ pub async fn create_event(
         .await
         .map_err(map_eventkit_error)?;
 
-    let response = crate::api::hydrate::hydrate_event(pool, &saved.external_id).await?;
+    // The read API's event id is EventKit's `calendarItemIdentifier`, lowercased.
+    let event_id = EventId::new(saved.calendar_item_id.to_ascii_lowercase());
+    let response = crate::api::hydrate::hydrate_event(pool, event_id).await?;
     Ok((mutation_status(response.sync_pending, true), Json(response)))
 }
 
@@ -114,26 +117,20 @@ pub async fn update_event(
         None
     };
 
-    let external_id = run_timed_query(|| async {
-        CalendarRepository::new(pool)
-            .get_event_external_id(event_id.as_str())
-            .await
-    })
-    .await
-    .map_err(ApiError::from_sqlx)?;
+    let identifiers = eventkit_identifiers(pool, &event_id).await?;
 
     let span = request.span.unwrap_or(EventSpanDto::This);
-    let saved = eventkit
+    eventkit
         .update_event(
-            event_id.as_str(),
-            external_id.as_deref(),
+            &identifiers.calendar_item_id,
+            identifiers.external_id.as_deref(),
             params.occurrence_start.map(|value| value.seconds()),
             update_event_input(request, calendar_hint, span)?,
         )
         .await
         .map_err(map_eventkit_error)?;
 
-    let response = crate::api::hydrate::hydrate_event(pool, &saved.external_id).await?;
+    let response = crate::api::hydrate::hydrate_event(pool, event_id).await?;
     Ok((
         mutation_status(response.sync_pending, false),
         Json(response),
@@ -163,23 +160,40 @@ pub async fn delete_event(
     let pool = require_calendar_db(&state.calendar_db)?;
     let eventkit = require_eventkit_events(&state).await?;
     let event_id = path.validated()?;
-    let external_id = run_timed_query(|| async {
-        CalendarRepository::new(pool)
-            .get_event_external_id(event_id.as_str())
-            .await
-    })
-    .await
-    .map_err(ApiError::from_sqlx)?;
+    let identifiers = eventkit_identifiers(pool, &event_id).await?;
 
     let span = params.span.unwrap_or(EventSpanDto::This);
     eventkit
         .delete_event(
-            event_id.as_str(),
-            external_id.as_deref(),
+            &identifiers.calendar_item_id,
+            identifiers.external_id.as_deref(),
             delete_event_input(span, params.occurrence_start.map(|value| value.seconds())),
         )
         .await
         .map_err(map_eventkit_error)?;
 
     Ok(StatusCode::NO_CONTENT)
+}
+
+/// Resolves the read API's event id to the identifiers EventKit looks the event up by.
+///
+/// The API id is `lower(CalendarItem.UUID)`, but EventKit compares `calendarItemIdentifier`
+/// case-sensitively against the stored `UUID`, and its external identifier is the iCalendar UID in
+/// `unique_identifier`. When the row is not in SQLite yet (the write path can run ahead of the
+/// read path), fall back to the uppercase form EventKit hands out for its identifiers.
+async fn eventkit_identifiers(
+    pool: &sqlx::SqlitePool,
+    event_id: &EventId,
+) -> Result<EventKitIdentifiers, ApiError> {
+    let stored = run_timed_query(|| async {
+        CalendarRepository::new(pool)
+            .get_eventkit_identifiers(event_id.as_str())
+            .await
+    })
+    .await
+    .map_err(ApiError::from_sqlx)?;
+    Ok(stored.unwrap_or_else(|| EventKitIdentifiers {
+        calendar_item_id: event_id.as_str().to_ascii_uppercase(),
+        external_id: None,
+    }))
 }
