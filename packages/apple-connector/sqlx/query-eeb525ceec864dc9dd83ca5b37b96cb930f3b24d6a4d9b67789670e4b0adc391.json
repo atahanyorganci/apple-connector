@@ -1,6 +1,6 @@
 {
   "db_name": "SQLite",
-  "query": "\n        SELECT\n            r.Z_PK AS \"row_id!\",\n            r.ZUNIQUEID AS \"unique_id!\",\n            r.ZNAME AS name,\n            r.ZCONTAINER AS container_row_id,\n            c.ZUNIQUEID AS container_unique_id,\n            r.ZTYPE AS group_type\n        FROM ZABCDRECORD r\n        LEFT JOIN ZABCDRECORD c ON c.Z_PK = r.ZCONTAINER\n        WHERE r.Z_ENT = ?1\n          AND (?2 IS NULL OR r.Z_PK < ?2)\n        ORDER BY r.Z_PK DESC\n        LIMIT ?3\n        ",
+  "query": "\n        SELECT\n            r.Z_PK AS \"row_id!\",\n            r.ZUNIQUEID AS \"unique_id!\",\n            r.ZNAME AS name,\n            r.ZCONTAINER AS container_row_id,\n            c.ZUNIQUEID AS container_unique_id,\n            r.ZTYPE AS group_type\n        FROM ZABCDRECORD r\n        LEFT JOIN ZABCDRECORD c ON c.Z_PK = COALESCE(\n            r.ZCONTAINER,\n            (\n                SELECT MIN(sole.Z_PK)\n                FROM ZABCDRECORD sole\n                WHERE sole.Z_ENT = (SELECT Z_ENT FROM Z_PRIMARYKEY WHERE Z_NAME = 'CNCDContainer')\n                HAVING COUNT(*) = 1\n            )\n        )\n        WHERE r.Z_ENT = ?1\n          AND (?2 IS NULL OR r.Z_PK < ?2)\n        ORDER BY r.Z_PK DESC\n        LIMIT ?3\n        ",
   "describe": {
     "columns": [
       {
@@ -82,5 +82,5 @@
       true
     ]
   },
-  "hash": "ac2e277e8885e2d7069cfd2e76c98da6737664922f55445bbbc927042b56bb0a"
+  "hash": "eeb525ceec864dc9dd83ca5b37b96cb930f3b24d6a4d9b67789670e4b0adc391"
 }

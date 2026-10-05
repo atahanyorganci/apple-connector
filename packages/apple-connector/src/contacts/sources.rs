@@ -783,8 +783,9 @@ mod tests {
         use std::collections::HashSet;
 
         let (sources, _fixtures) = build_multi_source(&["src-a", "src-b"], 0, 3).await?;
-        // 1 default seeded contact + 3 extra contacts per source, across 2 sources.
-        const EXPECTED_TOTAL: usize = (1 + 3) * 2;
+        // 2 seeded contacts (one with a NULL ZCONTAINER) + 3 extra contacts per source, across
+        // 2 sources.
+        const EXPECTED_TOTAL: usize = (2 + 3) * 2;
 
         let mut seen: HashSet<(String, String)> = HashSet::new();
         let mut cursor = None;

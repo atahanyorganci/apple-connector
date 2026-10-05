@@ -1,6 +1,6 @@
 {
   "db_name": "SQLite",
-  "query": "\n        SELECT\n            r.Z_PK AS \"row_id!\",\n            r.ZUNIQUEID AS \"unique_id!\",\n            r.ZFIRSTNAME AS first_name,\n            r.ZLASTNAME AS last_name,\n            r.ZMIDDLENAME AS middle_name,\n            r.ZNICKNAME AS nickname,\n            r.ZORGANIZATION AS organization,\n            r.ZJOBTITLE AS job_title,\n            r.ZDEPARTMENT AS department,\n            r.ZNAME AS display_name,\n            r.ZCONTAINER AS container_row_id,\n            c.ZUNIQUEID AS container_unique_id,\n            CAST(r.ZCREATIONDATE AS REAL) AS creation_date,\n            CAST(r.ZMODIFICATIONDATE AS REAL) AS modification_date,\n            CAST(r.ZBIRTHDAY AS REAL) AS birthday,\n            n.ZTEXT AS note_text,\n            CASE WHEN l.ZDATA IS NOT NULL OR r.ZIMAGEDATA IS NOT NULL THEN 1 ELSE 0 END AS has_photo\n        FROM ZABCDRECORD r\n        LEFT JOIN ZABCDRECORD c ON c.Z_PK = r.ZCONTAINER\n        LEFT JOIN ZABCDNOTE n ON n.ZCONTACT = r.Z_PK\n        LEFT JOIN ZABCDLIKENESS l ON l.ZOWNER = r.Z_PK AND l.ZISPRIMARY = 1\n        WHERE r.Z_ENT = ?1\n          AND lower(substr(r.ZUNIQUEID, 1, instr(r.ZUNIQUEID, ':') - 1)) = lower(?2)\n        ",
+  "query": "\n        SELECT\n            r.Z_PK AS \"row_id!\",\n            r.ZUNIQUEID AS \"unique_id!\",\n            r.ZFIRSTNAME AS first_name,\n            r.ZLASTNAME AS last_name,\n            r.ZMIDDLENAME AS middle_name,\n            r.ZNICKNAME AS nickname,\n            r.ZORGANIZATION AS organization,\n            r.ZJOBTITLE AS job_title,\n            r.ZDEPARTMENT AS department,\n            r.ZNAME AS display_name,\n            r.ZCONTAINER AS container_row_id,\n            c.ZUNIQUEID AS container_unique_id,\n            CAST(r.ZCREATIONDATE AS REAL) AS \"creation_date: f64\",\n            CAST(r.ZMODIFICATIONDATE AS REAL) AS \"modification_date: f64\",\n            CAST(r.ZBIRTHDAY AS REAL) AS \"birthday: f64\",\n            n.ZTEXT AS note_text,\n            CASE WHEN l.ZDATA IS NOT NULL OR r.ZIMAGEDATA IS NOT NULL THEN 1 ELSE 0 END AS \"has_photo: i64\"\n        FROM ZABCDRECORD r\n        LEFT JOIN ZABCDRECORD c ON c.Z_PK = COALESCE(\n            r.ZCONTAINER,\n            (\n                SELECT MIN(sole.Z_PK)\n                FROM ZABCDRECORD sole\n                WHERE sole.Z_ENT = (SELECT Z_ENT FROM Z_PRIMARYKEY WHERE Z_NAME = 'CNCDContainer')\n                HAVING COUNT(*) = 1\n            )\n        )\n        LEFT JOIN ZABCDNOTE n ON n.ZCONTACT = r.Z_PK\n        LEFT JOIN ZABCDLIKENESS l ON l.ZOWNER = r.Z_PK AND l.ZISPRIMARY = 1\n        WHERE r.Z_ENT = ?1\n          AND lower(substr(r.ZUNIQUEID, 1, instr(r.ZUNIQUEID, ':') - 1)) IN (\n            SELECT lower(value) FROM json_each(?2)\n          )\n        ",
   "describe": {
     "columns": [
       {
@@ -136,21 +136,21 @@
         }
       },
       {
-        "name": "creation_date",
+        "name": "creation_date: f64",
         "ordinal": 12,
-        "type_info": "Float",
+        "type_info": "Null",
         "origin": "Expression"
       },
       {
-        "name": "modification_date",
+        "name": "modification_date: f64",
         "ordinal": 13,
-        "type_info": "Float",
+        "type_info": "Null",
         "origin": "Expression"
       },
       {
-        "name": "birthday",
+        "name": "birthday: f64",
         "ordinal": 14,
-        "type_info": "Float",
+        "type_info": "Null",
         "origin": "Expression"
       },
       {
@@ -165,9 +165,9 @@
         }
       },
       {
-        "name": "has_photo",
+        "name": "has_photo: i64",
         "ordinal": 16,
-        "type_info": "Integer",
+        "type_info": "Null",
         "origin": "Expression"
       }
     ],
@@ -175,7 +175,7 @@
       "Right": 2
     },
     "nullable": [
-      false,
+      null,
       true,
       true,
       true,
@@ -187,12 +187,12 @@
       true,
       true,
       true,
+      null,
+      null,
+      null,
       true,
-      true,
-      true,
-      true,
-      false
+      null
     ]
   },
-  "hash": "b295e75dcf4c3da3590f2d0533404c5ae14d7ccb3e056299816b2aed9a4aef70"
+  "hash": "3dff13b192e9aeba4cd2d3ee99c228700740bd8cbdf0692a4710d5428dbad085"
 }

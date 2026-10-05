@@ -149,13 +149,10 @@ impl<'a> ContactsRepository<'a> {
             fetch_limit,
         )
         .await?;
-        let (items, has_more, last_row_id) = split_page_skipping(
+        let (items, has_more, last_row_id) = split_page_mapped(
             rows,
             limit,
-            |row| {
-                let group = group_from_row(row, self.source_id.clone());
-                group.container_id.is_some().then_some(group)
-            },
+            |row| group_from_row(row, self.source_id.clone()),
             |row| row.row_id,
         );
         let next_cursor = if has_more {
@@ -194,13 +191,10 @@ impl<'a> ContactsRepository<'a> {
         let binds = filters.bind_values(cursor.map(|value| value.row_id), fetch_limit);
         let rows =
             fetch_filtered_contacts(self.pool, entity_ids.contact, &parent_groups, &binds).await?;
-        let (items, has_more, last_row_id) = split_page_skipping(
+        let (items, has_more, last_row_id) = split_page_mapped(
             rows,
             limit,
-            |row| {
-                let summary = contact_summary_from_row(row, self.source_id.clone());
-                summary.container_id.is_some().then_some(summary)
-            },
+            |row| contact_summary_from_row(row, self.source_id.clone()),
             |row| row.row_id,
         );
         let next_cursor = if has_more {
@@ -239,13 +233,10 @@ impl<'a> ContactsRepository<'a> {
             fetch_limit,
         )
         .await?;
-        let (items, has_more, last_row_id) = split_page_skipping(
+        let (items, has_more, last_row_id) = split_page_mapped(
             rows,
             limit,
-            |row| {
-                let summary = contact_summary_from_row(row, self.source_id.clone());
-                summary.container_id.is_some().then_some(summary)
-            },
+            |row| contact_summary_from_row(row, self.source_id.clone()),
             |row| row.row_id,
         );
         let next_cursor = if has_more {
@@ -499,23 +490,22 @@ fn group_group_ids(rows: Vec<GroupOwnedRow>) -> HashMap<i64, Vec<String>> {
 /// `limit` mapped items, plus whether more rows remain beyond `limit` and
 /// the `row_id` of the last row within the page (the resume point for a
 /// follow-up cursor, when `has_more` is true).
-fn split_page_skipping<T, R, F, K>(
+///
+/// Every row within the page is mapped; none is dropped. A record whose
+/// container cannot be resolved is listed with `container_id: None`.
+fn split_page_mapped<T, R, F, K>(
     rows: Vec<R>,
     limit: u32,
     map: F,
     row_id: K,
 ) -> (Vec<T>, bool, Option<i64>)
 where
-    F: Fn(R) -> Option<T>,
+    F: Fn(R) -> T,
     K: Fn(&R) -> i64,
 {
     let has_more = rows.len() > limit as usize;
     let last_row_id = rows.get(limit.saturating_sub(1) as usize).map(row_id);
-    let items: Vec<T> = rows
-        .into_iter()
-        .take(limit as usize)
-        .filter_map(map)
-        .collect();
+    let items: Vec<T> = rows.into_iter().take(limit as usize).map(map).collect();
     (items, has_more, last_row_id)
 }
 

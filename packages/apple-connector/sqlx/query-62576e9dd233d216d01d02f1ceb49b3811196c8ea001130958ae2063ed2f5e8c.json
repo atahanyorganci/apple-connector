@@ -1,6 +1,6 @@
 {
   "db_name": "SQLite",
-  "query": "\n        SELECT\n            r.Z_PK AS \"row_id!\",\n            r.ZUNIQUEID AS \"unique_id!\",\n            r.ZFIRSTNAME AS first_name,\n            r.ZLASTNAME AS last_name,\n            r.ZMIDDLENAME AS middle_name,\n            r.ZNICKNAME AS nickname,\n            r.ZORGANIZATION AS organization,\n            r.ZJOBTITLE AS job_title,\n            r.ZDEPARTMENT AS department,\n            r.ZNAME AS display_name,\n            r.ZCONTAINER AS container_row_id,\n            c.ZUNIQUEID AS container_unique_id,\n            CAST(r.ZCREATIONDATE AS REAL) AS creation_date,\n            CAST(r.ZMODIFICATIONDATE AS REAL) AS modification_date,\n            CAST(r.ZBIRTHDAY AS REAL) AS birthday,\n            n.ZTEXT AS note_text,\n            CASE WHEN l.ZDATA IS NOT NULL OR r.ZIMAGEDATA IS NOT NULL THEN 1 ELSE 0 END AS has_photo\n        FROM ZABCDRECORD r\n        LEFT JOIN ZABCDRECORD c ON c.Z_PK = r.ZCONTAINER\n        LEFT JOIN ZABCDNOTE n ON n.ZCONTACT = r.Z_PK\n        LEFT JOIN ZABCDLIKENESS l ON l.ZOWNER = r.Z_PK AND l.ZISPRIMARY = 1\n        WHERE r.Z_ENT = ?1\n          AND r.Z_PK IN (SELECT value FROM json_each(?2))\n        ",
+  "query": "\n        SELECT\n            r.Z_PK AS \"row_id!\",\n            r.ZUNIQUEID AS \"unique_id!\",\n            r.ZFIRSTNAME AS first_name,\n            r.ZLASTNAME AS last_name,\n            r.ZMIDDLENAME AS middle_name,\n            r.ZNICKNAME AS nickname,\n            r.ZORGANIZATION AS organization,\n            r.ZJOBTITLE AS job_title,\n            r.ZDEPARTMENT AS department,\n            r.ZNAME AS display_name,\n            r.ZCONTAINER AS container_row_id,\n            c.ZUNIQUEID AS container_unique_id,\n            CAST(r.ZCREATIONDATE AS REAL) AS creation_date,\n            CAST(r.ZMODIFICATIONDATE AS REAL) AS modification_date,\n            CAST(r.ZBIRTHDAY AS REAL) AS birthday,\n            n.ZTEXT AS note_text,\n            CASE WHEN l.ZDATA IS NOT NULL OR r.ZIMAGEDATA IS NOT NULL THEN 1 ELSE 0 END AS has_photo\n        FROM ZABCDRECORD r\n        LEFT JOIN ZABCDRECORD c ON c.Z_PK = COALESCE(\n            r.ZCONTAINER,\n            (\n                SELECT MIN(sole.Z_PK)\n                FROM ZABCDRECORD sole\n                WHERE sole.Z_ENT = (SELECT Z_ENT FROM Z_PRIMARYKEY WHERE Z_NAME = 'CNCDContainer')\n                HAVING COUNT(*) = 1\n            )\n        )\n        LEFT JOIN ZABCDNOTE n ON n.ZCONTACT = r.Z_PK\n        LEFT JOIN ZABCDLIKENESS l ON l.ZOWNER = r.Z_PK AND l.ZISPRIMARY = 1\n        WHERE r.Z_ENT = ?1\n          AND lower(substr(r.ZUNIQUEID, 1, instr(r.ZUNIQUEID, ':') - 1)) = lower(?2)\n        ",
   "describe": {
     "columns": [
       {
@@ -194,5 +194,5 @@
       false
     ]
   },
-  "hash": "23eb89906d5d18ea8bcfc51f877f31ad0f0470b1d2d8633c12fb337b171c2f1d"
+  "hash": "62576e9dd233d216d01d02f1ceb49b3811196c8ea001130958ae2063ed2f5e8c"
 }

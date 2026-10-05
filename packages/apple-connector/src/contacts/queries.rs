@@ -1,4 +1,13 @@
 //! Compile-time checked AddressBook queries.
+//!
+//! # Container resolution
+//!
+//! macOS leaves `ZCONTAINER` NULL on records in a source that has a single container: the
+//! container is implied by the source database, not stored per row. Every query that reports a
+//! record's container therefore joins on
+//! `COALESCE(r.ZCONTAINER, <the source's only CNCDContainer row>)`. When a source has several
+//! containers the subquery yields NULL, and the record is reported without a container rather
+//! than attributed to one at random.
 
 use sqlx::SqliteExecutor;
 
@@ -116,7 +125,15 @@ where
             c.ZUNIQUEID AS container_unique_id,
             r.ZTYPE AS group_type
         FROM ZABCDRECORD r
-        LEFT JOIN ZABCDRECORD c ON c.Z_PK = r.ZCONTAINER
+        LEFT JOIN ZABCDRECORD c ON c.Z_PK = COALESCE(
+            r.ZCONTAINER,
+            (
+                SELECT MIN(sole.Z_PK)
+                FROM ZABCDRECORD sole
+                WHERE sole.Z_ENT = (SELECT Z_ENT FROM Z_PRIMARYKEY WHERE Z_NAME = 'CNCDContainer')
+                HAVING COUNT(*) = 1
+            )
+        )
         WHERE r.Z_ENT = ?1
           AND (?2 IS NULL OR r.Z_PK < ?2)
         ORDER BY r.Z_PK DESC
@@ -149,7 +166,15 @@ where
             c.ZUNIQUEID AS container_unique_id,
             r.ZTYPE AS group_type
         FROM ZABCDRECORD r
-        LEFT JOIN ZABCDRECORD c ON c.Z_PK = r.ZCONTAINER
+        LEFT JOIN ZABCDRECORD c ON c.Z_PK = COALESCE(
+            r.ZCONTAINER,
+            (
+                SELECT MIN(sole.Z_PK)
+                FROM ZABCDRECORD sole
+                WHERE sole.Z_ENT = (SELECT Z_ENT FROM Z_PRIMARYKEY WHERE Z_NAME = 'CNCDContainer')
+                HAVING COUNT(*) = 1
+            )
+        )
         WHERE r.Z_ENT = ?1
           AND lower(substr(r.ZUNIQUEID, 1, instr(r.ZUNIQUEID, ':') - 1)) = lower(?2)
         "#,
@@ -195,7 +220,15 @@ where
             n.ZTEXT AS note_text,
             CASE WHEN l.ZDATA IS NOT NULL OR r.ZIMAGEDATA IS NOT NULL THEN 1 ELSE 0 END AS has_photo
         FROM ZABCDRECORD r
-        LEFT JOIN ZABCDRECORD c ON c.Z_PK = r.ZCONTAINER
+        LEFT JOIN ZABCDRECORD c ON c.Z_PK = COALESCE(
+            r.ZCONTAINER,
+            (
+                SELECT MIN(sole.Z_PK)
+                FROM ZABCDRECORD sole
+                WHERE sole.Z_ENT = (SELECT Z_ENT FROM Z_PRIMARYKEY WHERE Z_NAME = 'CNCDContainer')
+                HAVING COUNT(*) = 1
+            )
+        )
         LEFT JOIN ZABCDNOTE n ON n.ZCONTACT = r.Z_PK
         LEFT JOIN ZABCDLIKENESS l ON l.ZOWNER = r.Z_PK AND l.ZISPRIMARY = 1
         WHERE r.Z_ENT = ?1
@@ -275,7 +308,15 @@ where
             n.ZTEXT AS note_text,
             CASE WHEN l.ZDATA IS NOT NULL OR r.ZIMAGEDATA IS NOT NULL THEN 1 ELSE 0 END AS has_photo
         FROM ZABCDRECORD r
-        LEFT JOIN ZABCDRECORD c ON c.Z_PK = r.ZCONTAINER
+        LEFT JOIN ZABCDRECORD c ON c.Z_PK = COALESCE(
+            r.ZCONTAINER,
+            (
+                SELECT MIN(sole.Z_PK)
+                FROM ZABCDRECORD sole
+                WHERE sole.Z_ENT = (SELECT Z_ENT FROM Z_PRIMARYKEY WHERE Z_NAME = 'CNCDContainer')
+                HAVING COUNT(*) = 1
+            )
+        )
         LEFT JOIN ZABCDNOTE n ON n.ZCONTACT = r.Z_PK
         LEFT JOIN ZABCDLIKENESS l ON l.ZOWNER = r.Z_PK AND l.ZISPRIMARY = 1
         WHERE r.Z_ENT = ?1
@@ -330,7 +371,15 @@ where
             n.ZTEXT AS note_text,
             CASE WHEN l.ZDATA IS NOT NULL OR r.ZIMAGEDATA IS NOT NULL THEN 1 ELSE 0 END AS has_photo
         FROM ZABCDRECORD r
-        LEFT JOIN ZABCDRECORD c ON c.Z_PK = r.ZCONTAINER
+        LEFT JOIN ZABCDRECORD c ON c.Z_PK = COALESCE(
+            r.ZCONTAINER,
+            (
+                SELECT MIN(sole.Z_PK)
+                FROM ZABCDRECORD sole
+                WHERE sole.Z_ENT = (SELECT Z_ENT FROM Z_PRIMARYKEY WHERE Z_NAME = 'CNCDContainer')
+                HAVING COUNT(*) = 1
+            )
+        )
         LEFT JOIN ZABCDNOTE n ON n.ZCONTACT = r.Z_PK
         LEFT JOIN ZABCDLIKENESS l ON l.ZOWNER = r.Z_PK AND l.ZISPRIMARY = 1
         WHERE r.Z_ENT = ?1
@@ -717,7 +766,15 @@ where
             n.ZTEXT AS note_text,
             CASE WHEN l.ZDATA IS NOT NULL OR r.ZIMAGEDATA IS NOT NULL THEN 1 ELSE 0 END AS "has_photo: i64"
         FROM ZABCDRECORD r
-        LEFT JOIN ZABCDRECORD c ON c.Z_PK = r.ZCONTAINER
+        LEFT JOIN ZABCDRECORD c ON c.Z_PK = COALESCE(
+            r.ZCONTAINER,
+            (
+                SELECT MIN(sole.Z_PK)
+                FROM ZABCDRECORD sole
+                WHERE sole.Z_ENT = (SELECT Z_ENT FROM Z_PRIMARYKEY WHERE Z_NAME = 'CNCDContainer')
+                HAVING COUNT(*) = 1
+            )
+        )
         LEFT JOIN ZABCDNOTE n ON n.ZCONTACT = r.Z_PK
         LEFT JOIN ZABCDLIKENESS l ON l.ZOWNER = r.Z_PK AND l.ZISPRIMARY = 1
         WHERE r.Z_ENT = ?1
@@ -762,7 +819,15 @@ where
             n.ZTEXT AS note_text,
             CASE WHEN l.ZDATA IS NOT NULL OR r.ZIMAGEDATA IS NOT NULL THEN 1 ELSE 0 END AS has_photo
         FROM ZABCDRECORD r
-        LEFT JOIN ZABCDRECORD c ON c.Z_PK = r.ZCONTAINER
+        LEFT JOIN ZABCDRECORD c ON c.Z_PK = COALESCE(
+            r.ZCONTAINER,
+            (
+                SELECT MIN(sole.Z_PK)
+                FROM ZABCDRECORD sole
+                WHERE sole.Z_ENT = (SELECT Z_ENT FROM Z_PRIMARYKEY WHERE Z_NAME = 'CNCDContainer')
+                HAVING COUNT(*) = 1
+            )
+        )
         LEFT JOIN ZABCDNOTE n ON n.ZCONTACT = r.Z_PK
         LEFT JOIN ZABCDLIKENESS l ON l.ZOWNER = r.Z_PK AND l.ZISPRIMARY = 1
         WHERE r.Z_ENT = ?1
