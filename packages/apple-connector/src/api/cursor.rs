@@ -442,6 +442,21 @@ impl ValidatedCursor for EventSearchCursor {
     }
 }
 
+/// Rewrites the repository's [`GlobalEventCursor`] as the [`EventSearchCursor`] a filtered
+/// listing hands out, so the next request decodes it with [`decode_event_search_cursor`] and the
+/// cursor stays bound to the filters that produced it.
+pub fn reencode_event_search_cursor(
+    cursor: &str,
+    filters: &EventFiltersSnapshot,
+) -> Result<String, ApiError> {
+    let global = decode::<GlobalEventCursor>(cursor)?;
+    encode(&EventSearchCursor {
+        start_at: global.modified_at,
+        row_id: global.row_id,
+        filters: filters.clone(),
+    })
+}
+
 pub fn decode_event_search_cursor(
     cursor: &str,
     expected_filters: &EventFiltersSnapshot,

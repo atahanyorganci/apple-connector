@@ -228,6 +228,55 @@ async fn integration_calendar_range_lists_overnight_occurrence_once()
     Ok(())
 }
 
+/// Follows `next_cursor` one item at a time from `base` and returns every id visited, in order.
+async fn page_through(app: &Router, base: &str) -> Result<Vec<String>, Box<dyn std::error::Error>> {
+    let mut seen = Vec::new();
+    let mut cursor: Option<String> = None;
+    for _ in 0..10 {
+        let uri = match &cursor {
+            Some(cursor) => format!("{base}&limit=1&cursor={cursor}"),
+            None => format!("{base}&limit=1"),
+        };
+        let (status, page) = response_json(app.clone(), &uri).await?;
+        assert_eq!(status, StatusCode::OK, "{uri}: {page}");
+        seen.extend(ids_of(&page));
+        match page["page"]["next_cursor"].as_str() {
+            Some(next) => cursor = Some(next.to_owned()),
+            None => return Ok(seen),
+        }
+    }
+    Err(format!("pagination did not terminate: {seen:?}").into())
+}
+
+/// Paging through a filtered listing one item at a time visits every event exactly once. The
+/// range cursor keys on the resolved occurrence start (#152), and filtered listings hand out the
+/// filter-bound cursor shape their next request decodes.
+#[tokio::test]
+async fn integration_calendar_filtered_listings_page_each_event_once()
+-> Result<(), Box<dyn std::error::Error>> {
+    let fixture = CalendarFixtureDb::seeded().await?;
+    let pool = connect_pool(fixture.path()).await?;
+    let app = router(AppState::new(None, None, None, Some(pool)));
+
+    let mut expected = vec![
+        SEED_EVENT_ID.to_owned(),
+        SEED_RECURRING_EVENT_ID.to_owned(),
+        SEED_OVERNIGHT_EVENT_ID.to_owned(),
+    ];
+    expected.sort();
+
+    for base in [
+        "/v1/events?start=1736899200&end=1737071999",
+        "/v1/events?q=e",
+    ] {
+        let seen = page_through(&app, base).await?;
+        let mut visited = seen.clone();
+        visited.sort();
+        assert_eq!(visited, expected, "{base} visited: {seen:?}");
+    }
+    Ok(())
+}
+
 #[tokio::test]
 async fn integration_calendar_unavailable_without_database()
 -> Result<(), Box<dyn std::error::Error>> {

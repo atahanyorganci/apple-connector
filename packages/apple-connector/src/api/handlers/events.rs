@@ -176,7 +176,7 @@ async fn fetch_event_page(
     let filters = params.validated_filters()?;
     let filter_snapshot = filters.snapshot();
 
-    if filters.q.is_some() {
+    let mut page = if filters.q.is_some() {
         let cursor = params
             .cursor
             .as_deref()
@@ -188,7 +188,7 @@ async fn fetch_event_page(
                 .await
         })
         .await
-        .map_err(ApiError::from_sqlx)
+        .map_err(ApiError::from_sqlx)?
     } else {
         let cursor = match params.cursor.as_deref() {
             None => None,
@@ -208,8 +208,21 @@ async fn fetch_event_page(
                 .await
         })
         .await
-        .map_err(ApiError::from_sqlx)
+        .map_err(ApiError::from_sqlx)?
+    };
+
+    // Filtered requests decode their cursor as an `EventSearchCursor` bound to the filters, so
+    // hand out the same shape. The repository only knows the filter-free `GlobalEventCursor`.
+    if filters.is_active() {
+        page.next_cursor = page
+            .next_cursor
+            .as_deref()
+            .map(|cursor| {
+                crate::api::cursor::reencode_event_search_cursor(cursor, &filter_snapshot)
+            })
+            .transpose()?;
     }
+    Ok(page)
 }
 
 async fn fetch_event_detail(
