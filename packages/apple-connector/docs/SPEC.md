@@ -55,11 +55,12 @@ Application.
   endpoints never drop rows ([CONN-0019](decisions/CONN-0019-no-synthetic-data.md)). Enforced by:
   `tests/contacts_integration.rs::integration_contacts_with_null_container_are_listed`.
 - **Startup.** Messages is required (`tests/spec.rs::a_missing_messages_database_aborts_startup`);
-  other stores degrade to `503 <domain>_database_unavailable`; Reminders, Notes, and Contacts
-  schema metadata must load or startup stops
+  other stores degrade to `503 <domain>_database_unavailable`; Calendar must have the modern
+  schema and Reminders, Notes, and Contacts schema metadata must load, or startup stops
   ([CONN-0010](decisions/CONN-0010-store-discovery.md),
   [CONN-0020](decisions/CONN-0020-schema-fail-fast.md)). Enforced by: `src/api/router.rs`
-  `warm_entity_id_caches` tests; `src/api/handlers/health.rs` tests.
+  `warm_entity_id_caches` tests; `tests/spec.rs::a_legacy_calendar_schema_fails_the_startup_gate`;
+  `src/api/handlers/health.rs` tests.
 - **Errors** are `{ "error": { code, message, details } }` with a documented `ErrorCode`; database
   errors never carry driver text ([CONN-0021](decisions/CONN-0021-error-codes.md)). Enforced by:
   `scripts/check-api-error-leakage.sh` (flake check), `src/api/error.rs` tests, the OpenAPI
@@ -109,9 +110,6 @@ Application.
   `tests/spec.rs::an_rfc3339_query_bound_is_a_typed_error` (ignored, fails today). Tracked in #160.
 - **Contacts cursors are not bound to their filters.** Proven by:
   `tests/spec.rs::contact_cursors_are_bound_to_their_filters` (ignored, fails today). Tracked in #161.
-- **Legacy Calendar schemas pass startup** and `/healthz`, then fail each query; #99 required a
-  startup failure. Proven by: `tests/spec.rs::a_legacy_calendar_schema_fails_the_startup_gate`
-  (ignored, fails today). Tracked in #162.
 - **Calendar writes resolve the calendar by title**, not by the `calendar_id` given, so two
   calendars with the same title answer `409 ambiguous_event_kit_match` (`apple-eventkit` known
   bug). Proven by: `apple-eventkit/tests/identifier_probe.rs` (live). Tracked in #156.

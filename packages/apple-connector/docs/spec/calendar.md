@@ -2,7 +2,8 @@
 
 Reads from SQLite; writes through EventKit (`apple-eventkit`). Source:
 `~/Library/Group Containers/group.com.apple.calendar/Calendar.sqlitedb` (`--calendar-database`,
-`APPLE_CONNECTOR_CALENDAR_DATABASE`). Only the modern `CalendarItem` schema is supported.
+`APPLE_CONNECTOR_CALENDAR_DATABASE`). Only the modern `CalendarItem` schema is supported; a
+database without it stops startup.
 
 ## Tables
 

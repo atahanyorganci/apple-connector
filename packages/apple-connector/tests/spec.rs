@@ -202,7 +202,6 @@ async fn a_photo_is_only_served_for_the_exact_contact_id() -> TestResult {
 /// #99: an unsupported Calendar schema must stop startup, not pass `/healthz` and then fail every
 /// query. Startup's schema gate is `warm_entity_id_caches`, which never looks at Calendar.
 #[tokio::test]
-#[ignore = "bug: legacy Calendar schemas are not rejected at startup (SPEC.md, Known bugs)"]
 async fn a_legacy_calendar_schema_fails_the_startup_gate() -> TestResult {
     let fixture = CalendarFixtureDb::legacy_unsupported().await?;
     let pool = connect_pool(fixture.path()).await?;
