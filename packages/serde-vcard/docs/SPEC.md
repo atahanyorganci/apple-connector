@@ -29,7 +29,9 @@ Codec.
   `tests/properties.rs::urls_parse_and_serialize`, `social_profiles_parse_and_serialize`,
   `impp_is_read_as_a_social_profile`.
 - Properties without a model field are preserved with their group and parameters and written
-  back. Enforced by: `tests/properties.rs::unknown_properties_are_preserved`.
+  back, and so is a `BDAY` the date parser cannot read. Enforced by:
+  `tests/properties.rs::unknown_properties_are_preserved`,
+  `tests/spec.rs::an_unparseable_birthday_is_not_dropped`.
 - A 3.0 `ENCODING=b` photo becomes a vCard 4 `data:` URI; a 4.0 `data:` URI photo parses; URI
   photos stay URIs. Enforced by: `tests/properties.rs::v3_photo_input_becomes_v4_output`,
   `v4_data_uri_photo_parses_instead_of_failing_the_whole_card`, `photo_uris_stay_uris`.
@@ -55,9 +57,6 @@ Codec.
 
 ### Known bugs
 
-- A `BDAY` the date parser cannot read (for example the year-less `--0415` RFC 6350 allows) is
-  dropped: it is neither a birthday nor kept in `unknown`. Proven by:
-  `tests/spec.rs::an_unparseable_birthday_is_not_dropped` (ignored, fails today). Tracked in #165.
 - The `Cargo.toml` description still says "Serde Serializer and Deserializer"; the crate has none
   since #94 ([REC-0013](../../../docs/decisions/REC-0013-typed-format-apis.md)). Tracked in #171.
 
@@ -66,7 +65,8 @@ Codec.
 - `IMPP` is written back as `X-SOCIALPROFILE`
   (`tests/spec.rs::impp_is_written_back_as_x_socialprofile`).
 - An invalid `PHOTO` fails the whole card.
-- `BDAY` accepts `YYYYMMDD`, `YYYY-MM-DD`, and RFC 3339 date-times only.
+- `birthday` holds `YYYYMMDD`, `YYYY-MM-DD`, and RFC 3339 date-times only; other `BDAY` forms, such
+  as the year-less `--MMDD`, stay in `unknown`.
 - vCard 2.1 is not a goal; its bare type parameters happen to parse.
 - Lines outside `BEGIN:VCARD` … `END:VCARD` are ignored.
 

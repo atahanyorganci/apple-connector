@@ -35,7 +35,7 @@ properties go to `extensions`.
 - A 3.0 card comes back as 4.0.
 - `IMPP` is read into `social_profiles` and written as `X-SOCIALPROFILE`, so the property name does
   not survive.
-- A value the model cannot parse can still be lost: an unparseable `BDAY` is dropped (known bug).
+- A `BDAY` the model cannot parse is kept in `unknown`, not dropped (#165).
 
 ## Evidence
 
@@ -43,5 +43,4 @@ properties go to `extensions`.
   `unknown_properties_are_preserved`, `bare_type_parameters_are_understood`,
   `apple_group_labels_become_the_property_label`.
 - `packages/serde-vcard/tests/spec.rs`: `output_is_always_version_4`,
-  `impp_is_written_back_as_x_socialprofile`, `an_unparseable_birthday_is_not_dropped` (ignored,
-  fails today).
+  `impp_is_written_back_as_x_socialprofile`, `an_unparseable_birthday_is_not_dropped`.
