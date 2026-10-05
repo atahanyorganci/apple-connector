@@ -24,7 +24,7 @@ UUID in either case, and a reminder's `calendarItemExternalIdentifier` is the sa
 
 - Every query requires `ZMARKEDFORDELETION = 0`; deleted reminders are never returned and there is
   no `include_deleted`.
-- Timestamps are Core Data seconds since 2001-01-01 UTC.
+- Timestamps are Core Data seconds since 2001-01-01 UTC; `NULL` and `0` are unset.
 - Global and per-list order: `ZLASTMODIFIEDDATE DESC, Z_PK DESC`. Subtasks: `ZICSDISPLAYORDER ASC,
   Z_PK ASC`.
 - Section membership is stored on the list row as JSON in

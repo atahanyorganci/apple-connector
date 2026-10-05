@@ -214,6 +214,44 @@ async fn a_legacy_calendar_schema_fails_the_startup_gate() -> TestResult {
     Ok(())
 }
 
+/// A contact born before 2001 has a negative Core Data `ZBIRTHDAY`; the API returns it (#157).
+#[tokio::test]
+async fn a_birthday_before_2001_is_returned() -> TestResult {
+    use sqlx::{Connection, sqlite::SqliteConnectOptions};
+
+    // 1990-01-01T00:00:00Z: Unix 631152000, Core Data -347155200.
+    let fixture = ContactsFixtureDb::seeded().await?;
+    {
+        let options = SqliteConnectOptions::new().filename(fixture.path());
+        let mut connection = sqlx::SqliteConnection::connect_with(&options).await?;
+        sqlx::query(
+            "UPDATE ZABCDRECORD SET ZBIRTHDAY = -347155200 \
+             WHERE lower(ZUNIQUEID) LIKE lower(?1) || ':%'",
+        )
+        .bind(apple_connector::fixtures::SEED_CONTACT_ID)
+        .execute(&mut connection)
+        .await?;
+        connection.close().await?;
+    }
+    let pool = connect_pool(fixture.path()).await?;
+    let sources = ContactsSources::new(HashMap::from([(
+        apple_connector::apple_types::SourceId::new("spec-source"),
+        pool,
+    )]));
+    let app = router(AppState::with_contacts(
+        None, None, None, None, sources, None,
+    ));
+
+    let uri = format!(
+        "/v1/contacts/{}",
+        apple_connector::fixtures::SEED_CONTACT_ID
+    );
+    let (status, body) = send(&app, "GET", &uri, None).await?;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert_eq!(body["birthday"], 631_152_000, "{body}");
+    Ok(())
+}
+
 /// Timestamp query bounds are Unix seconds; an RFC 3339 value must still be answered inside the
 /// error envelope. Read handlers use axum's `Query`, whose rejection is plain text.
 #[tokio::test]
@@ -236,9 +274,9 @@ async fn an_rfc3339_query_bound_is_a_typed_error() -> TestResult {
 }
 
 /// Core Data stores instants as seconds relative to 2001-01-01, so anything earlier is negative.
-/// Only `NULL` means "unset"; a contact born in 1990 has a perfectly valid negative `ZBIRTHDAY`.
+/// Only `NULL` and zero mean "unset"; a contact born in 1990 has a perfectly valid negative
+/// `ZBIRTHDAY` (#157).
 #[test]
-#[ignore = "bug: Core Data dates before 2001-01-01 are read as unset (SPEC.md, Known bugs)"]
 fn core_data_dates_before_2001_are_kept() -> TestResult {
     let one_day_before = apple_connector::apple_types::parse_core_data_timestamp(Some(-86_400.0))
         .ok_or("a date one day before the Core Data epoch was read as unset")?;

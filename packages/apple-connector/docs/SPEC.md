@@ -39,8 +39,10 @@ Application.
   matches the code ([CONN-0004](decisions/CONN-0004-openapi-contract.md)). Enforced by:
   `src/api/doc.rs::exported_openapi_matches_committed_contract`.
 - **Timestamps** are integer Unix seconds everywhere
-  ([REC-0010](../../../docs/decisions/REC-0010-unix-seconds.md)). Enforced by: the `UnixTimestamp`
-  schema; no `date-time` format in `docs/openapi.json`.
+  ([REC-0010](../../../docs/decisions/REC-0010-unix-seconds.md)). A Core Data timestamp that is
+  `NULL` or exactly `0` is `null`; earlier instants are returned, as negative seconds before 1970.
+  Enforced by: the `UnixTimestamp` schema; no `date-time` format in `docs/openapi.json`;
+  `src/apple_types/timestamp.rs` tests; `tests/spec.rs::a_birthday_before_2001_is_returned`.
 - **Pagination.** Keyset only; `limit` 1–200, default 50; cursors versioned and filter-bound
   ([CONN-0005](decisions/CONN-0005-keyset-pagination.md)). Enforced by: `src/api/params.rs`
   `default_limit_is_50_and_max_is_200`; `tests/calendar_integration.rs`
@@ -110,9 +112,6 @@ Application.
 - **Legacy Calendar schemas pass startup** and `/healthz`, then fail each query; #99 required a
   startup failure. Proven by: `tests/spec.rs::a_legacy_calendar_schema_fails_the_startup_gate`
   (ignored, fails today). Tracked in #162.
-- **Dates before 2001-01-01 are read as `null`** for every Core Data timestamp — contact
-  birthdays, calendar events, reminders, notes — because a value `<= 0` is treated as unset.
-  Proven by: `tests/spec.rs::core_data_dates_before_2001_are_kept` (ignored, fails today). Tracked in #157.
 - **Calendar writes resolve the calendar by title**, not by the `calendar_id` given, so two
   calendars with the same title answer `409 ambiguous_event_kit_match` (`apple-eventkit` known
   bug). Proven by: `apple-eventkit/tests/identifier_probe.rs` (live). Tracked in #156.

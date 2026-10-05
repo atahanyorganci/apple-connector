@@ -17,7 +17,8 @@ and [`docs/errors.md`](../../../../docs/errors.md); this file does not repeat it
 ## Values
 
 - Timestamps are integer UTC Unix seconds in both directions
-  ([REC-0010](../../../../docs/decisions/REC-0010-unix-seconds.md)).
+  ([REC-0010](../../../../docs/decisions/REC-0010-unix-seconds.md)). Instants before 1970 — old
+  birthdays, for example — are negative.
 - IDs are strings except `ChatId`, which is the Messages `chat.ROWID`. Path IDs must be non-empty;
   UUID IDs are matched case-insensitively.
 - Fields Apple leaves empty are `null`, never a placeholder

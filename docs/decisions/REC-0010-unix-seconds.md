@@ -35,7 +35,9 @@ Unix seconds only. `before`/`after`, `due_before`/`due_after`, `modified_before`
   rather than `invalid_timestamp` (known bug in the apple-connector spec;
   [CONN-L-0005](../../packages/apple-connector/docs/lessons/CONN-L-0005-extractor-rejections.md)).
 - Apple's epochs (2001-01-01, nanoseconds for Messages, seconds for Core Data) never appear on the
-  wire.
+  wire. Only `NULL` and an exact `0` mean unset; instants before 2001 are negative in Apple's
+  epoch, and instants before 1970 are negative on the wire. Reading anything `<= 0` as unset
+  dropped every birthday before 2001 (#157).
 
 ## Evidence
 

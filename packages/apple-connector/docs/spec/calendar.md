@@ -24,7 +24,10 @@ Reads from SQLite; writes through EventKit (`apple-eventkit`). Source:
 
 ## Rows
 
-- Timestamps are Core Data seconds since 2001-01-01 UTC.
+- Timestamps are Core Data seconds since 2001-01-01 UTC; `NULL` and `0` are unset.
+- Birthday events generated from Contacts carry a `last_modified` of 1976-04-01, and a start in
+  1604 when the birthday has no year. Both are Apple's values and are returned as stored
+  ([CONN-L-0006](../lessons/CONN-L-0006-apple-date-sentinels.md)).
 - Without `start`/`end`: `CalendarItem` rows ordered `last_modified DESC, ROWID DESC`.
 - With `start` and/or `end`: occurrences from `OccurrenceCache`, start
   `COALESCE(occurrence_start_date, occurrence_date)`, grouped to one row per occurrence, ordered

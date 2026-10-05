@@ -16,7 +16,7 @@ and `ICHashtag` are read from `Z_PRIMARYKEY` at startup; a missing one stops sta
 
 ## Rows
 
-- Timestamps are Core Data seconds since 2001-01-01 UTC.
+- Timestamps are Core Data seconds since 2001-01-01 UTC; `NULL` and `0` are unset.
 - Order: `ZMODIFICATIONDATE1 DESC, Z_PK DESC`.
 - A note is deleted when `ZMARKEDFORDELETION = 1` or its folder has `ZFOLDERTYPE = 1` (Recently
   Deleted). Deleted notes are hidden unless `include_deleted=true`; the Recently Deleted folder is

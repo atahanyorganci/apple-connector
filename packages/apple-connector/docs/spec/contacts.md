@@ -27,7 +27,9 @@ directory name.
   ([CONN-0024](../decisions/CONN-0024-contact-container.md),
   [CONN-L-0002](../lessons/CONN-L-0002-implied-container.md)).
 - `q` is a `LIKE` match on first name, last name, organization, and name; `%` and `_` are wildcards.
-- Birthdays are Core Data seconds; dates before 2001-01-01 are read as `null` (known bug).
+- Birthdays are Core Data seconds. A birthday entered without a year is stored in year 1604,
+  Apple's convention, and returned as such
+  ([CONN-L-0006](../lessons/CONN-L-0006-apple-date-sentinels.md)).
 - Containers carry no writability flag ([CN-0002](../../../apple-contacts/docs/decisions/CN-0002-container-writability.md)).
 
 ## Formats
