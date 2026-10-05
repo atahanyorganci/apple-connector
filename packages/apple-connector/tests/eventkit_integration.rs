@@ -453,10 +453,13 @@ impl LiveCalendar {
     }
 
     async fn cleanup(&self) -> Result<(), Box<dyn std::error::Error>> {
-        // The row can still be mid-sync with the server when the test ends, so retry until the
-        // SQLite read path no longer shows it.
+        // A delete can race the server sync of the event it removes: the row disappears, then
+        // the next sync brings it back. Keep deleting until the marked rows have stayed gone for
+        // a few seconds in a row.
+        const SETTLED_PASSES: u32 = 6;
+        let mut empty_passes = 0;
         let mut last_error = None;
-        for _ in 0..20 {
+        for _ in 0..60 {
             let rows = sqlx::query(
                 "SELECT UUID, unique_identifier FROM CalendarItem WHERE summary LIKE ?1",
             )
@@ -464,7 +467,12 @@ impl LiveCalendar {
             .fetch_all(&self.pool)
             .await?;
             if rows.is_empty() {
-                return Ok(());
+                empty_passes += 1;
+                if empty_passes >= SETTLED_PASSES {
+                    return Ok(());
+                }
+            } else {
+                empty_passes = 0;
             }
             for row in rows {
                 let uuid: String = row.try_get("UUID")?;
