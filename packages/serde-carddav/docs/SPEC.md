@@ -28,7 +28,10 @@ Codec.
   ([CALDAV-L-0001](../../serde-caldav/docs/lessons/CALDAV-L-0001-qualified-names.md)). Enforced by:
   `tests/multistatus.rs::prefixed_elements_parse`,
   `a_note_containing_multistatus_does_not_steer_routing`, `a_type_alias_parses_as_a_multistatus`.
-- Every response is kept with its own href and etag, and both round-trip. Enforced by:
+- Every response is kept with its own href and etag, and both round-trip.
+  A response's href is its own direct `DAV:href`; hrefs nested in property values such as
+  `current-user-principal` are ignored
+  (`tests/spec.rs::a_nested_href_does_not_replace_the_response_href`). Enforced by:
   `tests/multistatus.rs::every_response_is_retained_with_its_own_href_and_etag`,
   `href_and_etag_round_trip_per_response`.
 - The writer emits one document with one `d:multistatus` root, `d:` and `card:` bound on the root.
@@ -41,9 +44,6 @@ Codec.
 
 ### Known bugs
 
-- A `DAV:href` nested inside a property value (for example `current-user-principal`) replaces the
-  response's own href. Proven by:
-  `tests/spec.rs::a_nested_href_does_not_replace_the_response_href` (ignored, fails today). Tracked in #167.
 - The `Cargo.toml` description still says "Serde Serializer and Deserializer"
   ([REC-0013](../../../docs/decisions/REC-0013-typed-format-apis.md)). Tracked in #171.
 

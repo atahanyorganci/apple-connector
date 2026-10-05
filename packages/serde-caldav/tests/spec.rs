@@ -25,7 +25,6 @@ fn an_invalid_payload_fails_the_whole_document() -> TestResult {
 /// The response's `href` is the response's own `DAV:href`, not an href nested inside a property
 /// value such as `current-user-principal`.
 #[test]
-#[ignore = "bug: a DAV:href nested in a property replaces the response href (SPEC.md, Known bugs)"]
 fn a_nested_href_does_not_replace_the_response_href() -> TestResult {
     let xml = format!(
         r#"<d:multistatus xmlns:d="DAV:" xmlns:c="urn:ietf:params:xml:ns:caldav">

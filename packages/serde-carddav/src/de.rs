@@ -79,6 +79,10 @@ pub fn parse_multistatus(input: &[u8]) -> Result<CardDavMultistatus> {
     let mut current: Option<ResponseBuilder> = None;
     let mut capture: Option<Capture> = None;
     let mut in_propstat = false;
+    // Element depth, and the depth of the open `DAV:response`. Only a `DAV:href` directly inside
+    // the response names it; hrefs nested in property values (`current-user-principal`, …) do not.
+    let mut depth = 0_usize;
+    let mut response_depth: Option<usize> = None;
 
     loop {
         let (namespace, event) = reader
@@ -87,6 +91,7 @@ pub fn parse_multistatus(input: &[u8]) -> Result<CardDavMultistatus> {
 
         match event {
             Event::Start(start) => {
+                depth += 1;
                 let local = start.local_name();
                 let local = local.as_ref();
                 let bound = match namespace {
@@ -99,9 +104,12 @@ pub fn parse_multistatus(input: &[u8]) -> Result<CardDavMultistatus> {
                         b"response" => {
                             current = Some(ResponseBuilder::default());
                             in_propstat = false;
+                            response_depth = Some(depth);
                         }
                         b"propstat" => in_propstat = true,
-                        b"href" => capture = Some(Capture::Href),
+                        b"href" if response_depth.map(|parent| parent + 1) == Some(depth) => {
+                            capture = Some(Capture::Href);
+                        }
                         b"getetag" => capture = Some(Capture::Etag),
                         b"getcontenttype" => capture = Some(Capture::ContentType),
                         b"status" => capture = Some(Capture::Status),
@@ -145,10 +153,12 @@ pub fn parse_multistatus(input: &[u8]) -> Result<CardDavMultistatus> {
                             if let Some(builder) = current.take() {
                                 responses.push(builder.finish()?);
                             }
+                            response_depth = None;
                         }
                         _ => {}
                     }
                 }
+                depth = depth.saturating_sub(1);
             }
             Event::Eof => break,
             _ => {}
