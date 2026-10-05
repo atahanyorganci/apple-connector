@@ -21,7 +21,7 @@ directory name.
 ## Rows
 
 - Order within a source: `Z_PK DESC`. Sources are read one after another in ascending `SourceId`;
-  the cursor records the source and its row ([CONN-0005](../decisions/CONN-0005-keyset-pagination.md)).
+  the cursor records the source, its row, and the filters ([CONN-0005](../decisions/CONN-0005-keyset-pagination.md)).
 - A contact's container is `COALESCE(ZCONTAINER, <the source's only CNCDContainer>)`; with several
   containers and no stored one, `container_id` is `null` and the contact is still listed
   ([CONN-0024](../decisions/CONN-0024-contact-container.md),

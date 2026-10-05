@@ -28,8 +28,7 @@ and [`docs/errors.md`](../../../../docs/errors.md); this file does not repeat it
 
 - Keyset only: `limit` 1–200, default 50; `page.has_more`, `page.next_cursor`
   ([CONN-0005](../decisions/CONN-0005-keyset-pagination.md)).
-- Cursors are `v1.<base64url JSON>`, opaque, and bound to the filters that produced them (except
-  Contacts: known bug).
+- Cursors are `v1.<base64url JSON>`, opaque, and bound to the filters that produced them.
 - `q` is at most 256 characters. Messages, Reminders, and Notes scan at most 500 candidates per
   request and may return a short or empty page with `has_more: true`; keep following the cursor
   ([CONN-0006](../decisions/CONN-0006-bounded-search.md)).

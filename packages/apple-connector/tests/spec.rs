@@ -121,7 +121,6 @@ async fn contact_search_treats_percent_as_a_wildcard() -> TestResult {
 /// A cursor is only valid for the filters that produced it. Messages, Reminders, Notes, and Events
 /// enforce this; Contacts does not, so a cursor taken without `q` silently continues a `q` search.
 #[tokio::test]
-#[ignore = "bug: Contacts cursors are not bound to their filters (SPEC.md, Known bugs)"]
 async fn contact_cursors_are_bound_to_their_filters() -> TestResult {
     let fixture = ContactsFixtureDb::seeded_with_batch_contacts(3).await?;
     let pool = connect_pool(fixture.path()).await?;
@@ -148,6 +147,43 @@ async fn contact_cursors_are_bound_to_their_filters() -> TestResult {
     .await?;
     assert_eq!(status, StatusCode::BAD_REQUEST, "{body}");
     assert_eq!(body["error"]["code"], "invalid_cursor");
+
+    // The cursor still continues the query it came from, filtered or not.
+    let (status, second) = send(
+        &app,
+        "GET",
+        &format!("/v1/contacts?limit=1&cursor={cursor}"),
+        None,
+    )
+    .await?;
+    assert_eq!(status, StatusCode::OK, "{second}");
+    assert_ne!(second["items"][0]["id"], first["items"][0]["id"]);
+
+    let (status, filtered) = send(&app, "GET", "/v1/contacts?limit=1&q=Person", None).await?;
+    assert_eq!(status, StatusCode::OK, "{filtered}");
+    let filtered_cursor = filtered["page"]["next_cursor"]
+        .as_str()
+        .ok_or_else(|| format!("filtered page has no cursor: {filtered}"))?;
+    let (status, next) = send(
+        &app,
+        "GET",
+        &format!("/v1/contacts?limit=1&q=Person&cursor={filtered_cursor}"),
+        None,
+    )
+    .await?;
+    assert_eq!(status, StatusCode::OK, "{next}");
+    let (status, dropped) = send(
+        &app,
+        "GET",
+        &format!("/v1/contacts?limit=1&cursor={filtered_cursor}"),
+        None,
+    )
+    .await?;
+    assert_eq!(
+        status,
+        StatusCode::BAD_REQUEST,
+        "dropping the filter: {dropped}"
+    );
     Ok(())
 }
 

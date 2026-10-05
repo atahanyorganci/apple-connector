@@ -46,7 +46,8 @@ Application.
 - **Pagination.** Keyset only; `limit` 1–200, default 50; cursors versioned and filter-bound
   ([CONN-0005](decisions/CONN-0005-keyset-pagination.md)). Enforced by: `src/api/params.rs`
   `default_limit_is_50_and_max_is_200`; `tests/calendar_integration.rs`
-  `integration_calendar_filtered_listings_page_each_event_once`.
+  `integration_calendar_filtered_listings_page_each_event_once`;
+  `tests/spec.rs::contact_cursors_are_bound_to_their_filters`.
 - **Search** over decoded content is a bounded, resumable scan
   ([CONN-0006](decisions/CONN-0006-bounded-search.md)). Enforced by: the scan-budget constants and
   the search tests in `src/messages`, `src/notes`, `src/reminders`.
@@ -108,8 +109,6 @@ Application.
 - **Read endpoints answer malformed query strings outside the envelope** (axum's plain-text 400)
   ([CONN-L-0005](lessons/CONN-L-0005-extractor-rejections.md)). Proven by:
   `tests/spec.rs::an_rfc3339_query_bound_is_a_typed_error` (ignored, fails today). Tracked in #160.
-- **Contacts cursors are not bound to their filters.** Proven by:
-  `tests/spec.rs::contact_cursors_are_bound_to_their_filters` (ignored, fails today). Tracked in #161.
 - **Calendar writes resolve the calendar by title**, not by the `calendar_id` given, so two
   calendars with the same title answer `409 ambiguous_event_kit_match` (`apple-eventkit` known
   bug). Proven by: `apple-eventkit/tests/identifier_probe.rs` (live). Tracked in #156.

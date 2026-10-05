@@ -246,14 +246,23 @@ async fn fetch_contact_page(
     let limit = params.validated_limit()?;
     params.validated_cursor()?;
     let filters = params.validated_filters()?;
+    // The API cursor is bound to the filters; the repository only knows `ContactListCursor`.
+    let snapshot = filters.snapshot();
     let cursor = params
         .cursor
         .as_deref()
-        .map(crate::api::cursor::decode::<crate::api::cursor::ContactListCursor>)
+        .map(|value| crate::api::cursor::decode_contact_page_cursor(value, &snapshot))
         .transpose()?;
-    run_timed_query(|| async { sources.list_contacts(limit, cursor, &filters).await })
-        .await
-        .map_err(ApiError::from_sqlx)
+    let mut page =
+        run_timed_query(|| async { sources.list_contacts(limit, cursor, &filters).await })
+            .await
+            .map_err(ApiError::from_sqlx)?;
+    page.next_cursor = page
+        .next_cursor
+        .as_deref()
+        .map(|value| crate::api::cursor::reencode_contact_page_cursor(value, &snapshot))
+        .transpose()?;
+    Ok(page)
 }
 
 async fn fetch_contact_detail(

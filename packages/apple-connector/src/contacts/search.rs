@@ -5,6 +5,18 @@ pub struct ContactFilters {
     pub group_id: Option<String>,
 }
 
+/// The filters a Contacts listing cursor was produced under; a cursor is only valid for the same
+/// snapshot.
+#[derive(Debug, Clone, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub struct ContactFiltersSnapshot {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub q: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub container_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub group_id: Option<String>,
+}
+
 /// Bind parameters for the compile-time filtered contact listing query.
 #[derive(Debug, Clone)]
 pub struct ContactFilterBinds {
@@ -16,6 +28,14 @@ pub struct ContactFilterBinds {
 }
 
 impl ContactFilters {
+    pub fn snapshot(&self) -> ContactFiltersSnapshot {
+        ContactFiltersSnapshot {
+            q: self.q.clone(),
+            container_id: self.container_id.clone(),
+            group_id: self.group_id.clone(),
+        }
+    }
+
     pub fn bind_values(&self, cursor_row_id: Option<i64>, limit: i64) -> ContactFilterBinds {
         ContactFilterBinds {
             q_pattern: self.q.as_ref().map(|q| format!("%{q}%")),
