@@ -39,10 +39,16 @@ pub const SEED_CALENDAR_ID: &str = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa";
 pub const SEED_EVENT_ID: &str = "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb";
 pub const SEED_RECURRING_EVENT_ID: &str = "cccccccc-cccc-cccc-cccc-cccccccccccc";
 pub const SEED_EVENT_ATTACHMENT_ID: &str = "dddddddd-dddd-dddd-dddd-dddddddddddd";
+/// Non-recurring event that crosses midnight (2025-01-15 23:00 → 2025-01-16 01:00 UTC), so its
+/// occurrence has a continuation row in `OccurrenceCache`.
+pub const SEED_OVERNIGHT_EVENT_ID: &str = "ffffffff-ffff-ffff-ffff-ffffffffffff";
 
 pub const SEED_CONTAINER_ID: &str = "11111111-1111-1111-1111-111111111111";
 pub const SEED_GROUP_ID: &str = "22222222-2222-2222-2222-222222222222";
 pub const SEED_CONTACT_ID: &str = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa";
+/// Contact whose `ZCONTAINER` is NULL, which is how macOS stores every contact in a source that
+/// has a single container.
+pub const SEED_UNCONTAINED_CONTACT_ID: &str = "dddddddd-dddd-dddd-dddd-dddddddddddd";
 
 pub struct FixtureDb {
     _temp_dir: TempDir,
@@ -366,6 +372,14 @@ impl ContactsFixtureDb {
         Ok(fixture)
     }
 
+    /// Seeded fixture with a second `CNCDContainer` row, so a contact with a
+    /// NULL `ZCONTAINER` no longer has a single implied container.
+    pub async fn seeded_with_second_container() -> io::Result<Self> {
+        let fixture = Self::seeded().await?;
+        seed_second_container(fixture.path()).await?;
+        Ok(fixture)
+    }
+
     /// Fixture with a completely unrelated schema (no `Z_PRIMARYKEY` table
     /// at all), for exercising explicit failure against unsupported stores.
     pub async fn unsupported_schema() -> io::Result<Self> {
@@ -423,6 +437,31 @@ async fn apply_contacts_schema(path: &Path, seed: bool) -> io::Result<()> {
             .await
             .map_err(io::Error::other)?;
     }
+
+    connection.close().await.ok();
+    Ok(())
+}
+
+/// Id of the container added by [`ContactsFixtureDb::seeded_with_second_container`].
+pub const SEED_SECOND_CONTAINER_ID: &str = "99999999-9999-9999-9999-999999999999";
+
+async fn seed_second_container(path: &Path) -> io::Result<()> {
+    let options = SqliteConnectOptions::new()
+        .filename(path)
+        .read_only(false)
+        .create_if_missing(false);
+
+    let mut connection = SqliteConnection::connect_with(&options)
+        .await
+        .map_err(io::Error::other)?;
+
+    sqlx::query(
+        "INSERT INTO ZABCDRECORD (Z_PK, Z_ENT, Z_OPT, ZTYPE, ZUNIQUEID, ZNAME) VALUES (90, 25, 1, 0, ?1, 'Exchange')",
+    )
+    .bind(format!("{SEED_SECOND_CONTAINER_ID}:ABContainer"))
+    .execute(&mut connection)
+    .await
+    .map_err(io::Error::other)?;
 
     connection.close().await.ok();
     Ok(())

@@ -73,11 +73,43 @@ VALUES
     1700000000
   );
 
+-- Contact: John Roe. macOS leaves ZCONTAINER NULL on contacts in a source
+-- with a single container; the container is implied by the source.
+INSERT INTO
+  ZABCDRECORD (
+    Z_PK,
+    Z_ENT,
+    Z_OPT,
+    ZCONTAINER,
+    ZFIRSTNAME,
+    ZLASTNAME,
+    ZSORTINGFIRSTNAME,
+    ZSORTINGLASTNAME,
+    ZUNIQUEID,
+    ZCREATIONDATE,
+    ZMODIFICATIONDATE
+  )
+VALUES
+  (
+    4,
+    22,
+    1,
+    NULL,
+    'John',
+    'Roe',
+    'John',
+    'Roe',
+    'dddddddd-dddd-dddd-dddd-dddddddddddd:ABPerson',
+    1700000000,
+    1700000000
+  );
+
 -- Group membership
 INSERT INTO
   Z_22PARENTGROUPS (Z_22CONTACTS, Z_19PARENTGROUPS1)
 VALUES
-  (3, 2);
+  (3, 2),
+  (4, 2);
 
 -- Phone
 INSERT INTO

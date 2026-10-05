@@ -5,7 +5,10 @@ use std::collections::HashMap;
 use apple_connector::{
     AppState, connect_pool,
     contacts::ContactsSources,
-    fixtures::{ContactsFixtureDb, SEED_CONTACT_ID, SEED_CONTAINER_ID, SEED_GROUP_ID},
+    fixtures::{
+        ContactsFixtureDb, SEED_CONTACT_ID, SEED_CONTAINER_ID, SEED_GROUP_ID,
+        SEED_SECOND_CONTAINER_ID, SEED_UNCONTAINED_CONTACT_ID,
+    },
     router,
 };
 use axum::{Router, body::Body};
@@ -148,6 +151,103 @@ async fn integration_contacts_search_vcard_and_carddav() -> Result<(), Box<dyn s
         group_contacts["items"]
             .as_array()
             .is_some_and(|items| !items.is_empty())
+    );
+    Ok(())
+}
+
+fn find_item<'a>(page: &'a serde_json::Value, id: &str) -> Option<&'a serde_json::Value> {
+    page["items"]
+        .as_array()
+        .and_then(|items| items.iter().find(|item| item["id"] == id))
+}
+
+/// macOS leaves `ZCONTAINER` NULL on contacts in a single-container source. Those contacts
+/// belong to the source's only container and must show up in every list path.
+/// Regression test for #153.
+#[tokio::test]
+async fn integration_contacts_with_null_container_are_listed()
+-> Result<(), Box<dyn std::error::Error>> {
+    let fixture = ContactsFixtureDb::seeded().await?;
+    let pool = connect_pool(fixture.path()).await?;
+    let app = contacts_app(pool);
+
+    let (status, contacts) = response_json(app.clone(), "/v1/contacts?limit=50").await?;
+    assert_eq!(status, StatusCode::OK);
+    let item = find_item(&contacts, SEED_UNCONTAINED_CONTACT_ID)
+        .ok_or(format!("contact missing from list: {contacts}"))?;
+    assert_eq!(item["container_id"], SEED_CONTAINER_ID);
+
+    let (status, search) =
+        response_json(app.clone(), "/v1/contacts/search?q=John&limit=50").await?;
+    assert_eq!(status, StatusCode::OK);
+    assert!(
+        find_item(&search, SEED_UNCONTAINED_CONTACT_ID).is_some(),
+        "contact missing from search: {search}"
+    );
+
+    let (status, filtered) = response_json(
+        app.clone(),
+        &format!("/v1/contacts?container_id={SEED_CONTAINER_ID}&limit=50"),
+    )
+    .await?;
+    assert_eq!(status, StatusCode::OK);
+    assert!(
+        find_item(&filtered, SEED_UNCONTAINED_CONTACT_ID).is_some(),
+        "contact missing from container filter: {filtered}"
+    );
+
+    let (status, members) = response_json(
+        app.clone(),
+        &format!("/v1/groups/{SEED_GROUP_ID}/contacts?limit=50"),
+    )
+    .await?;
+    assert_eq!(status, StatusCode::OK);
+    assert!(
+        find_item(&members, SEED_UNCONTAINED_CONTACT_ID).is_some(),
+        "contact missing from group members: {members}"
+    );
+
+    let (status, vcards) = response_text(app.clone(), "/v1/contacts/vcard?limit=50").await?;
+    assert_eq!(status, StatusCode::OK);
+    assert!(vcards.contains("John"), "contact missing from vCard export");
+
+    let (status, detail) =
+        response_json(app, &format!("/v1/contacts/{SEED_UNCONTAINED_CONTACT_ID}")).await?;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(detail["container_id"], SEED_CONTAINER_ID);
+    Ok(())
+}
+
+/// When a source has more than one container, a NULL `ZCONTAINER` is ambiguous. The contact is
+/// still listed, with no container, rather than silently dropped. Regression test for #153.
+#[tokio::test]
+async fn integration_contacts_with_ambiguous_container_are_listed_without_one()
+-> Result<(), Box<dyn std::error::Error>> {
+    let fixture = ContactsFixtureDb::seeded_with_second_container().await?;
+    let pool = connect_pool(fixture.path()).await?;
+    let app = contacts_app(pool);
+
+    let (status, contacts) = response_json(app.clone(), "/v1/contacts?limit=50").await?;
+    assert_eq!(status, StatusCode::OK);
+    let item = find_item(&contacts, SEED_UNCONTAINED_CONTACT_ID)
+        .ok_or(format!("contact missing from list: {contacts}"))?;
+    assert!(
+        item["container_id"].is_null(),
+        "unexpected container: {item}"
+    );
+    let seeded = find_item(&contacts, SEED_CONTACT_ID)
+        .ok_or(format!("seeded contact missing from list: {contacts}"))?;
+    assert_eq!(seeded["container_id"], SEED_CONTAINER_ID);
+
+    let (status, filtered) = response_json(
+        app,
+        &format!("/v1/contacts?container_id={SEED_SECOND_CONTAINER_ID}&limit=50"),
+    )
+    .await?;
+    assert_eq!(status, StatusCode::OK);
+    assert!(
+        find_item(&filtered, SEED_UNCONTAINED_CONTACT_ID).is_none(),
+        "ambiguous contact must not be attributed to a container: {filtered}"
     );
     Ok(())
 }

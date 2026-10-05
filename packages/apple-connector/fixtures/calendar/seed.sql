@@ -255,6 +255,44 @@ VALUES
     0
   );
 
+-- Overnight event: starts 2025-01-15 23:00 UTC, ends 2025-01-16 01:00 UTC.
+INSERT INTO
+  CalendarItem (
+    ROWID,
+    summary,
+    start_date,
+    end_date,
+    all_day,
+    calendar_id,
+    hidden,
+    has_recurrences,
+    UUID,
+    entity_type,
+    status,
+    last_modified
+  )
+VALUES
+  (
+    4,
+    'Red-eye Flight',
+    758674800.0,
+    758682000.0,
+    0,
+    1,
+    0,
+    0,
+    'ffffffff-ffff-ffff-ffff-ffffffffffff',
+    0,
+    0,
+    758635000.0
+  );
+
+-- OccurrenceCache mirrors the layout macOS writes:
+-- * the first row of every occurrence leaves `occurrence_start_date` NULL and
+--   carries the occurrence start in `occurrence_date`;
+-- * an occurrence that crosses midnight gets one continuation row per extra
+--   day, where `occurrence_date` is that day and `occurrence_start_date` holds
+--   the original start.
 INSERT INTO
   OccurrenceCache (
     day,
@@ -267,13 +305,40 @@ INSERT INTO
   )
 VALUES
   (
+    758592000.0,
+    1,
+    1,
+    1,
     758635200.0,
+    NULL,
+    758637000.0
+  ),
+  (
+    758592000.0,
     2,
     1,
     1,
     758635200.0,
-    758635200.0,
+    NULL,
     758637000.0
+  ),
+  (
+    758592000.0,
+    4,
+    1,
+    1,
+    758674800.0,
+    NULL,
+    758682000.0
+  ),
+  (
+    758678400.0,
+    4,
+    1,
+    1,
+    758678400.0,
+    758674800.0,
+    758682000.0
   );
 
 INSERT INTO
