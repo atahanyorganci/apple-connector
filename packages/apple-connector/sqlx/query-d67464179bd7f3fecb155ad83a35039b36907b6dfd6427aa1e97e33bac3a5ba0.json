@@ -1,6 +1,6 @@
 {
   "db_name": "SQLite",
-  "query": "\n        SELECT\n          ci.ROWID AS \"row_id!\",\n          lower(ci.UUID) AS \"id!: String\",\n          ci.calendar_id AS \"calendar_row_id!\",\n          lower(c.UUID) AS \"calendar_id!: String\",\n          ci.summary,\n          ci.description,\n          ci.start_date,\n          ci.end_date,\n          ci.all_day,\n          ci.status,\n          ci.hidden,\n          ci.has_recurrences,\n          ci.url,\n          ci.last_modified,\n          ci.creation_date,\n          ci.orig_item_id,\n          ci.orig_date,\n          lower(series.UUID) AS \"series_id: String\",\n          ci.invitation_status,\n          ci.availability,\n          ci.privacy_level,\n          ci.conference_url,\n          ci.travel_time,\n          ci.location_id,\n          ci.organizer_id,\n          ci.entity_type,\n          ci.birthday_id,\n          ci.special_day,\n          ci.structured_data AS \"structured_data: Vec<u8>\",\n          ci.app_link AS \"app_link: Vec<u8>\",\n          oc.occurrence_start_date AS occurrence_start,\n          oc.occurrence_end_date AS occurrence_end\n        FROM OccurrenceCache oc\n        JOIN CalendarItem ci ON ci.ROWID = oc.event_id\n        JOIN Calendar c ON c.ROWID = ci.calendar_id\n        LEFT JOIN CalendarItem series ON series.ROWID = ci.orig_item_id\n        JOIN Store s ON s.ROWID = c.store_id\n        WHERE 1=1\n          AND (?1 = 1 OR ci.hidden = 0)\n          AND (?2 = 1 OR COALESCE(ci.status, 0) != 2)\n          AND (?3 IS NULL OR lower(c.UUID) = lower(?3))\n          AND (?4 IS NULL OR lower(s.external_id) = lower(?4))\n          AND (?5 IS NULL OR ci.summary LIKE ?5)\n          AND (?6 IS NULL OR oc.occurrence_end_date >= ?6)\n          AND (?7 IS NULL OR oc.occurrence_start_date <= ?7)\n          AND (\n            ?8 IS NULL\n            OR oc.occurrence_start_date < ?8\n            OR (oc.occurrence_start_date = ?8 AND ci.ROWID < ?9)\n          )\n        ORDER BY oc.occurrence_start_date DESC, ci.ROWID DESC\n        LIMIT ?10\n        ",
+  "query": "\n        WITH occurrence AS (\n          SELECT\n            oc.event_id,\n            COALESCE(oc.occurrence_start_date, oc.occurrence_date) AS occ_start,\n            MAX(oc.occurrence_end_date) AS occ_end\n          FROM OccurrenceCache oc\n          WHERE (?6 IS NULL OR oc.occurrence_end_date >= ?6)\n            AND (?7 IS NULL OR COALESCE(oc.occurrence_start_date, oc.occurrence_date) <= ?7)\n          GROUP BY oc.event_id, COALESCE(oc.occurrence_start_date, oc.occurrence_date)\n        )\n        SELECT\n          ci.ROWID AS \"row_id!\",\n          lower(ci.UUID) AS \"id!: String\",\n          ci.calendar_id AS \"calendar_row_id!\",\n          lower(c.UUID) AS \"calendar_id!: String\",\n          ci.summary,\n          ci.description,\n          ci.start_date,\n          ci.end_date,\n          ci.all_day,\n          ci.status,\n          ci.hidden,\n          ci.has_recurrences,\n          ci.url,\n          ci.last_modified,\n          ci.creation_date,\n          ci.orig_item_id,\n          ci.orig_date,\n          lower(series.UUID) AS \"series_id: String\",\n          ci.invitation_status,\n          ci.availability,\n          ci.privacy_level,\n          ci.conference_url,\n          ci.travel_time,\n          ci.location_id,\n          ci.organizer_id,\n          ci.entity_type,\n          ci.birthday_id,\n          ci.special_day,\n          ci.structured_data AS \"structured_data: Vec<u8>\",\n          ci.app_link AS \"app_link: Vec<u8>\",\n          o.occ_start AS \"occurrence_start?: f64\",\n          o.occ_end AS \"occurrence_end?: f64\"\n        FROM occurrence o\n        JOIN CalendarItem ci ON ci.ROWID = o.event_id\n        JOIN Calendar c ON c.ROWID = ci.calendar_id\n        LEFT JOIN CalendarItem series ON series.ROWID = ci.orig_item_id\n        JOIN Store s ON s.ROWID = c.store_id\n        WHERE 1=1\n          AND (?1 = 1 OR ci.hidden = 0)\n          AND (?2 = 1 OR COALESCE(ci.status, 0) != 2)\n          AND (?3 IS NULL OR lower(c.UUID) = lower(?3))\n          AND (?4 IS NULL OR lower(s.external_id) = lower(?4))\n          AND (?5 IS NULL OR ci.summary LIKE ?5)\n          AND (\n            ?8 IS NULL\n            OR o.occ_start < ?8\n            OR (o.occ_start = ?8 AND ci.ROWID < ?9)\n          )\n        ORDER BY o.occ_start DESC, ci.ROWID DESC\n        LIMIT ?10\n        ",
   "describe": {
     "columns": [
       {
@@ -319,26 +319,16 @@
         }
       },
       {
-        "name": "occurrence_start",
+        "name": "occurrence_start?: f64",
         "ordinal": 30,
         "type_info": "Float",
-        "origin": {
-          "Table": {
-            "table": "OccurrenceCache",
-            "name": "occurrence_start_date"
-          }
-        }
+        "origin": "Expression"
       },
       {
-        "name": "occurrence_end",
+        "name": "occurrence_end?: f64",
         "ordinal": 31,
         "type_info": "Float",
-        "origin": {
-          "Table": {
-            "table": "OccurrenceCache",
-            "name": "occurrence_end_date"
-          }
-        }
+        "origin": "Expression"
       }
     ],
     "parameters": {
@@ -379,5 +369,5 @@
       true
     ]
   },
-  "hash": "b6dc6226d5f9a153b2bc1c0b955f47d23bfd1b183f12c88388084cc1475d68fc"
+  "hash": "d67464179bd7f3fecb155ad83a35039b36907b6dfd6427aa1e97e33bac3a5ba0"
 }

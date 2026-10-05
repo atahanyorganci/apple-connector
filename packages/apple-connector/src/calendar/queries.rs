@@ -202,9 +202,24 @@ pub async fn fetch_occurrence_events_page(
     pool: &SqlitePool,
     binds: &EventFilterBinds,
 ) -> Result<Vec<EventRow>, sqlx::Error> {
+    // macOS writes one `OccurrenceCache` row per day an occurrence touches. The first row leaves
+    // `occurrence_start_date` NULL and keeps the occurrence start in `occurrence_date`; each
+    // continuation row (an occurrence crossing midnight) keeps the original start in
+    // `occurrence_start_date`. The CTE resolves the real start and collapses those rows back to
+    // one per occurrence before the range filter, ordering, and cursor see them.
     sqlx::query_as!(
         EventRow,
         r#"
+        WITH occurrence AS (
+          SELECT
+            oc.event_id,
+            COALESCE(oc.occurrence_start_date, oc.occurrence_date) AS occ_start,
+            MAX(oc.occurrence_end_date) AS occ_end
+          FROM OccurrenceCache oc
+          WHERE (?6 IS NULL OR oc.occurrence_end_date >= ?6)
+            AND (?7 IS NULL OR COALESCE(oc.occurrence_start_date, oc.occurrence_date) <= ?7)
+          GROUP BY oc.event_id, COALESCE(oc.occurrence_start_date, oc.occurrence_date)
+        )
         SELECT
           ci.ROWID AS "row_id!",
           lower(ci.UUID) AS "id!: String",
@@ -236,10 +251,10 @@ pub async fn fetch_occurrence_events_page(
           ci.special_day,
           ci.structured_data AS "structured_data: Vec<u8>",
           ci.app_link AS "app_link: Vec<u8>",
-          oc.occurrence_start_date AS occurrence_start,
-          oc.occurrence_end_date AS occurrence_end
-        FROM OccurrenceCache oc
-        JOIN CalendarItem ci ON ci.ROWID = oc.event_id
+          o.occ_start AS "occurrence_start?: f64",
+          o.occ_end AS "occurrence_end?: f64"
+        FROM occurrence o
+        JOIN CalendarItem ci ON ci.ROWID = o.event_id
         JOIN Calendar c ON c.ROWID = ci.calendar_id
         LEFT JOIN CalendarItem series ON series.ROWID = ci.orig_item_id
         JOIN Store s ON s.ROWID = c.store_id
@@ -249,14 +264,12 @@ pub async fn fetch_occurrence_events_page(
           AND (?3 IS NULL OR lower(c.UUID) = lower(?3))
           AND (?4 IS NULL OR lower(s.external_id) = lower(?4))
           AND (?5 IS NULL OR ci.summary LIKE ?5)
-          AND (?6 IS NULL OR oc.occurrence_end_date >= ?6)
-          AND (?7 IS NULL OR oc.occurrence_start_date <= ?7)
           AND (
             ?8 IS NULL
-            OR oc.occurrence_start_date < ?8
-            OR (oc.occurrence_start_date = ?8 AND ci.ROWID < ?9)
+            OR o.occ_start < ?8
+            OR (o.occ_start = ?8 AND ci.ROWID < ?9)
           )
-        ORDER BY oc.occurrence_start_date DESC, ci.ROWID DESC
+        ORDER BY o.occ_start DESC, ci.ROWID DESC
         LIMIT ?10
         "#,
         binds.include_hidden,
