@@ -55,7 +55,7 @@ Codec.
 - Tables are not decoded. #35 promised structured table content with cell text and was closed;
   the table protobuf (`ZMERGEABLEDATA`) is never read, and the three ACNP table fixtures fail to
   decode. Proven by: `tests/acnp_fixtures.rs::acnp_table_simple`, `acnp_table_formats`,
-  `acnp_table_right_to_left` (ignored, fail today).
+  `acnp_table_right_to_left` (ignored, fail today). Tracked in #168.
 
 ## Limits and non-goals
 

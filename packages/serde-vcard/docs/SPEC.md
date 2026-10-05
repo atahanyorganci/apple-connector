@@ -54,12 +54,12 @@ Codec.
 ### Known bugs
 
 - Output lines end in LF; RFC 6350 §3.2 requires CRLF. Proven by:
-  `tests/spec.rs::lines_end_with_crlf` (ignored, fails today).
+  `tests/spec.rs::lines_end_with_crlf` (ignored, fails today). Tracked in #164.
 - A `BDAY` the date parser cannot read (for example the year-less `--0415` RFC 6350 allows) is
   dropped: it is neither a birthday nor kept in `unknown`. Proven by:
-  `tests/spec.rs::an_unparseable_birthday_is_not_dropped` (ignored, fails today).
+  `tests/spec.rs::an_unparseable_birthday_is_not_dropped` (ignored, fails today). Tracked in #165.
 - The `Cargo.toml` description still says "Serde Serializer and Deserializer"; the crate has none
-  since #94 ([REC-0013](../../../docs/decisions/REC-0013-typed-format-apis.md)).
+  since #94 ([REC-0013](../../../docs/decisions/REC-0013-typed-format-apis.md)). Tracked in #171.
 
 ## Limits and non-goals
 

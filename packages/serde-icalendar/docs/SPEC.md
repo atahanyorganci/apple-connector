@@ -55,11 +55,11 @@ Codec.
 
 - A zoned time is written with `TZID=` but without a matching `VTIMEZONE`; RFC 5545 §3.2.19
   requires one for each `TZID` used. Proven by:
-  `tests/spec.rs::zoned_times_are_written_with_their_vtimezone` (ignored, fails today).
+  `tests/spec.rs::zoned_times_are_written_with_their_vtimezone` (ignored, fails today). Tracked in #166.
 - The `Cargo.toml` description still says "Serde Serializer and Deserializer"; the crate has none
-  since #94 ([REC-0013](../../../docs/decisions/REC-0013-typed-format-apis.md)).
+  since #94 ([REC-0013](../../../docs/decisions/REC-0013-typed-format-apis.md)). Tracked in #171.
 - `tests/docs/openapi.json` is a stale copy of the `apple-connector` contract committed by accident
-  in `b47e5ae`; nothing reads it.
+  in `b47e5ae`; nothing reads it. Tracked in #171.
 
 ## Limits and non-goals
 

@@ -98,29 +98,29 @@ Application.
 - **Coarse error codes.** Framework outcomes still answer `resource_not_found`,
   `unprocessable_entity`, and `gateway_timeout`, and body rejections `validation_error`, which
   #130 removed. Proven by: `framework_errors_map_to_granular_codes` in
-  `src/api/eventkit_convert.rs` and `src/api/contacts_convert.rs` (ignored, fail today).
+  `src/api/eventkit_convert.rs` and `src/api/contacts_convert.rs` (ignored, fail today). Tracked in #159.
 - **Framework text in responses.** EventKit and Contacts `ValidationFailed` carry
   `NSError.localizedDescription`, which becomes the 422 `message`. Proven by:
-  `framework_validation_text_is_not_returned_to_clients` in both files (ignored, fail today).
+  `framework_validation_text_is_not_returned_to_clients` in both files (ignored, fail today). Tracked in #158.
 - **Read endpoints answer malformed query strings outside the envelope** (axum's plain-text 400)
   ([CONN-L-0005](lessons/CONN-L-0005-extractor-rejections.md)). Proven by:
-  `tests/spec.rs::an_rfc3339_query_bound_is_a_typed_error` (ignored, fails today).
+  `tests/spec.rs::an_rfc3339_query_bound_is_a_typed_error` (ignored, fails today). Tracked in #160.
 - **Contacts cursors are not bound to their filters.** Proven by:
-  `tests/spec.rs::contact_cursors_are_bound_to_their_filters` (ignored, fails today).
+  `tests/spec.rs::contact_cursors_are_bound_to_their_filters` (ignored, fails today). Tracked in #161.
 - **Legacy Calendar schemas pass startup** and `/healthz`, then fail each query; #99 required a
   startup failure. Proven by: `tests/spec.rs::a_legacy_calendar_schema_fails_the_startup_gate`
-  (ignored, fails today).
+  (ignored, fails today). Tracked in #162.
 - **Dates before 2001-01-01 are read as `null`** for every Core Data timestamp — contact
   birthdays, calendar events, reminders, notes — because a value `<= 0` is treated as unset.
-  Proven by: `tests/spec.rs::core_data_dates_before_2001_are_kept` (ignored, fails today).
+  Proven by: `tests/spec.rs::core_data_dates_before_2001_are_kept` (ignored, fails today). Tracked in #157.
 - **Calendar writes resolve the calendar by title**, not by the `calendar_id` given, so two
   calendars with the same title answer `409 ambiguous_event_kit_match` (`apple-eventkit` known
-  bug). Proven by: `apple-eventkit/tests/identifier_probe.rs` (live).
+  bug). Proven by: `apple-eventkit/tests/identifier_probe.rs` (live). Tracked in #156.
 - **The contact photo route treats `%` and `_` in the id as wildcards**, so
   `GET /v1/contacts/%25/photo` returns some contact's photo. Proven by:
-  `tests/spec.rs::a_photo_is_only_served_for_the_exact_contact_id` (ignored, fails today).
+  `tests/spec.rs::a_photo_is_only_served_for_the_exact_contact_id` (ignored, fails today). Tracked in #163.
 - **`GET /v1/contacts/{id}/photo` documents no response content type** in OpenAPI, so generated
-  clients type it as `void`. Proven by: `docs/openapi.json`.
+  clients type it as `void`. Proven by: `docs/openapi.json`. Tracked in #169.
 
 ## Limits and non-goals
 

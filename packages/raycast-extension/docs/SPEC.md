@@ -52,12 +52,12 @@ Application.
   ([REC-0012](../../../docs/decisions/REC-0012-reject-not-coerce.md)). The create-reminder AI tool
   fails the same way when the model passes `flagged` or tags. Proven by:
   `packages/apple-connector/tests/spec.rs::flagged_false_is_still_an_unsupported_reminder_field`
-  and `src/create-reminder.tsx` (`flagged: values.flagged`).
+  and `src/create-reminder.tsx` (`flagged: values.flagged`). Tracked in #155.
 - **`pnpm check` fails**: the root `package.json` defines `format`, so turbo resolves `"format"` in
   `//#check`'s `dependsOn` to `//#format`, which has no `turbo.json` entry
-  (`missing_root_task_in_turbo_json`). Proven by: running `pnpm check`.
+  (`missing_root_task_in_turbo_json`). Proven by: running `pnpm check`. Tracked in #170.
 - **Contact photos are fetched by URL**, because the generated client types the photo operation's
-  response as `void` (`apple-connector` known bug).
+  response as `void` (`apple-connector` known bug). Tracked in #169.
 
 ## Limits and non-goals
 

@@ -86,7 +86,7 @@ Framework.
   (lowercased), which the probe shows never resolve on macOS 27, so it falls back to a
   case-insensitive title match: two calendars with the same title are `AmbiguousMatch`. Proven by:
   `tests/identifier_probe.rs` (0/18 calendars by lowercased UUID, 0/14 by `external_id`) together
-  with `src/calendar_resolve.rs`.
+  with `src/calendar_resolve.rs`. Tracked in #156.
 
 ## Limits and non-goals
 

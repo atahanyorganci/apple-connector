@@ -48,9 +48,9 @@ Codec.
 
 - A `DAV:href` nested inside a property value (for example
   `current-user-principal`) replaces the response's own href. Proven by:
-  `tests/spec.rs::a_nested_href_does_not_replace_the_response_href` (ignored, fails today).
+  `tests/spec.rs::a_nested_href_does_not_replace_the_response_href` (ignored, fails today). Tracked in #167.
 - The `Cargo.toml` description still says "Serde Serializer and Deserializer"
-  ([REC-0013](../../../docs/decisions/REC-0013-typed-format-apis.md)).
+  ([REC-0013](../../../docs/decisions/REC-0013-typed-format-apis.md)). Tracked in #171.
 
 ## Limits and non-goals
 
