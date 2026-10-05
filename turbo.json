@@ -11,9 +11,6 @@
 		"//#format:root:fix": { "cache": false },
 		"typecheck": { "dependsOn": ["^typecheck"] },
 		"build": { "dependsOn": ["^build"] },
-		"dev": { "cache": false, "persistent": true },
-		"//#check": {
-			"dependsOn": ["format", "//#format:root", "generate:check", "lint", "typecheck"]
-		}
+		"dev": { "cache": false, "persistent": true }
 	}
 }

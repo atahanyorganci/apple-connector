@@ -16,7 +16,9 @@ Application.
 - **AI tools** (`src/tools/`): search-messages, search-reminders, create-reminder, search-notes,
   get-note-contents, search-contacts, list-events, create-event.
 - **Preference** `baseUrl`, default `http://127.0.0.1:3000`.
-- **Scripts**: `generate`, `generate:check`, `dev`, `build`, `lint`, `format`, `typecheck`.
+- **Scripts**: `generate`, `generate:check`, `dev`, `build`, `lint`, `format`, `typecheck`. From the repository
+  root, `pnpm check` runs `format`, `generate:check`, `lint`, and `typecheck` here plus the root
+  `format:root`.
 
 ## Guarantees
 
@@ -46,14 +48,11 @@ Application.
 
 - Nothing here has run against a live server or inside Raycast, and the evals in `package.json`
   have not been executed (`ray evals` needs Raycast Pro) — PR #149.
-- There are no automated tests; `generate:check`, `lint`, `format`, and `typecheck` are the checks,
-  and none of them is part of `nix flake check`.
+- There are no automated tests; `pnpm check` is the only check, and it is not part of
+  `nix flake check`.
 
 ### Known bugs
 
-- **`pnpm check` fails**: the root `package.json` defines `format`, so turbo resolves `"format"` in
-  `//#check`'s `dependsOn` to `//#format`, which has no `turbo.json` entry
-  (`missing_root_task_in_turbo_json`). Proven by: running `pnpm check`. Tracked in #170.
 - **Contact photos are fetched by URL**, because the generated client types the photo operation's
   response as `void` (`apple-connector` known bug). Tracked in #169.
 
