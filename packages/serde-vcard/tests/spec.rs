@@ -51,7 +51,6 @@ fn impp_is_written_back_as_x_socialprofile() -> TestResult {
 
 /// RFC 6350 §3.2: lines are delimited by CRLF.
 #[test]
-#[ignore = "bug: the writer ends lines with LF, not CRLF (SPEC.md, Known bugs)"]
 fn lines_end_with_crlf() -> TestResult {
     let written = to_string(&VCard {
         formatted_name: Some("Jane Doe".to_owned()),

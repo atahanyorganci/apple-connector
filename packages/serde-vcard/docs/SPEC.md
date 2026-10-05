@@ -38,6 +38,8 @@ Codec.
   `tests/properties.rs` (`apple_group_labels_become_the_property_label`,
   `bare_type_parameters_are_understood`, `type_is_written_once_per_property`,
   `quoted_parameter_values_may_contain_a_colon`).
+- Output lines end in CRLF (RFC 6350 §3.2), and a fold is CRLF followed by one space. Enforced by:
+  `tests/spec.rs::lines_end_with_crlf`.
 - Folded lines unfold without eating significant spaces; long lines are folded so no line exceeds
   75 octets, without splitting a character. Enforced by:
   `tests/properties.rs::folded_values_keep_significant_spaces`,
@@ -53,8 +55,6 @@ Codec.
 
 ### Known bugs
 
-- Output lines end in LF; RFC 6350 §3.2 requires CRLF. Proven by:
-  `tests/spec.rs::lines_end_with_crlf` (ignored, fails today). Tracked in #164.
 - A `BDAY` the date parser cannot read (for example the year-less `--0415` RFC 6350 allows) is
   dropped: it is neither a birthday nor kept in `unknown`. Proven by:
   `tests/spec.rs::an_unparseable_birthday_is_not_dropped` (ignored, fails today). Tracked in #165.

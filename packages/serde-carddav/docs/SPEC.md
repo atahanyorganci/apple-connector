@@ -54,7 +54,6 @@ Codec.
   (`tests/spec.rs::an_invalid_payload_fails_the_whole_document`).
 - Each `address-data` carries one card; only the first card in it is read.
 - A missing content type is reported as `text/vcard; charset=utf-8`.
-- Inherits `serde-vcard`'s known bugs (LF line endings inside `address-data`).
 - No PROPFIND/REPORT request bodies and no server behaviour.
 
 ## Platform and permissions
