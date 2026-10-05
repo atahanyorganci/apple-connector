@@ -651,4 +651,38 @@ mod tests {
         assert_eq!(absolute.at, Some(1_700_000_000));
         Ok(())
     }
+
+    /// `apple-eventkit` puts `NSError.localizedDescription` into `ValidationFailed` (see
+    /// `validation_codes_carry_the_framework_description` there). The mapper must not hand that
+    /// framework text to clients.
+    #[test]
+    #[ignore = "bug: framework validation text reaches the 422 message (SPEC.md, Known bugs)"]
+    fn framework_validation_text_is_not_returned_to_clients() {
+        let framework_text = "The start date must be before the end date.";
+        let error = map_eventkit_error(EventKitError::ValidationFailed(framework_text.into()));
+        assert_ne!(error.body().message, framework_text);
+    }
+
+    /// #130 removed the coarse, HTTP-aligned codes; a framework miss should answer with a
+    /// granular code, not `resource_not_found`.
+    #[test]
+    #[ignore = "bug: coarse error codes are still emitted (SPEC.md, Known bugs)"]
+    fn framework_errors_map_to_granular_codes() {
+        for error in [
+            EventKitError::NotFound,
+            EventKitError::ValidationFailed(String::new()),
+            EventKitError::Timeout,
+        ] {
+            let code = map_eventkit_error(error).body().code;
+            assert!(
+                !matches!(
+                    code,
+                    ErrorCode::ResourceNotFound
+                        | ErrorCode::UnprocessableEntity
+                        | ErrorCode::GatewayTimeout
+                ),
+                "coarse code {code:?}"
+            );
+        }
+    }
 }
