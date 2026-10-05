@@ -46,9 +46,8 @@ One serving path (`api/media.rs`, `serve_media_bytes`) for all four domains:
 
 - A missing or incomplete file is the domain's `*_attachment_unavailable` code, not a 500.
 - Contact photos come from a database blob, not a file, and are served by their own handler.
-- The longer media request timeout applies only to paths ending in `/content`; event attachments
-  (`/v1/events/{id}/attachments/{attachment_id}`) stream bytes under the 30 s JSON timeout
-  ([CONN-0009](CONN-0009-timeouts.md), known bug).
+- Request timeouts end when the response head is returned, so no download is cut off by them
+  ([CONN-0009](CONN-0009-timeouts.md)).
 
 ## Evidence
 

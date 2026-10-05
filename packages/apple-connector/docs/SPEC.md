@@ -77,15 +77,18 @@ Application.
 - **Attachments** are served from database-resolved paths confined to their store's root, with
   Range, HEAD, and conditional requests ([CONN-0008](decisions/CONN-0008-media-serving.md)).
   Enforced by: attachment handler tests in `src/api/handlers/*attachments.rs`.
-- **Bounds.** Query 15 s, JSON request 30 s, media request 300 s, each a 504 with its own code
-  ([CONN-0009](decisions/CONN-0009-timeouts.md)). Enforced by: `src/api/error.rs` tests.
+- **Bounds.** Query 15 s (`504 query_timeout`); time until the response head 30 s, or 300 s on
+  paths ending in `/content` (`504 request_timeout`). Response bodies stream without a bound
+  ([CONN-0009](decisions/CONN-0009-timeouts.md)). Enforced by: `src/api/error.rs` tests,
+  `src/api/middleware.rs::request_timeout_does_not_bound_the_response_body`.
 - **SQL** is compile-time checked ([CONN-0018](decisions/CONN-0018-compile-time-sql.md)). Enforced
   by: `SQLX_OFFLINE` builds and `scripts/check-runtime-sql.sh`.
 
 ### Not yet enforced
 
 - The runtime-SQL guard does not scan `tests/`, so integration tests use runtime SQL (#71).
-- Nothing tests the request timeouts themselves; only their error mapping is tested.
+- Nothing tests that a slow handler actually times out; only the error mapping and the
+  head-only scope are tested.
 - Live behaviour (EventKit and Contacts writes, real stores) is covered only by `#[ignore]` tests
   run by hand: `tests/eventkit_integration.rs`, `tests/contacts_integration.rs`,
   `tests/integration.rs`.
@@ -116,9 +119,6 @@ Application.
 - **The contact photo route treats `%` and `_` in the id as wildcards**, so
   `GET /v1/contacts/%25/photo` returns some contact's photo. Proven by:
   `tests/spec.rs::a_photo_is_only_served_for_the_exact_contact_id` (ignored, fails today).
-- **Event attachments get the JSON timeout.** The media timeout is chosen by a `/content` path
-  suffix, which `/v1/events/{id}/attachments/{attachment_id}` does not have. Proven by: code
-  (`src/api/middleware.rs` `request_timeout`).
 - **`GET /v1/contacts/{id}/photo` documents no response content type** in OpenAPI, so generated
   clients type it as `void`. Proven by: `docs/openapi.json`.
 

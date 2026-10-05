@@ -63,8 +63,9 @@ Served by one path for Messages, Reminders, Notes, and Calendar: GET and HEAD, b
 | --- | --- | --- |
 | Query | 15 s | `504 query_timeout` |
 | Pool acquire | 5 s | `504 query_timeout` |
-| Request (JSON) | 30 s | `504 request_timeout` |
-| Request (path ends in `/content`) | 300 s | `504 request_timeout` |
+| Request, until the response head | 30 s | `504 request_timeout` |
+| Request on a path ending in `/content`, until the response head | 300 s | `504 request_timeout` |
+| Response body (downloads included) | unbounded | — |
 
 ([CONN-0009](../decisions/CONN-0009-timeouts.md))
 

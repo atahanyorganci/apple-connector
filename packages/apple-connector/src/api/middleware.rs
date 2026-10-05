@@ -137,6 +137,50 @@ mod tests {
         Ok(())
     }
 
+    /// The request timeout covers the handler until it returns its response head. The body is
+    /// polled afterwards, outside the middleware, so neither budget can cut off a download.
+    #[tokio::test]
+    async fn request_timeout_does_not_bound_the_response_body()
+    -> Result<(), Box<dyn std::error::Error>> {
+        use std::{
+            sync::{Arc, Mutex},
+            time::Duration,
+        };
+
+        use tokio_util::io::ReaderStream;
+
+        // The writer half stays alive and is never written to, so the body never yields a frame.
+        let (writer, reader) = tokio::io::duplex(64);
+        let reader = Arc::new(Mutex::new(Some(reader)));
+        let app = Router::new()
+            .route(
+                "/v1/download",
+                get(move || {
+                    let reader = Arc::clone(&reader);
+                    async move {
+                        match reader.lock().ok().and_then(|mut slot| slot.take()) {
+                            Some(reader) => Body::from_stream(ReaderStream::new(reader)),
+                            None => Body::empty(),
+                        }
+                    }
+                }),
+            )
+            .layer(from_fn(super::request_timeout));
+
+        let response = tokio::time::timeout(
+            Duration::from_secs(5),
+            app.oneshot(Request::builder().uri("/v1/download").body(Body::empty())?),
+        )
+        .await??;
+        assert_eq!(response.status(), StatusCode::OK);
+
+        let mut body = response.into_body();
+        let frame = tokio::time::timeout(Duration::from_millis(200), body.frame()).await;
+        assert!(frame.is_err(), "the response was returned before its body");
+        drop(writer);
+        Ok(())
+    }
+
     #[tokio::test]
     async fn unknown_route_returns_json_not_found() -> Result<(), Box<dyn std::error::Error>> {
         let app = Router::new().fallback(not_found);

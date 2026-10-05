@@ -34,16 +34,21 @@ Bound each layer:
 | SQLite busy timeout | 5 s | waits for Apple's write locks |
 | Pool acquire | 5 s | `504 query_timeout` |
 | Query (`run_timed_query`) | 15 s | `504 query_timeout` |
-| JSON request | 30 s | `504 request_timeout` |
-| Media request (path ends in `/content`) | 300 s | `504 request_timeout` |
+| Request, until the response head | 30 s | `504 request_timeout` |
+| Request on a path ending in `/content`, until the response head | 300 s | `504 request_timeout` |
+| Response body | unbounded | — |
 
 ## Consequences
 
 - Repository calls are wrapped in `run_timed_query`; `ApiError::from_sqlx` maps
   `PoolTimedOut` to `query_timeout` and every other database error to `internal_error`, without
   the driver text.
-- **Known bug**: the media timeout is chosen by the `/content` suffix, so
-  `/v1/events/{id}/attachments/{attachment_id}`, which streams bytes, gets the JSON timeout.
+- The request timeout wraps the handler until it returns its response head; the body is streamed
+  afterwards, outside the middleware. Downloads are therefore never cut off, which is what #13
+  asked for ("Keep media streaming outside the short JSON/database response timeout").
+- The `/content` suffix that selects the 300 s budget only matters for a handler that is slow to
+  produce its head. Event attachments (`/v1/events/{id}/attachments/{attachment_id}`) have no
+  such suffix and get 30 s, which covers their bounded query and file checks.
 
 ## Evidence
 
@@ -53,3 +58,6 @@ Bound each layer:
   `MEDIA_REQUEST_TIMEOUT`, `request_timeout` (`ends_with("/content")`).
 - `packages/apple-connector/src/api/error.rs` tests `from_sqlx_maps_pool_timeout_to_query_timeout`,
   `request_timeout_is_gateway_timeout`.
+- `packages/apple-connector/src/api/middleware.rs` test
+  `request_timeout_does_not_bound_the_response_body`: the response comes back while its body is
+  still pending.
