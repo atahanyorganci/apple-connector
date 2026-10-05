@@ -113,9 +113,6 @@ Application.
 - **Calendar writes resolve the calendar by title**, not by the `calendar_id` given, so two
   calendars with the same title answer `409 ambiguous_event_kit_match` (`apple-eventkit` known
   bug). Proven by: `apple-eventkit/tests/identifier_probe.rs` (live). Tracked in #156.
-- **The contact photo route treats `%` and `_` in the id as wildcards**, so
-  `GET /v1/contacts/%25/photo` returns some contact's photo. Proven by:
-  `tests/spec.rs::a_photo_is_only_served_for_the_exact_contact_id` (ignored, fails today). Tracked in #163.
 - **`GET /v1/contacts/{id}/photo` documents no response content type** in OpenAPI, so generated
   clients type it as `void`. Proven by: `docs/openapi.json`. Tracked in #169.
 

@@ -268,8 +268,7 @@ impl<'a> ContactsRepository<'a> {
         contact_id: &str,
     ) -> Result<Option<(Vec<u8>, Option<String>)>, sqlx::Error> {
         let entity_ids = self.entity_ids().await?;
-        let row =
-            fetch_contact_photo(self.pool, entity_ids.contact, &format!("{contact_id}:")).await?;
+        let row = fetch_contact_photo(self.pool, entity_ids.contact, contact_id).await?;
         Ok(row.and_then(|row| row.photo_data.map(|data| (data, row.image_type))))
     }
 

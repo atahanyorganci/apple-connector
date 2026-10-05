@@ -36,8 +36,8 @@ directory name.
 
 JSON on the base routes; vCard on `…/vcard` and CardDAV XML on `…/carddav`, through `serde-vcard`
 and `serde-carddav`. `GET /v1/contacts/{id}/photo` returns the primary `ZABCDLIKENESS` image, or
-the record's `ZIMAGEDATA` when there is none. It matches the record with
-`LIKE '<id>:' || '%'`, so `%` and `_` in the id are wildcards (known bug).
+the record's `ZIMAGEDATA` when there is none, matching the id exactly
+(`tests/spec.rs::a_photo_is_only_served_for_the_exact_contact_id`).
 
 ## Writes
 

@@ -392,10 +392,12 @@ where
     .await
 }
 
+/// The photo of the contact whose API id is `contact_id`, compared exactly like every other contact
+/// lookup. This was a `LIKE` prefix match, which made `%` and `_` in the id wildcards (#163).
 pub async fn fetch_contact_photo<'e, E>(
     executor: E,
     contact_ent: i64,
-    contact_id_prefix: &str,
+    contact_id: &str,
 ) -> Result<Option<PhotoRow>, sqlx::Error>
 where
     E: SqliteExecutor<'e>,
@@ -409,11 +411,11 @@ where
         FROM ZABCDRECORD r
         LEFT JOIN ZABCDLIKENESS l ON l.ZOWNER = r.Z_PK AND l.ZISPRIMARY = 1
         WHERE r.Z_ENT = ?1
-          AND lower(r.ZUNIQUEID) LIKE lower(?2) || '%'
+          AND lower(substr(r.ZUNIQUEID, 1, instr(r.ZUNIQUEID, ':') - 1)) = lower(?2)
         LIMIT 1
         "#,
         contact_ent,
-        contact_id_prefix,
+        contact_id,
     )
     .fetch_optional(executor)
     .await

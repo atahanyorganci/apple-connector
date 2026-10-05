@@ -151,11 +151,10 @@ async fn contact_cursors_are_bound_to_their_filters() -> TestResult {
     Ok(())
 }
 
-/// A contact id names one contact. The photo route matches `ZUNIQUEID` with
-/// `LIKE '<id>:' || '%'` and does not escape `LIKE` metacharacters, so an id of `%` returns some
-/// contact's photo; every other contact route compares the id exactly.
+/// A contact id names one contact. The photo route used to match `ZUNIQUEID` with
+/// `LIKE '<id>:' || '%'`, so an id of `%` returned some contact's photo (#163); it now compares the
+/// id exactly, like every other contact route.
 #[tokio::test]
-#[ignore = "bug: the photo route treats % and _ in the id as wildcards (SPEC.md, Known bugs)"]
 async fn a_photo_is_only_served_for_the_exact_contact_id() -> TestResult {
     use sqlx::{Connection, sqlite::SqliteConnectOptions};
 
