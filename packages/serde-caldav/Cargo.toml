@@ -3,7 +3,7 @@ name = "serde-caldav"
 version = "0.1.0"
 edition = "2024"
 license = "MIT"
-description = "Serde Serializer and Deserializer for RFC 4791 CalDAV XML"
+description = "RFC 4791 CalDAV multistatus XML reader and writer"
 
 [lints]
 workspace = true

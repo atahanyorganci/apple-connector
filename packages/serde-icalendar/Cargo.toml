@@ -3,7 +3,7 @@ name = "serde-icalendar"
 version = "0.1.0"
 edition = "2024"
 license = "MIT"
-description = "Serde Serializer and Deserializer for RFC 5545 iCalendar text"
+description = "RFC 5545 iCalendar reader and writer for single events"
 
 [lints]
 workspace = true

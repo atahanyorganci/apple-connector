@@ -35,8 +35,8 @@ exception: it is a real Serde format and keeps `from_slice<T>`.
 ## Consequences
 
 - Multistatus documents are serialized once, so a page is one XML document (fixed the N roots).
-- The crate names and `Cargo.toml` descriptions still say "Serde Serializer and Deserializer";
-  the descriptions are stale (recorded under Known bugs in each crate's spec).
+- The crate names keep the `serde-` prefix, but the `Cargo.toml` descriptions say what each crate
+  is: a reader and writer for its format (#171).
 
 ## Evidence
 

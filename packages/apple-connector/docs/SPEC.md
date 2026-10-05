@@ -102,10 +102,12 @@ Application.
 - **Coarse error codes.** Framework outcomes still answer `resource_not_found`,
   `unprocessable_entity`, and `gateway_timeout`, and body rejections `validation_error`, which
   #130 removed. Proven by: `framework_errors_map_to_granular_codes` in
-  `src/api/eventkit_convert.rs` and `src/api/contacts_convert.rs` (ignored, fail today). Tracked in #159.
+  `src/api/eventkit_convert.rs` and `src/api/contacts_convert.rs` (ignored, fail today).
+  Tracked in #159.
 - **Framework text in responses.** EventKit and Contacts `ValidationFailed` carry
   `NSError.localizedDescription`, which becomes the 422 `message`. Proven by:
-  `framework_validation_text_is_not_returned_to_clients` in both files (ignored, fail today). Tracked in #158.
+  `framework_validation_text_is_not_returned_to_clients` in both files (ignored, fail today).
+  Tracked in #158.
 - **Read endpoints answer malformed query strings outside the envelope** (axum's plain-text 400)
   ([CONN-L-0005](lessons/CONN-L-0005-extractor-rejections.md)). Proven by:
   `tests/spec.rs::an_rfc3339_query_bound_is_a_typed_error` (ignored, fails today). Tracked in #160.

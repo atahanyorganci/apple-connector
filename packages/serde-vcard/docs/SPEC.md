@@ -57,8 +57,7 @@ Codec.
 
 ### Known bugs
 
-- The `Cargo.toml` description still says "Serde Serializer and Deserializer"; the crate has none
-  since #94 ([REC-0013](../../../docs/decisions/REC-0013-typed-format-apis.md)). Tracked in #171.
+None known.
 
 ## Limits and non-goals
 
