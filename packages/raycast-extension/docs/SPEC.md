@@ -33,6 +33,11 @@ Application.
   `page.has_more` is true. Enforced by: code (`src/lib/hooks.ts`).
 - Smart lists are never offered as reminder targets, in the form or the AI tool. Enforced by: code
   (`list.kind !== "smart"`).
+- Creating a reminder sends only fields EventKit can store: no `flagged`, `tags`, `section_id`,
+  `parent_id`, or `attachments`, which the API rejects with `422 unsupported_reminder_field`
+  ([REC-0012](../../../docs/decisions/REC-0012-reject-not-coerce.md)). Enforced by: the request
+  bodies in `src/create-reminder.tsx` and `src/tools/create-reminder.ts`; the server contract by
+  `packages/apple-connector/tests/spec.rs::flagged_false_is_still_an_unsupported_reminder_field`.
 - Both mutating AI tools export `Tool.Confirmation`; tool results are capped at 25 items and long
   text is truncated (500 characters by default, 4000 for note contents). Enforced by: code
   (`src/lib/ai.ts`, `src/tools/*`).
@@ -46,13 +51,6 @@ Application.
 
 ### Known bugs
 
-- **Create Reminder always fails.** The form always sends `flagged` (as `false` when unchecked),
-  plus `tags` and `section_id` when set, and the API rejects all three with
-  `422 unsupported_reminder_field` because EventKit cannot store them
-  ([REC-0012](../../../docs/decisions/REC-0012-reject-not-coerce.md)). The create-reminder AI tool
-  fails the same way when the model passes `flagged` or tags. Proven by:
-  `packages/apple-connector/tests/spec.rs::flagged_false_is_still_an_unsupported_reminder_field`
-  and `src/create-reminder.tsx` (`flagged: values.flagged`). Tracked in #155.
 - **`pnpm check` fails**: the root `package.json` defines `format`, so turbo resolves `"format"` in
   `//#check`'s `dependsOn` to `//#format`, which has no `turbo.json` entry
   (`missing_root_task_in_turbo_json`). Proven by: running `pnpm check`. Tracked in #170.
@@ -62,6 +60,8 @@ Application.
 ## Limits and non-goals
 
 - No sending messages: replies hand off to Messages.app.
+- New reminders cannot be flagged, tagged, put in a section, or nested; search still shows those
+  fields.
 - No Calendar commands (Raycast's Calendar feature covers it) and no contact or group writes.
 - Locked notes render as locked, never as empty.
 - AI tools require Raycast Pro.

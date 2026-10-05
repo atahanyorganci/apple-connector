@@ -59,8 +59,8 @@ async fn a_missing_messages_database_aborts_startup() -> TestResult {
 /// EventKit cannot store a flag on a reminder, so `flagged` is rejected whatever its value —
 /// including `false`. Validation runs before any store is consulted, so no EventKit is needed.
 ///
-/// This is the contract the Raycast "Create Reminder" form breaks: it always sends `flagged`, so
-/// every submission is refused (see the raycast-extension spec).
+/// The Raycast "Create Reminder" form once sent `flagged` on every submission and was refused
+/// every time (#155); it now sends only fields EventKit can store.
 #[tokio::test]
 async fn flagged_false_is_still_an_unsupported_reminder_field() -> TestResult {
     let app = router(AppState::new(None, None, None, None));

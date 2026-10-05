@@ -4,8 +4,8 @@ import { useState } from "react";
 import { RecurrenceFrequencyDtoValues } from "./lib/api.gen";
 import { request } from "./lib/client";
 import { remediationFor } from "./lib/errors";
-import { useApiItem, useApiList } from "./lib/hooks";
-import { parseTags, PRIORITIES } from "./lib/reminders";
+import { useApiList } from "./lib/hooks";
+import { PRIORITIES } from "./lib/reminders";
 import { toUnixSeconds } from "./lib/time";
 import type { CreateReminderRequest, RecurrenceFrequencyDto } from "./lib/api.gen";
 
@@ -13,13 +13,10 @@ type FormValues = {
 	title: string;
 	notes: string;
 	listId: string;
-	sectionId: string;
 	dueDate: Date | null;
 	allDay: boolean;
-	flagged: boolean;
 	priority: string;
 	url: string;
-	tags: string;
 	recurrence: string;
 	recurrenceInterval: string;
 };
@@ -36,15 +33,6 @@ export default function CreateReminder() {
 	const writableLists = lists.data.filter(list => list.kind !== "smart");
 	const selectedList = listId === "" ? writableLists[0] : writableLists.find(list => list.id === listId);
 
-	// Sections live on the list detail, so they are refetched whenever the
-	// selected list changes.
-	const listDetail = useApiItem(
-		"getReminderList",
-		{ path: { list_id: selectedList?.id ?? "" } },
-		{ execute: selectedList !== undefined },
-	);
-	const sections = listDetail.data?.sections ?? [];
-
 	async function onSubmit(values: FormValues) {
 		const targetList = values.listId || selectedList?.id;
 		if (!targetList) {
@@ -57,14 +45,14 @@ export default function CreateReminder() {
 		);
 		const interval = Number.parseInt(values.recurrenceInterval, 10);
 
+		// Only fields EventKit can store. Sections, flags, tags, subtasks and
+		// attachments are readable through the API but rejected on write with
+		// `unsupported_reminder_field`, so the form does not offer them.
 		const body: CreateReminderRequest = {
 			title: values.title.trim(),
 			notes: values.notes.trim() || null,
-			flagged: values.flagged,
 			priority: Number.parseInt(values.priority, 10),
 			url: values.url.trim() || null,
-			tags: parseTags(values.tags),
-			section_id: values.sectionId || null,
 			due: values.dueDate ? { at: toUnixSeconds(values.dueDate), all_day: values.allDay } : null,
 			recurrence: frequency ? { frequency, interval: Number.isFinite(interval) && interval > 0 ? interval : 1 } : null,
 		};
@@ -86,7 +74,7 @@ export default function CreateReminder() {
 
 	return (
 		<Form
-			isLoading={lists.isLoading || listDetail.isLoading}
+			isLoading={lists.isLoading}
 			actions={
 				<ActionPanel>
 					<Action.SubmitForm title="Create Reminder" icon={Icon.Plus} onSubmit={onSubmit} />
@@ -102,15 +90,6 @@ export default function CreateReminder() {
 				))}
 			</Form.Dropdown>
 
-			{sections.length > 0 ? (
-				<Form.Dropdown id="sectionId" title="Section">
-					<Form.Dropdown.Item value="" title="None" />
-					{sections.map(section => (
-						<Form.Dropdown.Item key={section.id} value={section.id} title={section.display_name} />
-					))}
-				</Form.Dropdown>
-			) : null}
-
 			<Form.Separator />
 
 			<Form.DatePicker id="dueDate" title="Due" />
@@ -125,14 +104,12 @@ export default function CreateReminder() {
 
 			<Form.Separator />
 
-			<Form.Checkbox id="flagged" label="Flagged" />
 			<Form.Dropdown id="priority" title="Priority" defaultValue="0">
 				{PRIORITIES.map(priority => (
 					<Form.Dropdown.Item key={priority.value} value={String(priority.value)} title={priority.label} />
 				))}
 			</Form.Dropdown>
 			<Form.TextField id="url" title="URL" placeholder="https://…" />
-			<Form.TextField id="tags" title="Tags" placeholder="Comma separated" />
 		</Form>
 	);
 }
