@@ -1520,7 +1520,7 @@ export interface Operations {
 		headers: never;
 		body: never;
 		status: 200;
-		response: void;
+		response: ArrayBuffer;
 	};
 	/** Get a contact as vCard */
 	getContactVcard: {
@@ -2465,7 +2465,7 @@ export const routes = {
 	getChat: { method: "GET", path: "/v1/chats/{chat_id}", kind: "json" },
 	getContact: { method: "GET", path: "/v1/contacts/{contact_id}", kind: "json" },
 	getContactCarddav: { method: "GET", path: "/v1/contacts/{contact_id}/carddav", kind: "text" },
-	getContactPhoto: { method: "GET", path: "/v1/contacts/{contact_id}/photo", kind: "void" },
+	getContactPhoto: { method: "GET", path: "/v1/contacts/{contact_id}/photo", kind: "binary" },
 	getContactVcard: { method: "GET", path: "/v1/contacts/{contact_id}/vcard", kind: "text" },
 	getContainer: { method: "GET", path: "/v1/containers/{container_id}", kind: "json" },
 	getEvent: { method: "GET", path: "/v1/events/{event_id}", kind: "json" },

@@ -209,7 +209,11 @@ pub async fn get_contact_carddav(
     tag = "contacts",
     params(ContactIdPath),
     responses(
-        (status = 200, description = "Contact photo bytes"),
+        (status = 200, description = "Contact photo bytes", content_type = "application/octet-stream",
+            headers(
+                ("Content-Type" = String, description = "image/jpeg, image/png, image/gif, image/heic, or application/octet-stream when the stored type is unknown")
+            )
+        ),
         (status = 404, description = "Contact or photo not found", body = ErrorResponse),
         (status = 503, description = "Contacts databases are unavailable", body = ErrorResponse),
     )

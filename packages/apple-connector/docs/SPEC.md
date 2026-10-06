@@ -114,8 +114,6 @@ Application.
 - **Calendar writes resolve the calendar by title**, not by the `calendar_id` given, so two
   calendars with the same title answer `409 ambiguous_event_kit_match` (`apple-eventkit` known
   bug). Proven by: `apple-eventkit/tests/identifier_probe.rs` (live). Tracked in #156.
-- **`GET /v1/contacts/{id}/photo` documents no response content type** in OpenAPI, so generated
-  clients type it as `void`. Proven by: `docs/openapi.json`. Tracked in #169.
 
 ## Limits and non-goals
 

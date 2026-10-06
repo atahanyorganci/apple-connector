@@ -53,8 +53,7 @@ Application.
 
 ### Known bugs
 
-- **Contact photos are fetched by URL**, because the generated client types the photo operation's
-  response as `void` (`apple-connector` known bug). Tracked in #169.
+None known.
 
 ## Limits and non-goals
 

@@ -2007,7 +2007,18 @@
         ],
         "responses": {
           "200": {
-            "description": "Contact photo bytes"
+            "description": "Contact photo bytes",
+            "headers": {
+              "Content-Type": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "image/jpeg, image/png, image/gif, image/heic, or application/octet-stream when the stored type is unknown"
+              }
+            },
+            "content": {
+              "application/octet-stream": {}
+            }
           },
           "404": {
             "description": "Contact or photo not found",
