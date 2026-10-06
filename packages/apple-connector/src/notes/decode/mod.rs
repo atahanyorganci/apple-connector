@@ -50,6 +50,7 @@ fn note_run_from_protobuf(run: apple_notes_protobuf::NoteRun) -> NoteRun {
         paragraph_style: run.paragraph_style.map(paragraph_style_from_protobuf),
         font_hints: run.font_hints,
         link: run.link,
+        attachment_identifier: run.attachment_identifier,
     }
 }
 
@@ -90,6 +91,7 @@ fn embedded_object_from_protobuf(object: apple_notes_protobuf::EmbeddedObject) -
     EmbeddedObject {
         attachment_identifier: object.attachment_identifier,
         type_uti: object.type_uti,
+        table: None,
     }
 }
 

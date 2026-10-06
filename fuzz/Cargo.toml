@@ -36,6 +36,13 @@ doc = false
 bench = false
 
 [[bin]]
+name = "notes_table_decode"
+path = "fuzz_targets/notes_table_decode.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
 name = "vcard_parse"
 path = "fuzz_targets/vcard_parse.rs"
 test = false

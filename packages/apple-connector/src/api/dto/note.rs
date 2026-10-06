@@ -103,6 +103,9 @@ pub struct NoteRunDto {
     pub font_hints: Option<u32>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub link: Option<String>,
+    /// The embedded object this run's U+FFFC placeholder stands for (see `embedded`).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub attachment_identifier: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, ToSchema)]
@@ -118,6 +121,21 @@ pub struct EmbeddedObjectDto {
     pub attachment_identifier: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub type_uti: Option<String>,
+    /// Cells of a `com.apple.notes.table` attachment.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub table: Option<NoteTableDto>,
+}
+
+/// A table embedded in a note.
+#[derive(Debug, Clone, Serialize, ToSchema)]
+pub struct NoteTableDto {
+    /// Cell text, row by row. Columns are in visual order, left to right, so a right-to-left
+    /// table's first column comes last.
+    pub rows: Vec<Vec<String>>,
+    pub right_to_left: bool,
+    /// Why the table could not be decoded; `rows` is empty when set.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub decode_error: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, ToSchema)]

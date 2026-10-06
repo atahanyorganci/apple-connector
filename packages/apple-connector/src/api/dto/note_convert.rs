@@ -4,7 +4,7 @@ use super::{
         ChecklistItemDto, EmbeddedObjectDto, FolderKindDto, NoteAttachmentDetailDto,
         NoteAttachmentSummaryDto, NoteBodyDto, NoteDetailDto, NoteFolderDetailDto,
         NoteFolderPageDto, NoteFolderSummaryDto, NotePageDto, NoteRunDto, NoteSummaryDto,
-        ParagraphStyleDto, ParagraphStyleKindDto,
+        NoteTableDto, ParagraphStyleDto, ParagraphStyleKindDto,
     },
     pagination::PageMetaDto,
 };
@@ -152,6 +152,7 @@ fn note_run_to_dto(run: &NoteRun) -> NoteRunDto {
         paragraph_style: run.paragraph_style.as_ref().map(paragraph_style_to_dto),
         font_hints: run.font_hints,
         link: run.link.clone(),
+        attachment_identifier: run.attachment_identifier.clone(),
     }
 }
 
@@ -188,6 +189,11 @@ fn embedded_object_to_dto(object: &EmbeddedObject) -> EmbeddedObjectDto {
     EmbeddedObjectDto {
         attachment_identifier: object.attachment_identifier.clone(),
         type_uti: object.type_uti.clone(),
+        table: object.table.as_ref().map(|table| NoteTableDto {
+            rows: table.rows.clone(),
+            right_to_left: table.right_to_left,
+            decode_error: table.decode_error.clone(),
+        }),
     }
 }
 

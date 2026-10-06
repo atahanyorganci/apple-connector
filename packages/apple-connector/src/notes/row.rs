@@ -50,6 +50,13 @@ pub struct FolderRow {
     pub modified_at: Option<f64>,
 }
 
+/// A table attachment's identifier and gzip-compressed mergeable data.
+#[derive(Debug, sqlx::FromRow, Clone)]
+pub struct TableDataRow {
+    pub identifier: String,
+    pub data: Option<Vec<u8>>,
+}
+
 #[derive(Debug, sqlx::FromRow, Clone)]
 pub struct AttachmentRow {
     pub row_id: i64,

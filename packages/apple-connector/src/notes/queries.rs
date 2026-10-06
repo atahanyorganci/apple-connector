@@ -3,7 +3,7 @@
 use sqlx::{SqliteExecutor, SqlitePool};
 
 use super::{
-    row::{AttachmentRow, FolderRow, NoteDetailRow, NoteRow},
+    row::{AttachmentRow, FolderRow, NoteDetailRow, NoteRow, TableDataRow},
     search::NoteFilterBinds,
 };
 
@@ -506,6 +506,31 @@ pub async fn list_attachments_for_note(
           AND a.ZMARKEDFORDELETION = 0
           AND a.ZNOTE = ?2
         ORDER BY a.Z_PK ASC
+        "#,
+        attachment_ent,
+        note_row_id,
+    )
+    .fetch_all(pool)
+    .await
+}
+
+/// The mergeable data of a note's table attachments. A table's cells live there, not in the body.
+pub async fn fetch_table_data_for_note(
+    pool: &SqlitePool,
+    attachment_ent: i64,
+    note_row_id: i64,
+) -> Result<Vec<TableDataRow>, sqlx::Error> {
+    sqlx::query_as!(
+        TableDataRow,
+        r#"
+        SELECT
+            a.ZIDENTIFIER AS "identifier!",
+            a.ZMERGEABLEDATA1 AS "data: Vec<u8>"
+        FROM ZICCLOUDSYNCINGOBJECT a
+        WHERE a.Z_ENT = ?1
+          AND a.ZMARKEDFORDELETION = 0
+          AND a.ZNOTE = ?2
+          AND a.ZTYPEUTI = 'com.apple.notes.table'
         "#,
         attachment_ent,
         note_row_id,

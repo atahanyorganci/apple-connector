@@ -412,6 +412,7 @@ export type DueInputDto = {
 
 export type EmbeddedObjectDto = {
 	attachment_identifier?: string | null;
+	table?: null | NoteTableDto;
 	type_uti?: string | null;
 };
 
@@ -865,6 +866,8 @@ export type NotePageDto = {
 };
 
 export type NoteRunDto = {
+	/** The embedded object this run's U+FFFC placeholder stands for (see `embedded`). */
+	attachment_identifier?: string | null;
 	font_hints?: number | null;
 	length: number;
 	link?: string | null;
@@ -888,6 +891,18 @@ export type NoteSummaryDto = {
 	row_id: number;
 	snippet?: string | null;
 	title: string;
+};
+
+/** A table embedded in a note. */
+export type NoteTableDto = {
+	/** Why the table could not be decoded; `rows` is empty when set. */
+	decode_error?: string | null;
+	right_to_left: boolean;
+	/**
+	 * Cell text, row by row. Columns are in visual order, left to right, so a right-to-left
+	 * table's first column comes last.
+	 */
+	rows: string[][];
 };
 
 export type OpaquePayloadDto = {

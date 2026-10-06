@@ -8043,6 +8043,17 @@
               "null"
             ]
           },
+          "table": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/NoteTableDto",
+                "description": "Cells of a `com.apple.notes.table` attachment."
+              }
+            ]
+          },
           "type_uti": {
             "type": [
               "string",
@@ -10176,6 +10187,13 @@
           "length"
         ],
         "properties": {
+          "attachment_identifier": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The embedded object this run's U+FFFC placeholder stands for (see `embedded`)."
+          },
           "font_hints": {
             "type": [
               "integer",
@@ -10301,6 +10319,36 @@
           },
           "title": {
             "type": "string"
+          }
+        }
+      },
+      "NoteTableDto": {
+        "type": "object",
+        "description": "A table embedded in a note.",
+        "required": [
+          "rows",
+          "right_to_left"
+        ],
+        "properties": {
+          "decode_error": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Why the table could not be decoded; `rows` is empty when set."
+          },
+          "right_to_left": {
+            "type": "boolean"
+          },
+          "rows": {
+            "type": "array",
+            "items": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "description": "Cell text, row by row. Columns are in visual order, left to right, so a right-to-left\ntable's first column comes last."
           }
         }
       },

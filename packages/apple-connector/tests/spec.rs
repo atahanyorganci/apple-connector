@@ -326,3 +326,187 @@ fn core_data_dates_before_2001_are_kept() -> TestResult {
     assert_eq!(one_day_before.timestamp(), 978_307_200 - 86_400);
     Ok(())
 }
+
+/// Protobuf helpers for building a note body that embeds a table, as Notes writes it.
+mod note_body {
+    fn varint(mut value: u64) -> Vec<u8> {
+        let mut out = Vec::new();
+        loop {
+            let byte = (value & 0x7f) as u8;
+            value >>= 7;
+            if value == 0 {
+                out.push(byte);
+                return out;
+            }
+            out.push(byte | 0x80);
+        }
+    }
+
+    fn bytes_field(number: u64, payload: &[u8]) -> Vec<u8> {
+        let mut out = varint(number << 3 | 2);
+        out.extend(varint(payload.len() as u64));
+        out.extend_from_slice(payload);
+        out
+    }
+
+    fn varint_field(number: u64, value: u64) -> Vec<u8> {
+        let mut out = varint(number << 3);
+        out.extend(varint(value));
+        out
+    }
+
+    /// `text` with one attribute run per `(length, attachment)`, gzip-compressed.
+    pub fn gzipped(
+        text: &str,
+        runs: &[(u64, Option<(&str, &str)>)],
+    ) -> Result<Vec<u8>, std::io::Error> {
+        use std::io::Write;
+
+        let mut note = bytes_field(2, text.as_bytes());
+        for (length, attachment) in runs {
+            let mut run = varint_field(1, *length);
+            if let Some((identifier, uti)) = attachment {
+                let mut info = bytes_field(1, identifier.as_bytes());
+                info.extend(bytes_field(2, uti.as_bytes()));
+                run.extend(bytes_field(12, &info));
+            }
+            note.extend(bytes_field(5, &run));
+        }
+        let mut document = varint_field(2, 0);
+        document.extend(bytes_field(3, &note));
+        let root = bytes_field(2, &document);
+        let mut encoder = flate2::write::GzEncoder::new(Vec::new(), flate2::Compression::default());
+        encoder.write_all(&root)?;
+        encoder.finish()
+    }
+}
+
+/// A table's cells live in its attachment's mergeable data, not in the note body; the note detail
+/// carries them and `/contents` renders them in place (#168).
+#[tokio::test]
+async fn embedded_tables_are_decoded_into_the_note() -> TestResult {
+    use apple_connector::fixtures::{NotesFixtureDb, SEED_PLAIN_TEXT_NOTE_ID};
+    use sqlx::{Connection, sqlite::SqliteConnectOptions};
+
+    const TABLE_ID: &str = "7A5BE1E0-0000-4000-8000-0000000000AB";
+    let table = std::fs::read(
+        std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("fixtures/notes/bodies/acnp/table_gzipped.bin"),
+    )?;
+    let body = note_body::gzipped(
+        "Before\n\u{FFFC}\nAfter",
+        &[
+            (7, None),
+            (1, Some((TABLE_ID, "com.apple.notes.table"))),
+            (6, None),
+        ],
+    )?;
+
+    let fixture = NotesFixtureDb::seeded().await?;
+    {
+        let options = SqliteConnectOptions::new().filename(fixture.path());
+        let mut connection = sqlx::SqliteConnection::connect_with(&options).await?;
+        sqlx::query(
+            "UPDATE ZICNOTEDATA SET ZDATA = ?1 \
+             WHERE ZNOTE = (SELECT Z_PK FROM ZICCLOUDSYNCINGOBJECT WHERE ZIDENTIFIER = ?2)",
+        )
+        .bind(&body)
+        .bind(SEED_PLAIN_TEXT_NOTE_ID)
+        .execute(&mut connection)
+        .await?;
+        sqlx::query(
+            "INSERT INTO ZICCLOUDSYNCINGOBJECT \
+             (Z_PK, Z_ENT, Z_OPT, ZMARKEDFORDELETION, ZNOTE, ZIDENTIFIER, ZTYPEUTI, ZMERGEABLEDATA1) \
+             VALUES (900, (SELECT Z_ENT FROM Z_PRIMARYKEY WHERE Z_NAME = 'ICAttachment'), 1, 0, \
+                     (SELECT Z_PK FROM ZICCLOUDSYNCINGOBJECT WHERE ZIDENTIFIER = ?1), ?2, \
+                     'com.apple.notes.table', ?3)",
+        )
+        .bind(SEED_PLAIN_TEXT_NOTE_ID)
+        .bind(TABLE_ID)
+        .bind(&table)
+        .execute(&mut connection)
+        .await?;
+        connection.close().await?;
+    }
+    let pool = connect_pool(fixture.path()).await?;
+    let app = router(AppState::new(None, None, Some(pool), None));
+
+    let (status, detail) = send(
+        &app,
+        "GET",
+        &format!("/v1/notes/{SEED_PLAIN_TEXT_NOTE_ID}"),
+        None,
+    )
+    .await?;
+    assert_eq!(status, StatusCode::OK, "{detail}");
+    let embedded = &detail["body"]["embedded"][0];
+    assert_eq!(embedded["attachment_identifier"], TABLE_ID, "{detail}");
+    assert_eq!(
+        embedded["table"]["rows"],
+        serde_json::json!([
+            ["Row 1 Column 1", "Row 1 Column 2"],
+            ["Row 2 Column 1", "Row 2 Column 2"]
+        ]),
+        "{detail}"
+    );
+    assert_eq!(embedded["table"]["right_to_left"], false);
+
+    let response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .uri(format!("/v1/notes/{SEED_PLAIN_TEXT_NOTE_ID}/contents"))
+                .body(Body::empty())?,
+        )
+        .await?;
+    assert_eq!(response.status(), StatusCode::OK);
+    let markdown = String::from_utf8(response.into_body().collect().await?.to_bytes().to_vec())?;
+    assert!(
+        markdown.contains(
+            "Before\n| Row 1 Column 1 | Row 1 Column 2 |\n| --- | --- |\n| Row 2 Column 1 | Row 2 Column 2 |\n"
+        ),
+        "{markdown}"
+    );
+    assert!(markdown.trim_end().ends_with("After"), "{markdown}");
+    Ok(())
+}
+
+/// Read-only probe: every table attachment in the local NoteStore decodes. Prints counts only.
+///
+/// ```bash
+/// cargo test -p apple-connector --test spec live_note_tables_decode -- --ignored --nocapture
+/// ```
+#[tokio::test]
+#[ignore = "reads the local NoteStore; needs Full Disk Access"]
+async fn live_note_tables_decode() -> TestResult {
+    use sqlx::Row;
+
+    let path = std::path::PathBuf::from(std::env::var("HOME")?)
+        .join("Library/Group Containers/group.com.apple.notes/NoteStore.sqlite");
+    let pool = connect_pool(&path).await?;
+    let rows = sqlx::query(
+        "SELECT ZMERGEABLEDATA1 FROM ZICCLOUDSYNCINGOBJECT \
+         WHERE ZTYPEUTI = 'com.apple.notes.table' AND ZMARKEDFORDELETION = 0",
+    )
+    .fetch_all(&pool)
+    .await?;
+    let (mut decoded, mut cells) = (0, 0);
+    let mut failures = Vec::new();
+    for row in &rows {
+        let data: Option<Vec<u8>> = row.try_get(0)?;
+        match data.as_deref().map(apple_notes_protobuf::decode_table) {
+            Some(Ok(table)) => {
+                decoded += 1;
+                cells += table.rows.iter().map(Vec::len).sum::<usize>();
+            }
+            Some(Err(error)) => failures.push(error.to_string()),
+            None => failures.push("no mergeable data".to_owned()),
+        }
+    }
+    println!(
+        "tables: {}, decoded: {decoded}, cells: {cells}, failures: {failures:?}",
+        rows.len()
+    );
+    assert!(failures.is_empty(), "{failures:?}");
+    Ok(())
+}

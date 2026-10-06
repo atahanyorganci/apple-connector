@@ -1,10 +1,12 @@
 mod protobuf;
+mod table;
 
 use std::io::Read;
 
 use flate2::read::GzDecoder;
 use plist::Value;
 use protobuf::{Budget, all_bytes, fields_by_number, first_bytes, parse_message};
+pub use table::{NoteTable, decode_table, decode_table_with_limits};
 use uuid::Uuid;
 
 /// Decompressed payloads below this size are never rejected by the compression
@@ -30,6 +32,8 @@ pub struct Limits {
     pub max_plist_depth: usize,
     /// Maximum number of attribute runs in one note.
     pub max_runs: usize,
+    /// Maximum number of cells in one embedded table (rows × columns).
+    pub max_table_cells: usize,
 }
 
 impl Default for Limits {
@@ -41,6 +45,7 @@ impl Default for Limits {
             max_message_depth: 16,
             max_plist_depth: 64,
             max_runs: 131_072,
+            max_table_cells: 262_144,
         }
     }
 }
@@ -117,6 +122,8 @@ pub struct NoteRun {
     pub paragraph_style: Option<ParagraphStyle>,
     pub font_hints: Option<u32>,
     pub link: Option<String>,
+    /// The attachment this run's U+FFFC placeholder stands for, when it has one.
+    pub attachment_identifier: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -152,6 +159,7 @@ struct AttributeRun {
     paragraph_style: Option<ParagraphStyle>,
     font_hints: Option<u32>,
     link: Option<String>,
+    attachment_identifier: Option<String>,
 }
 
 const BPLIST00_MAGIC: &[u8; 8] = b"bplist00";
@@ -248,6 +256,7 @@ fn build_decoded_body(
             paragraph_style: run.paragraph_style.clone(),
             font_hints: run.font_hints,
             link: run.link.clone(),
+            attachment_identifier: run.attachment_identifier.clone(),
         });
     }
 
@@ -406,6 +415,10 @@ fn parse_note_string(data: &[u8], budget: &mut Budget) -> Result<NoteString, Dec
 
     for run_blob in all_bytes(&fields, 5) {
         let parsed = parse_attribute_run(run_blob, budget)?;
+        let attachment_identifier = parsed
+            .attachment
+            .as_ref()
+            .and_then(|attachment| attachment.attachment_identifier.clone());
         if let Some(attachment) = parsed.attachment {
             embedded.push(attachment);
         }
@@ -414,6 +427,7 @@ fn parse_note_string(data: &[u8], budget: &mut Budget) -> Result<NoteString, Dec
             paragraph_style: parsed.paragraph_style,
             font_hints: parsed.font_hints,
             link: parsed.link,
+            attachment_identifier,
         });
     }
 

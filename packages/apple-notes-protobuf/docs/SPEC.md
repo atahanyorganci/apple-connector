@@ -1,8 +1,9 @@
-# `apple-notes-protobuf`: decoder for Apple Notes note bodies
+# `apple-notes-protobuf`: decoder for Apple Notes note bodies and tables
 
 Decodes the gzip-compressed protobuf documents Apple Notes stores in `ZICNOTEDATA.ZDATA`, plus the
 legacy binary-plist bodies of older notes, into text, formatting runs, checklist items, and
-embedded-object references. Read-only: there is no encoder.
+embedded-object references; and decodes a table attachment's mergeable data
+(`ZMERGEABLEDATA1`) into its cells. Read-only: there is no encoder.
 
 ## Kind
 
@@ -15,7 +16,11 @@ Codec.
 - `decode_note_body(&[u8]) -> DecodedNoteBody` and `decode_note_body_with_limits(&[u8], &Limits)`.
   These never return an error: a failure is reported in `DecodedNoteBody.decode_error` as text,
   with every other field empty.
-- `DecodedNoteBody { text, runs, checklist_items, embedded, decode_error }`, `NoteRun`,
+- `decode_table(&[u8]) -> Result<NoteTable, DecodeError>` and
+  `decode_table_with_limits(&[u8], &Limits)`: `NoteTable { rows, right_to_left }`, cell text row by
+  row with columns in visual order.
+- `DecodedNoteBody { text, runs, checklist_items, embedded, decode_error }`, `NoteRun` (its
+  `attachment_identifier` names the embedded object its U+FFFC stands for),
   `ParagraphStyle`, `ParagraphStyleKind`, `ChecklistItem`, `EmbeddedObject`.
 - `DecodeError`: `Empty`, `InvalidGzip`, `InvalidProtobuf`, `InvalidPlist`,
   `LimitExceeded { limit, actual, max }`.
@@ -43,6 +48,16 @@ Codec.
   `rejects_deeply_nested_legacy_plist`, `rejects_excessive_run_count`), and every real fixture
   decodes under the defaults (`real_fixtures_decode_under_default_limits`).
 - No input panics `decode_note_body`. Enforced by: the `notes_body_decode` fuzz target.
+- Tables decode from their mergeable data: the root `com.apple.notes.ICTable` entry's `crRows` and
+  `crColumns` ordered sets give each cell's position, `cellColumns` gives its text, and
+  `crTableColumnDirection` marks right-to-left tables, whose columns are reversed into visual
+  order. Enforced by: `tests/acnp_fixtures.rs` (`acnp_table_simple`, `acnp_table_formats`,
+  `acnp_table_right_to_left`, expectations from apple_cloud_notes_parser's table spec); live,
+  ignored: `apple-connector/tests/spec.rs::live_note_tables_decode` (3 of 3 tables on macOS 27).
+- A table over `max_table_cells` is `LimitExceeded`. Enforced by:
+  `tests/limits.rs::rejects_tables_with_too_many_cells`.
+- No input panics `decode_table`. Enforced by: the `notes_table_decode` fuzz target (about 2
+  million clean executions when added).
 
 ### Not yet enforced
 
@@ -52,10 +67,7 @@ Codec.
 
 ### Known bugs
 
-- Tables are not decoded. #35 promised structured table content with cell text and was closed;
-  the table protobuf (`ZMERGEABLEDATA`) is never read, and the three ACNP table fixtures fail to
-  decode. Proven by: `tests/acnp_fixtures.rs::acnp_table_simple`, `acnp_table_formats`,
-  `acnp_table_right_to_left` (ignored, fail today). Tracked in #168.
+None known.
 
 ## Limits and non-goals
 
@@ -67,11 +79,15 @@ Codec.
 | `max_message_depth` | 16 |
 | `max_plist_depth` | 64 |
 | `max_runs` | 131 072 attribute runs |
+| `max_table_cells` | 262 144 cells per table (rows × columns) |
 
 - No decryption: locked notes are the caller's concern (`apple-connector` never passes their bodies
   in).
-- Embedded objects are references only (`attachment_identifier`, `type_uti`); their content —
-  tables, drawings, scans — is not decoded.
+- Embedded objects in a body are references only (`attachment_identifier`, `type_uti`). Tables are
+  decoded separately from their attachment's data with `decode_table`; drawings and scans are not
+  decoded.
+- Table cells are plain text: their formatting runs and any objects embedded in a cell are
+  dropped.
 - The legacy plist path returns plain text only: the first non-blank string under `NS.string`,
   `Text`, `text`, `content`, or `ZCONTENT`, else the first one found by a depth-limited walk.
 - `decode_error` is human-readable text, not a stable code.

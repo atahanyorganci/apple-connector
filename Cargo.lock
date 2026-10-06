@@ -94,6 +94,7 @@ dependencies = [
  "base64",
  "chrono",
  "clap",
+ "flate2",
  "http",
  "http-body-util",
  "httpdate",

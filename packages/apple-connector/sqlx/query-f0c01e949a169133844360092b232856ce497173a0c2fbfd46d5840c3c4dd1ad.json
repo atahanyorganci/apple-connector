@@ -1,0 +1,38 @@
+{
+  "db_name": "SQLite",
+  "query": "\n        SELECT\n            a.ZIDENTIFIER AS \"identifier!\",\n            a.ZMERGEABLEDATA1 AS \"data: Vec<u8>\"\n        FROM ZICCLOUDSYNCINGOBJECT a\n        WHERE a.Z_ENT = ?1\n          AND a.ZMARKEDFORDELETION = 0\n          AND a.ZNOTE = ?2\n          AND a.ZTYPEUTI = 'com.apple.notes.table'\n        ",
+  "describe": {
+    "columns": [
+      {
+        "name": "identifier!",
+        "ordinal": 0,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "ZICCLOUDSYNCINGOBJECT",
+            "name": "ZIDENTIFIER"
+          }
+        }
+      },
+      {
+        "name": "data: Vec<u8>",
+        "ordinal": 1,
+        "type_info": "Blob",
+        "origin": {
+          "Table": {
+            "table": "ZICCLOUDSYNCINGOBJECT",
+            "name": "ZMERGEABLEDATA1"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 2
+    },
+    "nullable": [
+      true,
+      true
+    ]
+  },
+  "hash": "f0c01e949a169133844360092b232856ce497173a0c2fbfd46d5840c3c4dd1ad"
+}

@@ -4,7 +4,7 @@
 
 use std::{fs, path::PathBuf};
 
-use apple_notes_protobuf::decode_note_body;
+use apple_notes_protobuf::{decode_note_body, decode_table};
 
 fn acnp_dir() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../apple-connector/fixtures/notes/bodies/acnp")
@@ -144,26 +144,45 @@ fn acnp_list_indents() {
     );
 }
 
+/// Expected cells come from apple_cloud_notes_parser's `spec/embedded_objects/tables.rb`.
 #[test]
-#[ignore = "embedded table protobuf not yet decoded by apple-notes-protobuf"]
-fn acnp_table_simple() {
-    let data = read_acnp_fixture("table_gzipped.bin");
-    let body = decode_note_body(&data);
-    assert!(body.decode_error.is_none(), "{:?}", body.decode_error);
+fn acnp_table_simple() -> Result<(), Box<dyn std::error::Error>> {
+    let table = decode_table(&read_acnp_fixture("table_gzipped.bin"))?;
+    assert_eq!(
+        table.rows,
+        [
+            ["Row 1 Column 1", "Row 1 Column 2"],
+            ["Row 2 Column 1", "Row 2 Column 2"],
+        ]
+    );
+    assert!(!table.right_to_left);
+    Ok(())
 }
 
 #[test]
-#[ignore = "embedded table protobuf not yet decoded by apple-notes-protobuf"]
-fn acnp_table_formats() {
-    let data = read_acnp_fixture("table_formats_gzipped.bin");
-    let body = decode_note_body(&data);
-    assert!(body.decode_error.is_none(), "{:?}", body.decode_error);
+fn acnp_table_formats() -> Result<(), Box<dyn std::error::Error>> {
+    let table = decode_table(&read_acnp_fixture("table_formats_gzipped.bin"))?;
+    assert_eq!(table.rows.len(), 3);
+    assert!(table.rows.iter().all(|row| row.len() == 2));
+    let cells: Vec<&str> = table.rows.iter().flatten().map(String::as_str).collect();
+    for text in [
+        "Bold italics",
+        "Underline",
+        "Bold",
+        "Italics",
+        "Mixed bold italics underline",
+    ] {
+        assert!(cells.contains(&text), "missing {text:?} in {cells:?}");
+    }
+    assert_eq!(cells.iter().filter(|cell| cell.is_empty()).count(), 1);
+    Ok(())
 }
 
+/// Right-to-left tables come back in visual order, first column last.
 #[test]
-#[ignore = "embedded table protobuf not yet decoded by apple-notes-protobuf"]
-fn acnp_table_right_to_left() {
-    let data = read_acnp_fixture("right_to_left_table_gzipped.bin");
-    let body = decode_note_body(&data);
-    assert!(body.decode_error.is_none(), "{:?}", body.decode_error);
+fn acnp_table_right_to_left() -> Result<(), Box<dyn std::error::Error>> {
+    let table = decode_table(&read_acnp_fixture("right_to_left_table_gzipped.bin"))?;
+    assert!(table.right_to_left);
+    assert_eq!(table.rows, [["", "اول"], ["نهاية", ""]]);
+    Ok(())
 }

@@ -33,7 +33,9 @@ and `ICHashtag` are read from `Z_PRIMARYKEY` at startup; a missing one stops sta
 - `GET /v1/notes/{id}/contents` renders Markdown with YAML front matter; locked notes and decode
   failures have an empty body.
 - `q` matches title, snippet, and decoded body text, within the bounded scan.
-- Tables, drawings, and scans are not decoded (`apple-notes-protobuf` known bug).
+- Tables are decoded from their attachment's `ZMERGEABLEDATA1` into `body.embedded[].table`
+  (`rows`, `right_to_left`, or `decode_error`), and `/contents` renders each as a Markdown table
+  where its placeholder stands, first row as the header. Drawings and scans are not decoded.
 
 ## Attachments
 
