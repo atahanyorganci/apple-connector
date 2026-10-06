@@ -62,6 +62,10 @@ Framework.
 - An access request reports what happened to each entity, keeping granted, denied, restricted,
   timed out, unavailable, and failed apart. Enforced by: `src/auth.rs` tests
   (`a_prompt_result_keeps_denial_and_timeout_apart`, …).
+- Event calendars are found by `CalendarResolveHint.identifier`, `Calendar.UUID` in its stored
+  case, and only then by title; reminder lists by their API id or external identifier. Enforced
+  by: `tests/identifier_probe.rs` (every event calendar EventKit offers is addressable by its
+  stored UUID); `apple-connector/src/calendar/repository.rs::resolve_metadata_carries_the_stored_identifier`.
 - Item lookup: `calendarItemWithIdentifier:` with the API id, then
   `calendarItemsWithExternalIdentifier:` with the API id and the supplied external id; for events
   also `eventWithIdentifier:`. No match is `NotFound`; several are `AmbiguousMatch`, and for events
@@ -82,12 +86,7 @@ Framework.
 
 ### Known bugs
 
-- Calendar resolution never matches the identifiers it is given. `resolve_event_calendar` tries
-  `calendarWithIdentifier:` with the hint's `external_id` (the server's id) and then its `api_id`
-  (lowercased), which the probe shows never resolve on macOS 27, so it falls back to a
-  case-insensitive title match: two calendars with the same title are `AmbiguousMatch`. Proven by:
-  `tests/identifier_probe.rs` (0/18 calendars by lowercased UUID, 0/14 by `external_id`) together
-  with `src/calendar_resolve.rs`. Tracked in #156.
+None known.
 
 ## Limits and non-goals
 

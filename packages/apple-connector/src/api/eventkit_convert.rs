@@ -189,8 +189,7 @@ pub fn reminder_list_hint(metadata: ReminderListResolveMetadata) -> ReminderList
 
 pub fn calendar_hint(metadata: CalendarResolveMetadata) -> CalendarResolveHint {
     CalendarResolveHint {
-        api_id: metadata.api_id,
-        external_id: metadata.external_id,
+        identifier: metadata.identifier,
         title: metadata.title,
         store_type: match metadata.store_type {
             1 => CalendarStoreType::CalDav,
@@ -689,6 +688,17 @@ mod tests {
         let details = error.body().details.as_ref().ok_or("no details")?;
         assert_eq!(details["framework_code"], 300);
         Ok(())
+    }
+
+    /// The hint passes EventKit the calendar identifier in its stored case (#156).
+    #[test]
+    fn calendar_hints_carry_the_stored_identifier() {
+        let hint = calendar_hint(CalendarResolveMetadata {
+            identifier: "AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAAAA".into(),
+            title: Some("Home".into()),
+            store_type: 0,
+        });
+        assert_eq!(hint.identifier, "AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAAAA");
     }
 
     /// #130 removed the coarse, HTTP-aligned codes; a framework outcome answers with a specific one,

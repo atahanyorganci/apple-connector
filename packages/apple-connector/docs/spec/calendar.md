@@ -47,7 +47,8 @@ JSON on the base routes; iCalendar on `…/iCal` and CalDAV XML on `…/caldav`
 ## Writes
 
 `POST /v1/calendars/{calendar_id}/events`, `PATCH`/`DELETE /v1/events/{id}` with `span`
-(`this` default, `future`) and `occurrence_start` for recurring events. `status` is
+(`this` default, `future`) and `occurrence_start` for recurring events. The target calendar is
+found in EventKit by `Calendar.UUID` as stored. `status` is
 `422 immutable_event_field`; `end < start`, including after merging a partial update, is
 `422 event_end_before_start`. Birthday and subscription calendars are `403 calendar_read_only`.
 

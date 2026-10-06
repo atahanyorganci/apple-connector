@@ -35,8 +35,7 @@ fn reminder_list_hint() -> ReminderListResolveHint {
 
 fn calendar_hint() -> CalendarResolveHint {
     CalendarResolveHint {
-        api_id: "integration-test-calendar".into(),
-        external_id: None,
+        identifier: "integration-test-calendar".into(),
         title: Some(
             std::env::var("APPLE_CONNECTOR_TEST_CALENDAR_TITLE")
                 .unwrap_or_else(|_| "Calendar".into()),

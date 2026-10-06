@@ -92,8 +92,7 @@ pub async fn fetch_calendar_resolve_metadata(
         CalendarResolveRow,
         r#"
         SELECT
-          lower(c.UUID) AS "api_id!: String",
-          c.external_id,
+          c.UUID AS "identifier!: String",
           c.title,
           s.type AS store_type
         FROM Calendar c

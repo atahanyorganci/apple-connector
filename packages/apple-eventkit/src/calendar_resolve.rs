@@ -22,8 +22,10 @@ pub enum CalendarStoreType {
 
 #[derive(Debug, Clone)]
 pub struct CalendarResolveHint {
-    pub api_id: String,
-    pub external_id: Option<String>,
+    /// `Calendar.UUID` exactly as stored, which is EventKit's `calendarIdentifier`. The lookup is
+    /// case-sensitive, so this is not the lowercased API id; and `Calendar.external_id` is the
+    /// server's id for the calendar, which EventKit does not know (#156).
+    pub identifier: String,
     pub title: Option<String>,
     pub store_type: CalendarStoreType,
 }
@@ -36,7 +38,12 @@ pub(crate) fn resolve_reminder_list(
         return Err(EventKitError::ReadOnlyCalendar);
     }
 
-    if let Some(calendar) = lookup_calendar(store, &hint.external_id, &hint.api_id) {
+    let mut candidates = Vec::new();
+    if let Some(external_id) = &hint.external_id {
+        candidates.push(external_id.as_str());
+    }
+    candidates.push(hint.api_id.as_str());
+    if let Some(calendar) = lookup_calendar(store, &candidates) {
         return validate_reminder_calendar(calendar);
     }
 
@@ -71,7 +78,7 @@ pub(crate) fn resolve_event_calendar(
         return Err(EventKitError::ReadOnlyCalendar);
     }
 
-    if let Some(calendar) = lookup_calendar(store, &hint.external_id, &hint.api_id) {
+    if let Some(calendar) = lookup_calendar(store, &[hint.identifier.as_str()]) {
         return validate_event_calendar(calendar, hint.store_type);
     }
 
@@ -96,16 +103,11 @@ pub(crate) fn resolve_event_calendar(
     Err(EventKitError::NotFound)
 }
 
+/// The first calendar EventKit knows by one of `candidates`, tried in order.
 fn lookup_calendar(
     store: &EKEventStore,
-    external_id: &Option<String>,
-    api_id: &str,
+    candidates: &[&str],
 ) -> Option<objc2::rc::Retained<EKCalendar>> {
-    let mut candidates = Vec::new();
-    if let Some(external_id) = external_id {
-        candidates.push(external_id.as_str());
-    }
-    candidates.push(api_id);
     for candidate in candidates {
         let ns_id = NSString::from_str(candidate);
         if let Some(calendar) = unsafe { store.calendarWithIdentifier(&ns_id) } {

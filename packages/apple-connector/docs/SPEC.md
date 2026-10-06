@@ -74,8 +74,8 @@ Application.
   detail or 202 `sync_pending` ([CONN-0022](decisions/CONN-0022-async-mutations.md)). Enforced by:
   `tests/mutations_integration.rs`, `tests/spec.rs::flagged_false_is_still_an_unsupported_reminder_field`,
   `src/api/hydrate.rs::mutation_status_returns_accepted_when_sync_pending`.
-- **Event identifiers.** `EventId` is `lower(CalendarItem.UUID)`; writes translate it to EventKit's
-  identifiers ([CONN-0023](decisions/CONN-0023-event-identifiers.md)). Enforced by (live, ignored):
+- **Event identifiers.** `EventId` is `lower(CalendarItem.UUID)` and `CalendarId` is
+  `lower(Calendar.UUID)`; writes translate both to EventKit's identifiers ([CONN-0023](decisions/CONN-0023-event-identifiers.md)). Enforced by (live, ignored):
   `tests/eventkit_integration.rs::http_created_event_id_resolves_through_get`,
   `http_listed_event_id_works_for_patch_and_delete`.
 - **Occurrences.** Range listings read `OccurrenceCache`, one row per occurrence
@@ -102,9 +102,7 @@ Application.
 
 ### Known bugs
 
-- **Calendar writes resolve the calendar by title**, not by the `calendar_id` given, so two
-  calendars with the same title answer `409 ambiguous_event_kit_match` (`apple-eventkit` known
-  bug). Proven by: `apple-eventkit/tests/identifier_probe.rs` (live). Tracked in #156.
+None known.
 
 ## Limits and non-goals
 
