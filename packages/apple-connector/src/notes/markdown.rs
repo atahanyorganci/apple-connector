@@ -109,11 +109,7 @@ pub fn body_to_markdown(body: &NoteBody) -> String {
     let mut at_line_start = true;
 
     for run in &body.runs {
-        let raw: String = text
-            .chars()
-            .skip(run.start)
-            .take(run.length as usize)
-            .collect();
+        let raw = run_text(text, run.start, run.length as usize);
 
         let mut segment = String::new();
         for ch in raw.chars() {
@@ -224,6 +220,26 @@ fn format_inline(segment: &str, run: &super::model::NoteRun) -> String {
     }
 }
 
+/// The text a run covers. Run offsets and lengths are UTF-16 code units (NOTES-L-0001, #174); a
+/// boundary inside a surrogate pair moves to the end of that character.
+fn run_text(text: &str, start: usize, length: usize) -> &str {
+    let end = start.saturating_add(length);
+    let (mut from, mut to) = (None, text.len());
+    let mut units = 0_usize;
+    for (index, ch) in text.char_indices() {
+        if from.is_none() && units >= start {
+            from = Some(index);
+        }
+        if units >= end {
+            to = index;
+            break;
+        }
+        units += ch.len_utf16();
+    }
+    let from = from.unwrap_or(text.len());
+    text.get(from..to.max(from)).unwrap_or_default()
+}
+
 fn table_for_run<'a>(body: &'a NoteBody, run: &super::model::NoteRun) -> Option<&'a [Vec<String>]> {
     let identifier = run.attachment_identifier.as_deref()?;
     body.embedded
@@ -284,6 +300,41 @@ mod tests {
             panic!("failed to read fixture {}: {error}", path.display());
         });
         crate::notes::decode::decode_notedata(Some(&data), false)
+    }
+
+    /// Run offsets and lengths are UTF-16 code units (NOTES-L-0001). An emoji is two units and one
+    /// `char`, so slicing by `char` shifts every run after it.
+    #[test]
+    fn runs_after_an_emoji_keep_their_text() {
+        let text = "\u{1F600} bold\nHeading";
+        let first = "\u{1F600} bold\n".encode_utf16().count();
+        let body = NoteBody {
+            text: Some(text.to_owned()),
+            runs: vec![
+                NoteRun {
+                    start: 0,
+                    length: u32::try_from(first).unwrap_or_default(),
+                    paragraph_style: None,
+                    font_hints: None,
+                    link: None,
+                    attachment_identifier: None,
+                },
+                NoteRun {
+                    start: first,
+                    length: 7,
+                    paragraph_style: Some(ParagraphStyle {
+                        style: ParagraphStyleKind::Heading,
+                        todo_uuid: None,
+                        done: None,
+                    }),
+                    font_hints: None,
+                    link: None,
+                    attachment_identifier: None,
+                },
+            ],
+            ..Default::default()
+        };
+        assert_eq!(body_to_markdown(&body), "\u{1F600} bold\n## Heading\n");
     }
 
     /// A table renders where its placeholder stands, first row as the header, with `|` escaped and
