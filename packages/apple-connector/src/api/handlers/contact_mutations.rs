@@ -1,8 +1,4 @@
-use axum::{
-    Json,
-    extract::{Path, State},
-    http::StatusCode,
-};
+use axum::{Json, extract::State, http::StatusCode};
 
 use crate::{
     api::{
@@ -15,7 +11,7 @@ use crate::{
             CreateContactRequest, CreateGroupRequest, UpdateContactRequest, UpdateGroupRequest,
         },
         error::{ApiError, ErrorCode, ErrorResponse},
-        extract::ApiJson,
+        extract::{ApiJson, ApiPath},
         hydrate::{SyncPendingContactDetailDto, SyncPendingGroupDetailDto, mutation_status},
         params::{ContactGroupPath, ContactIdPath, ContainerIdPath, GroupIdPath},
         router::AppState,
@@ -41,7 +37,7 @@ use crate::{
 )]
 pub async fn create_contact(
     State(state): State<AppState>,
-    Path(path): Path<ContainerIdPath>,
+    ApiPath(path): ApiPath<ContainerIdPath>,
     ApiJson(request): ApiJson<CreateContactRequest>,
 ) -> Result<(StatusCode, Json<SyncPendingContactDetailDto>), ApiError> {
     let sources = require_contacts_sources(&state.contacts_sources)?;
@@ -93,7 +89,7 @@ pub async fn create_contact(
 )]
 pub async fn update_contact(
     State(state): State<AppState>,
-    Path(path): Path<ContactIdPath>,
+    ApiPath(path): ApiPath<ContactIdPath>,
     ApiJson(request): ApiJson<UpdateContactRequest>,
 ) -> Result<(StatusCode, Json<SyncPendingContactDetailDto>), ApiError> {
     let sources = require_contacts_sources(&state.contacts_sources)?;
@@ -134,7 +130,7 @@ pub async fn update_contact(
 )]
 pub async fn delete_contact(
     State(state): State<AppState>,
-    Path(path): Path<ContactIdPath>,
+    ApiPath(path): ApiPath<ContactIdPath>,
 ) -> Result<StatusCode, ApiError> {
     let sources = require_contacts_sources(&state.contacts_sources)?;
     let store = require_contacts_access(&state).await?;
@@ -172,7 +168,7 @@ pub async fn delete_contact(
 )]
 pub async fn create_group(
     State(state): State<AppState>,
-    Path(path): Path<ContainerIdPath>,
+    ApiPath(path): ApiPath<ContainerIdPath>,
     ApiJson(request): ApiJson<CreateGroupRequest>,
 ) -> Result<(StatusCode, Json<SyncPendingGroupDetailDto>), ApiError> {
     let sources = require_contacts_sources(&state.contacts_sources)?;
@@ -224,7 +220,7 @@ pub async fn create_group(
 )]
 pub async fn update_group(
     State(state): State<AppState>,
-    Path(path): Path<GroupIdPath>,
+    ApiPath(path): ApiPath<GroupIdPath>,
     ApiJson(request): ApiJson<UpdateGroupRequest>,
 ) -> Result<(StatusCode, Json<SyncPendingGroupDetailDto>), ApiError> {
     let sources = require_contacts_sources(&state.contacts_sources)?;
@@ -265,7 +261,7 @@ pub async fn update_group(
 )]
 pub async fn delete_group(
     State(state): State<AppState>,
-    Path(path): Path<GroupIdPath>,
+    ApiPath(path): ApiPath<GroupIdPath>,
 ) -> Result<StatusCode, ApiError> {
     let sources = require_contacts_sources(&state.contacts_sources)?;
     let store = require_contacts_access(&state).await?;
@@ -300,7 +296,7 @@ pub async fn delete_group(
 )]
 pub async fn add_contact_to_group(
     State(state): State<AppState>,
-    Path(path): Path<ContactGroupPath>,
+    ApiPath(path): ApiPath<ContactGroupPath>,
 ) -> Result<StatusCode, ApiError> {
     let (group_id, contact_id) = path.validated()?;
     let sources = require_contacts_sources(&state.contacts_sources)?;
@@ -341,7 +337,7 @@ pub async fn add_contact_to_group(
 )]
 pub async fn remove_contact_from_group(
     State(state): State<AppState>,
-    Path(path): Path<ContactGroupPath>,
+    ApiPath(path): ApiPath<ContactGroupPath>,
 ) -> Result<StatusCode, ApiError> {
     let (group_id, contact_id) = path.validated()?;
     let sources = require_contacts_sources(&state.contacts_sources)?;

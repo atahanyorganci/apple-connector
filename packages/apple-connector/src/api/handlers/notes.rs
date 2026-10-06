@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use axum::{
     Json,
-    extract::{Query, State},
+    extract::State,
     http::{HeaderValue, header},
     response::Response,
 };
@@ -16,6 +16,7 @@ use crate::{
             note_convert::{note_detail_to_dto, note_page_to_dto},
         },
         error::{ApiError, ErrorCode, ErrorResponse},
+        extract::{ApiPath, ApiQuery},
         params::{NoteIdPath, NoteListParams},
         router::AppState,
     },
@@ -38,7 +39,7 @@ use crate::{
 )]
 pub async fn list_notes(
     State(state): State<AppState>,
-    Query(params): Query<NoteListParams>,
+    ApiQuery(params): ApiQuery<NoteListParams>,
 ) -> Result<Json<NotePageDto>, ApiError> {
     let pool = require_notes_db(&state.notes_db)?;
 
@@ -108,7 +109,7 @@ pub async fn list_notes(
 )]
 pub async fn get_note(
     State(state): State<AppState>,
-    axum::extract::Path(path): axum::extract::Path<NoteIdPath>,
+    ApiPath(path): ApiPath<NoteIdPath>,
 ) -> Result<Json<NoteDetailDto>, ApiError> {
     let note_id = path.validated()?;
     let pool = require_notes_db(&state.notes_db)?;
@@ -168,7 +169,7 @@ pub async fn get_note(
 )]
 pub async fn get_note_contents(
     State(state): State<AppState>,
-    axum::extract::Path(path): axum::extract::Path<NoteIdPath>,
+    ApiPath(path): ApiPath<NoteIdPath>,
 ) -> Result<Response, ApiError> {
     let note_id = path.validated()?;
     let pool = require_notes_db(&state.notes_db)?;

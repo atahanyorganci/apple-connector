@@ -1,9 +1,6 @@
 use std::sync::Arc;
 
-use axum::{
-    Json,
-    extract::{Query, State},
-};
+use axum::{Json, extract::State};
 
 use super::health::{require_reminders_db, validate_page};
 use crate::{
@@ -16,6 +13,7 @@ use crate::{
             },
         },
         error::{ApiError, ErrorCode, ErrorResponse},
+        extract::{ApiPath, ApiQuery},
         params::{PageParams, ReminderListIdPath, ReminderListKey, ReminderListParams},
         router::AppState,
     },
@@ -38,7 +36,7 @@ use crate::{
 )]
 pub async fn list_reminder_lists(
     State(state): State<AppState>,
-    Query(page): Query<PageParams>,
+    ApiQuery(page): ApiQuery<PageParams>,
 ) -> Result<Json<ReminderListPageDto>, ApiError> {
     let pool = require_reminders_db(&state.reminders_db)?;
     let reminder_entity_ids = state
@@ -79,7 +77,7 @@ pub async fn list_reminder_lists(
 )]
 pub async fn get_reminder_list(
     State(state): State<AppState>,
-    axum::extract::Path(path): axum::extract::Path<ReminderListIdPath>,
+    ApiPath(path): ApiPath<ReminderListIdPath>,
 ) -> Result<Json<ReminderListDetailDto>, ApiError> {
     let pool = require_reminders_db(&state.reminders_db)?;
     let reminder_entity_ids = state
@@ -118,8 +116,8 @@ pub async fn get_reminder_list(
 )]
 pub async fn list_reminder_list_reminders(
     State(state): State<AppState>,
-    axum::extract::Path(path): axum::extract::Path<ReminderListIdPath>,
-    Query(params): Query<ReminderListParams>,
+    ApiPath(path): ApiPath<ReminderListIdPath>,
+    ApiQuery(params): ApiQuery<ReminderListParams>,
 ) -> Result<Json<ReminderPageDto>, ApiError> {
     let pool = require_reminders_db(&state.reminders_db)?;
     let reminder_entity_ids = state

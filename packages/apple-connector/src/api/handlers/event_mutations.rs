@@ -1,8 +1,4 @@
-use axum::{
-    Json,
-    extract::{Path, State},
-    http::StatusCode,
-};
+use axum::{Json, extract::State, http::StatusCode};
 
 use super::health::require_calendar_db;
 use crate::{
@@ -16,7 +12,7 @@ use crate::{
             calendar_hint, create_event_input, delete_event_input, map_eventkit_error,
             update_event_input, validate_create_event, validate_update_event,
         },
-        extract::{ApiJson, ApiQuery},
+        extract::{ApiJson, ApiPath, ApiQuery},
         hydrate::{SyncPendingEventDetailDto, mutation_status},
         params::{CalendarIdPath, EventIdPath},
         router::AppState,
@@ -44,7 +40,7 @@ use crate::{
 )]
 pub async fn create_event(
     State(state): State<AppState>,
-    Path(path): Path<CalendarIdPath>,
+    ApiPath(path): ApiPath<CalendarIdPath>,
     ApiJson(request): ApiJson<CreateEventRequest>,
 ) -> Result<(StatusCode, Json<SyncPendingEventDetailDto>), ApiError> {
     validate_create_event(&request)?;
@@ -91,7 +87,7 @@ pub async fn create_event(
 )]
 pub async fn update_event(
     State(state): State<AppState>,
-    Path(path): Path<EventIdPath>,
+    ApiPath(path): ApiPath<EventIdPath>,
     ApiQuery(params): ApiQuery<UpdateEventParams>,
     ApiJson(request): ApiJson<UpdateEventRequest>,
 ) -> Result<(StatusCode, Json<SyncPendingEventDetailDto>), ApiError> {
@@ -152,7 +148,7 @@ pub async fn update_event(
 )]
 pub async fn delete_event(
     State(state): State<AppState>,
-    Path(path): Path<EventIdPath>,
+    ApiPath(path): ApiPath<EventIdPath>,
     ApiQuery(params): ApiQuery<DeleteEventParams>,
 ) -> Result<StatusCode, ApiError> {
     use crate::api::dto::calendar::EventSpanDto;

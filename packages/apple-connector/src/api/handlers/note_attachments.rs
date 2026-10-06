@@ -13,6 +13,7 @@ use crate::{
     api::{
         dto::{NoteAttachmentDetailDto, note_convert::note_attachment_detail_to_dto},
         error::{ApiError, ErrorCode, ErrorResponse},
+        extract::ApiPath,
         media::{ServeMedia, copy_conditional_headers, serve_media_bytes},
         params::{ConditionalRequestHeaders, NoteAttachmentIdPath, RangeRequestHeader},
         router::AppState,
@@ -39,7 +40,7 @@ use crate::{
 )]
 pub async fn get_note_attachment(
     State(state): State<AppState>,
-    axum::extract::Path(path): axum::extract::Path<NoteAttachmentIdPath>,
+    ApiPath(path): ApiPath<NoteAttachmentIdPath>,
 ) -> Result<Json<NoteAttachmentDetailDto>, ApiError> {
     let id = path.validated()?;
     let attachment = resolve_attachment(&state, id.as_str()).await?;
@@ -91,7 +92,7 @@ pub async fn get_note_attachment(
 )]
 pub async fn get_note_attachment_content(
     State(state): State<AppState>,
-    axum::extract::Path(path): axum::extract::Path<NoteAttachmentIdPath>,
+    ApiPath(path): ApiPath<NoteAttachmentIdPath>,
     request: Request,
 ) -> Result<Response, ApiError> {
     let id = path.validated()?;
@@ -130,7 +131,7 @@ pub async fn get_note_attachment_content(
 )]
 pub async fn head_note_attachment_content(
     State(state): State<AppState>,
-    axum::extract::Path(path): axum::extract::Path<NoteAttachmentIdPath>,
+    ApiPath(path): ApiPath<NoteAttachmentIdPath>,
     headers: HeaderMap,
 ) -> Result<Response, ApiError> {
     let id = path.validated()?;

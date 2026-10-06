@@ -42,6 +42,9 @@ check 'ApiError::conflict\(' \
 check 'ApiError::unprocessable(_with_details)?\(' \
   'Banned: ApiError::unprocessable* — use typed ErrorCode via ApiError::new/with_details'
 
+check '[^A-Za-z](Query|Path|Json)\([a-z_]+\):' \
+  'Banned: axum Query/Path/Json extractors reject with plain text — use ApiQuery/ApiPath/ApiJson (api/extract.rs)'
+
 if [[ $fail -ne 0 ]]; then
   exit 1
 fi

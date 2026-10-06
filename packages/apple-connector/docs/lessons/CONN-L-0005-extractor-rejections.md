@@ -1,11 +1,12 @@
 ---
 id: CONN-L-0005
-status: active
+status: graduated
 observed-on: "axum 0.8 Json and Query extractors"
-graduated-to: ""
+graduated-to: "scripts/check-api-error-leakage.sh; packages/apple-connector/tests/spec.rs"
 provenance:
   - https://github.com/atahanyorganci/apple-connector/pull/141
   - https://github.com/atahanyorganci/apple-connector/commit/12a14eb
+  - https://github.com/atahanyorganci/apple-connector/issues/160
 ---
 
 # axum's `Json` and `Query` extractors answer a malformed request with plain text, before the handler runs.
@@ -26,12 +27,13 @@ mapping run.
 Every extractor that can reject is wrapped so its rejection becomes an `ApiError` with a typed
 code.
 
-## Why it is not a test yet
+## Graduated
 
-It is enforced for mutations only. `ApiJson` and `ApiQuery` (`api/extract.rs`) are used by the
-reminder, event, and contact mutation handlers, and
-`event_span_all_is_rejected_with_a_typed_error` covers them. Read handlers still use axum's
-`Query`: `GET /v1/messages?before=2024-01-01T00:00:00Z` answers
-`Failed to deserialize query string: before: invalid digit found in string` as plain text.
-`an_rfc3339_query_bound_is_a_typed_error` in `packages/apple-connector/tests/spec.rs` asserts the
-rule and is ignored until the read handlers move to `ApiQuery`.
+- `packages/apple-connector/src/api/extract.rs` wraps `Json`, `Query`, and `Path` as `ApiJson`,
+  `ApiQuery`, and `ApiPath`, and every handler uses them (#160).
+- `scripts/check-api-error-leakage.sh` (flake check `workspace-api-error-leakage`) fails on a raw
+  `Query(..)`, `Path(..)`, or `Json(..)` extractor in `api/handlers`.
+- `packages/apple-connector/tests/spec.rs::malformed_query_and_path_parameters_are_typed_errors`:
+  `GET /v1/messages?before=2024-01-01T00:00:00Z` and `GET /v1/chats/abc` answer
+  `400 invalid_parameter` inside the envelope; `event_span_all_is_rejected_with_a_typed_error`
+  covers bodies.

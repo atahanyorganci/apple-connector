@@ -1,6 +1,6 @@
 use axum::{
     Json,
-    extract::{Query, State},
+    extract::State,
     http::StatusCode,
     response::{IntoResponse, Response},
 };
@@ -17,6 +17,7 @@ use crate::{
             },
         },
         error::{ApiError, ErrorCode, ErrorResponse},
+        extract::{ApiPath, ApiQuery},
         params::{CalendarIdPath, EventListParams, PageParams},
         router::AppState,
     },
@@ -67,7 +68,7 @@ pub async fn list_calendar_accounts(
 )]
 pub async fn list_calendars(
     State(state): State<AppState>,
-    Query(params): Query<PageParams>,
+    ApiQuery(params): ApiQuery<PageParams>,
 ) -> Result<Json<CalendarPageDto>, ApiError> {
     let pool = require_calendar_db(&state.calendar_db)?;
     let limit = params.validated_limit()?;
@@ -107,7 +108,7 @@ pub async fn list_calendars(
 )]
 pub async fn get_calendar(
     State(state): State<AppState>,
-    axum::extract::Path(path): axum::extract::Path<CalendarIdPath>,
+    ApiPath(path): ApiPath<CalendarIdPath>,
 ) -> Result<Json<CalendarDetailDto>, ApiError> {
     let calendar_id = path.validated()?;
     let pool = require_calendar_db(&state.calendar_db)?;
@@ -138,8 +139,8 @@ pub async fn get_calendar(
 )]
 pub async fn list_calendar_events(
     State(state): State<AppState>,
-    axum::extract::Path(path): axum::extract::Path<CalendarIdPath>,
-    Query(params): Query<EventListParams>,
+    ApiPath(path): ApiPath<CalendarIdPath>,
+    ApiQuery(params): ApiQuery<EventListParams>,
 ) -> Result<Json<EventPageDto>, ApiError> {
     let pool = require_calendar_db(&state.calendar_db)?;
     let calendar_id = path.validated()?;
@@ -167,8 +168,8 @@ pub async fn list_calendar_events(
 )]
 pub async fn list_calendar_events_ical(
     State(state): State<AppState>,
-    axum::extract::Path(path): axum::extract::Path<CalendarIdPath>,
-    Query(params): Query<EventListParams>,
+    ApiPath(path): ApiPath<CalendarIdPath>,
+    ApiQuery(params): ApiQuery<EventListParams>,
 ) -> Result<Response, ApiError> {
     let pool = require_calendar_db(&state.calendar_db)?;
     let calendar_id = path.validated()?;
@@ -191,8 +192,8 @@ pub async fn list_calendar_events_ical(
 )]
 pub async fn list_calendar_events_caldav(
     State(state): State<AppState>,
-    axum::extract::Path(path): axum::extract::Path<CalendarIdPath>,
-    Query(params): Query<EventListParams>,
+    ApiPath(path): ApiPath<CalendarIdPath>,
+    ApiQuery(params): ApiQuery<EventListParams>,
 ) -> Result<Response, ApiError> {
     let pool = require_calendar_db(&state.calendar_db)?;
     let calendar_id = path.validated()?;

@@ -1,6 +1,6 @@
 use axum::{
     Json,
-    extract::{Query, State},
+    extract::State,
     http::{HeaderMap, StatusCode, header},
     response::{IntoResponse, Response},
 };
@@ -16,6 +16,7 @@ use crate::{
             contacts_convert::{contact_detail_to_dto, contact_page_to_dto},
         },
         error::{ApiError, ErrorCode, ErrorResponse},
+        extract::{ApiPath, ApiQuery},
         params::{ContactIdPath, ContactListParams},
         router::AppState,
     },
@@ -39,7 +40,7 @@ use crate::{
 )]
 pub async fn list_contacts(
     State(state): State<AppState>,
-    Query(params): Query<ContactListParams>,
+    ApiQuery(params): ApiQuery<ContactListParams>,
 ) -> Result<Json<ContactPageDto>, ApiError> {
     let sources = require_contacts_sources(&state.contacts_sources)?;
     let page = fetch_contact_page(sources, &params).await?;
@@ -61,7 +62,7 @@ pub async fn list_contacts(
 )]
 pub async fn list_contacts_vcard(
     State(state): State<AppState>,
-    Query(params): Query<ContactListParams>,
+    ApiQuery(params): ApiQuery<ContactListParams>,
 ) -> Result<Response, ApiError> {
     let sources = require_contacts_sources(&state.contacts_sources)?;
     let page = fetch_contact_page(sources, &params).await?;
@@ -87,7 +88,7 @@ pub async fn list_contacts_vcard(
 )]
 pub async fn list_contacts_carddav(
     State(state): State<AppState>,
-    Query(params): Query<ContactListParams>,
+    ApiQuery(params): ApiQuery<ContactListParams>,
 ) -> Result<Response, ApiError> {
     let sources = require_contacts_sources(&state.contacts_sources)?;
     let page = fetch_contact_page(sources, &params).await?;
@@ -113,7 +114,7 @@ pub async fn list_contacts_carddav(
 )]
 pub async fn search_contacts(
     State(state): State<AppState>,
-    Query(params): Query<ContactListParams>,
+    ApiQuery(params): ApiQuery<ContactListParams>,
 ) -> Result<Json<ContactPageDto>, ApiError> {
     let sources = require_contacts_sources(&state.contacts_sources)?;
     let limit = params.validated_limit()?;
@@ -147,7 +148,7 @@ pub async fn search_contacts(
 )]
 pub async fn get_contact(
     State(state): State<AppState>,
-    axum::extract::Path(path): axum::extract::Path<ContactIdPath>,
+    ApiPath(path): ApiPath<ContactIdPath>,
 ) -> Result<Json<ContactDetailDto>, ApiError> {
     let sources = require_contacts_sources(&state.contacts_sources)?;
     let contact_id = path.validated()?;
@@ -170,7 +171,7 @@ pub async fn get_contact(
 )]
 pub async fn get_contact_vcard(
     State(state): State<AppState>,
-    axum::extract::Path(path): axum::extract::Path<ContactIdPath>,
+    ApiPath(path): ApiPath<ContactIdPath>,
 ) -> Result<Response, ApiError> {
     let sources = require_contacts_sources(&state.contacts_sources)?;
     let contact_id = path.validated()?;
@@ -193,7 +194,7 @@ pub async fn get_contact_vcard(
 )]
 pub async fn get_contact_carddav(
     State(state): State<AppState>,
-    axum::extract::Path(path): axum::extract::Path<ContactIdPath>,
+    ApiPath(path): ApiPath<ContactIdPath>,
 ) -> Result<Response, ApiError> {
     let sources = require_contacts_sources(&state.contacts_sources)?;
     let contact_id = path.validated()?;
@@ -220,7 +221,7 @@ pub async fn get_contact_carddav(
 )]
 pub async fn get_contact_photo(
     State(state): State<AppState>,
-    axum::extract::Path(path): axum::extract::Path<ContactIdPath>,
+    ApiPath(path): ApiPath<ContactIdPath>,
 ) -> Result<Response, ApiError> {
     let sources = require_contacts_sources(&state.contacts_sources)?;
     let contact_id = path.validated()?;

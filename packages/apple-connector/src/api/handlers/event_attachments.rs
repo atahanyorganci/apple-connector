@@ -9,6 +9,7 @@ use super::health::require_calendar_db;
 use crate::{
     api::{
         error::{ApiError, ErrorCode, ErrorResponse},
+        extract::ApiPath,
         media::{ServeMedia, copy_conditional_headers, serve_media_bytes},
         params::{ConditionalRequestHeaders, EventAttachmentIdPath, RangeRequestHeader},
         router::AppState,
@@ -63,7 +64,7 @@ use crate::{
 )]
 pub async fn get_event_attachment_content(
     State(state): State<AppState>,
-    axum::extract::Path(path): axum::extract::Path<EventAttachmentIdPath>,
+    ApiPath(path): ApiPath<EventAttachmentIdPath>,
     request: Request,
 ) -> Result<Response, ApiError> {
     let (event_id, attachment_id) = path.validated()?;
@@ -113,7 +114,7 @@ pub async fn get_event_attachment_content(
 )]
 pub async fn head_event_attachment_content(
     State(state): State<AppState>,
-    axum::extract::Path(path): axum::extract::Path<EventAttachmentIdPath>,
+    ApiPath(path): ApiPath<EventAttachmentIdPath>,
     headers: HeaderMap,
 ) -> Result<Response, ApiError> {
     let (event_id, attachment_id) = path.validated()?;

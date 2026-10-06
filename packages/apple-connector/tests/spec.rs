@@ -286,12 +286,14 @@ async fn a_birthday_before_2001_is_returned() -> TestResult {
     Ok(())
 }
 
-/// Timestamp query bounds are Unix seconds; an RFC 3339 value must still be answered inside the
-/// error envelope. Read handlers use axum's `Query`, whose rejection is plain text.
+/// Timestamp query bounds are Unix seconds; an RFC 3339 value is still answered inside the error
+/// envelope, as is a path segment that does not parse (#160).
 #[tokio::test]
-#[ignore = "bug: read endpoints answer malformed query parameters outside the error envelope (SPEC.md, Known bugs)"]
-async fn an_rfc3339_query_bound_is_a_typed_error() -> TestResult {
-    let app = router(AppState::new(None, None, None, None));
+async fn malformed_query_and_path_parameters_are_typed_errors() -> TestResult {
+    let fixture = apple_connector::fixtures::FixtureDb::seeded().await?;
+    let pool = connect_pool(fixture.path()).await?;
+    let app = router(AppState::new(Some(pool), None, None, None));
+
     let (status, body) = send(
         &app,
         "GET",
@@ -300,10 +302,17 @@ async fn an_rfc3339_query_bound_is_a_typed_error() -> TestResult {
     )
     .await?;
     assert_eq!(status, StatusCode::BAD_REQUEST, "{body}");
+    assert_eq!(body["error"]["code"], "invalid_parameter", "{body}");
     assert!(
-        body["error"]["code"].is_string(),
-        "not an error envelope: {body}"
+        body["error"]["details"]["reason"]
+            .as_str()
+            .is_some_and(|reason| reason.contains("before")),
+        "{body}"
     );
+
+    let (status, body) = send(&app, "GET", "/v1/chats/abc", None).await?;
+    assert_eq!(status, StatusCode::BAD_REQUEST, "{body}");
+    assert_eq!(body["error"]["code"], "invalid_parameter", "{body}");
     Ok(())
 }
 

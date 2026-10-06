@@ -30,10 +30,10 @@ Unix seconds only. `before`/`after`, `due_before`/`due_after`, `modified_before`
 ## Consequences
 
 - Clients convert once, at their boundary (the Raycast client does this in `lib/time.ts`).
-- An RFC 3339 value is not an integer, so it fails query deserialization. Read endpoints still use
-  axum's `Query` extractor, which answers that with a plain-text 400 outside the error envelope
-  rather than `invalid_timestamp` (known bug in the apple-connector spec;
-  [CONN-L-0005](../../packages/apple-connector/docs/lessons/CONN-L-0005-extractor-rejections.md)).
+- An RFC 3339 value is not an integer, so it fails query deserialization: `400 invalid_parameter`,
+  with `details.reason` naming the field. `invalid_timestamp` is for well-formed values that are
+  out of order. Until #160 read endpoints answered this with axum's plain-text 400
+  ([CONN-L-0005](../../packages/apple-connector/docs/lessons/CONN-L-0005-extractor-rejections.md)).
 - Apple's epochs (2001-01-01, nanoseconds for Messages, seconds for Core Data) never appear on the
   wire. Only `NULL` and an exact `0` mean unset; instants before 2001 are negative in Apple's
   epoch, and instants before 1970 are negative on the wire. Reading anything `<= 0` as unset
@@ -44,5 +44,4 @@ Unix seconds only. `before`/`after`, `due_before`/`due_after`, `modified_before`
 - `docs/openapi.json`: `UnixTimestamp` is `integer`/`int64`; no schema in the document uses
   `format: date-time`; every timestamp query parameter is `integer`.
 - `packages/apple-connector/src/apple_types/timestamp.rs`.
-- `packages/apple-connector/tests/spec.rs`: `an_rfc3339_query_bound_is_a_typed_error` (ignored,
-  fails today).
+- `packages/apple-connector/tests/spec.rs`: `malformed_query_and_path_parameters_are_typed_errors`.

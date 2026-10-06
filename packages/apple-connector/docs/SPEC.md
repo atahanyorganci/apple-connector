@@ -63,9 +63,11 @@ Application.
   `warm_entity_id_caches` tests; `tests/spec.rs::a_legacy_calendar_schema_fails_the_startup_gate`;
   `src/api/handlers/health.rs` tests.
 - **Errors** are `{ "error": { code, message, details } }` with a documented `ErrorCode`; database
-  errors never carry driver text ([CONN-0021](decisions/CONN-0021-error-codes.md)). Enforced by:
-  `scripts/check-api-error-leakage.sh` (flake check), `src/api/error.rs` tests, the OpenAPI
-  contract tests.
+  errors never carry driver text, and malformed path, query, and body parameters are typed errors
+  too ([CONN-0021](decisions/CONN-0021-error-codes.md)). Enforced by:
+  `scripts/check-api-error-leakage.sh` (flake check; it also bans axum's raw extractors in
+  handlers), `src/api/error.rs` tests, the OpenAPI contract tests,
+  `tests/spec.rs::malformed_query_and_path_parameters_are_typed_errors`.
 - **Writes** reject what the framework cannot store
   ([REC-0012](../../../docs/decisions/REC-0012-reject-not-coerce.md)) and answer 201/200 with the
   detail or 202 `sync_pending` ([CONN-0022](decisions/CONN-0022-async-mutations.md)). Enforced by:
@@ -108,9 +110,6 @@ Application.
   `NSError.localizedDescription`, which becomes the 422 `message`. Proven by:
   `framework_validation_text_is_not_returned_to_clients` in both files (ignored, fail today).
   Tracked in #158.
-- **Read endpoints answer malformed query strings outside the envelope** (axum's plain-text 400)
-  ([CONN-L-0005](lessons/CONN-L-0005-extractor-rejections.md)). Proven by:
-  `tests/spec.rs::an_rfc3339_query_bound_is_a_typed_error` (ignored, fails today). Tracked in #160.
 - **Calendar writes resolve the calendar by title**, not by the `calendar_id` given, so two
   calendars with the same title answer `409 ambiguous_event_kit_match` (`apple-eventkit` known
   bug). Proven by: `apple-eventkit/tests/identifier_probe.rs` (live). Tracked in #156.

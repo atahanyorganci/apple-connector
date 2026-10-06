@@ -1,7 +1,4 @@
-use axum::{
-    Json,
-    extract::{Query, State},
-};
+use axum::{Json, extract::State};
 
 use super::health::{require_messages_db, validate_page};
 use crate::{
@@ -12,6 +9,7 @@ use crate::{
             convert::{chat_detail_to_dto, chat_summary_to_dto, message_summary_to_dto},
         },
         error::{ApiError, ErrorCode, ErrorResponse},
+        extract::{ApiPath, ApiQuery},
         params::{ChatIdPath, PageParams},
         router::AppState,
     },
@@ -36,7 +34,7 @@ use crate::{
 )]
 pub async fn list_chats(
     State(state): State<AppState>,
-    Query(page): Query<PageParams>,
+    ApiQuery(page): ApiQuery<PageParams>,
 ) -> Result<Json<ChatPageDto>, ApiError> {
     let pool = require_messages_db(&state.messages_db)?;
     let limit = validate_page(&page)?;
@@ -78,7 +76,7 @@ pub async fn list_chats(
 )]
 pub async fn get_chat(
     State(state): State<AppState>,
-    axum::extract::Path(path): axum::extract::Path<ChatIdPath>,
+    ApiPath(path): ApiPath<ChatIdPath>,
 ) -> Result<Json<ChatDetailDto>, ApiError> {
     let chat_id = path.validated()?;
     let pool = require_messages_db(&state.messages_db)?;
@@ -119,8 +117,8 @@ pub async fn get_chat(
 )]
 pub async fn list_chat_messages(
     State(state): State<AppState>,
-    axum::extract::Path(path): axum::extract::Path<ChatIdPath>,
-    Query(page): Query<PageParams>,
+    ApiPath(path): ApiPath<ChatIdPath>,
+    ApiQuery(page): ApiQuery<PageParams>,
 ) -> Result<Json<MessagePageDto>, ApiError> {
     let chat_id = path.validated()?;
     let pool = require_messages_db(&state.messages_db)?;

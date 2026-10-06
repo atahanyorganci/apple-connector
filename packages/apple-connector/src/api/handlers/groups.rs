@@ -1,8 +1,4 @@
-use axum::{
-    Json,
-    extract::{Query, State},
-    response::Response,
-};
+use axum::{Json, extract::State, response::Response};
 
 use crate::{
     api::{
@@ -12,6 +8,7 @@ use crate::{
             contacts_convert::{contact_page_to_dto, group_detail_to_dto, group_page_to_dto},
         },
         error::{ApiError, ErrorCode, ErrorResponse},
+        extract::{ApiPath, ApiQuery},
         params::{GroupIdPath, PageParams},
         router::AppState,
     },
@@ -33,7 +30,7 @@ use crate::{
 )]
 pub async fn list_groups(
     State(state): State<AppState>,
-    Query(params): Query<PageParams>,
+    ApiQuery(params): ApiQuery<PageParams>,
 ) -> Result<Json<GroupPageDto>, ApiError> {
     let sources = require_contacts_sources(&state.contacts_sources)?;
     let limit = params.validated_limit()?;
@@ -69,7 +66,7 @@ pub async fn list_groups(
 )]
 pub async fn get_group(
     State(state): State<AppState>,
-    axum::extract::Path(path): axum::extract::Path<GroupIdPath>,
+    ApiPath(path): ApiPath<GroupIdPath>,
 ) -> Result<Json<GroupDetailDto>, ApiError> {
     let group_id = path.validated()?;
     let sources = require_contacts_sources(&state.contacts_sources)?;
@@ -97,8 +94,8 @@ pub async fn get_group(
 )]
 pub async fn list_group_contacts(
     State(state): State<AppState>,
-    axum::extract::Path(path): axum::extract::Path<GroupIdPath>,
-    Query(params): Query<PageParams>,
+    ApiPath(path): ApiPath<GroupIdPath>,
+    ApiQuery(params): ApiQuery<PageParams>,
 ) -> Result<Json<ContactPageDto>, ApiError> {
     let sources = require_contacts_sources(&state.contacts_sources)?;
     let group_id = path.validated()?;
@@ -122,8 +119,8 @@ pub async fn list_group_contacts(
 )]
 pub async fn list_group_contacts_vcard(
     State(state): State<AppState>,
-    axum::extract::Path(path): axum::extract::Path<GroupIdPath>,
-    Query(params): Query<PageParams>,
+    ApiPath(path): ApiPath<GroupIdPath>,
+    ApiQuery(params): ApiQuery<PageParams>,
 ) -> Result<Response, ApiError> {
     let sources = require_contacts_sources(&state.contacts_sources)?;
     let group_id = path.validated()?;
@@ -151,8 +148,8 @@ pub async fn list_group_contacts_vcard(
 )]
 pub async fn list_group_contacts_carddav(
     State(state): State<AppState>,
-    axum::extract::Path(path): axum::extract::Path<GroupIdPath>,
-    Query(params): Query<PageParams>,
+    ApiPath(path): ApiPath<GroupIdPath>,
+    ApiQuery(params): ApiQuery<PageParams>,
 ) -> Result<Response, ApiError> {
     let sources = require_contacts_sources(&state.contacts_sources)?;
     let group_id = path.validated()?;

@@ -38,7 +38,7 @@ and [`docs/errors.md`](../../../../docs/errors.md); this file does not repeat it
 
 - Fields the backing framework cannot store are refused with a typed code and `details.field`
   ([REC-0012](../../../../docs/decisions/REC-0012-reject-not-coerce.md)).
-- Request bodies are JSON. Malformed bodies and query strings on write routes are typed errors.
+- Request bodies are JSON. A malformed body is a typed error.
 - Responses are `SyncPending*DetailDto`: 201 (create) or 200 (update) with `detail` when SQLite has
   the result; 202 with `sync_pending: true` otherwise. Deletes are 204
   ([CONN-0022](../decisions/CONN-0022-async-mutations.md)).
@@ -48,8 +48,8 @@ and [`docs/errors.md`](../../../../docs/errors.md); this file does not repeat it
 ## Errors
 
 `{ "error": { "code", "message", "details" } }`, `code` from `ErrorCode`
-([CONN-0021](../decisions/CONN-0021-error-codes.md)). Read routes still answer a malformed query
-string with axum's plain-text 400 (known bug).
+([CONN-0021](../decisions/CONN-0021-error-codes.md)). A path segment, query string, or body that
+does not parse is a typed error too: `400 invalid_parameter` for path and query.
 
 ## Attachments and media
 

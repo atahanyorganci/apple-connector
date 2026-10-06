@@ -11,6 +11,7 @@ use crate::{
     api::{
         dto::{AttachmentDetailDto, convert::attachment_detail_to_dto},
         error::{ApiError, ErrorCode},
+        extract::ApiPath,
         params::AttachmentGuidPath,
         router::AppState,
     },
@@ -43,7 +44,7 @@ use crate::{
 )]
 pub async fn get_attachment(
     State(state): State<AppState>,
-    axum::extract::Path(path): axum::extract::Path<AttachmentGuidPath>,
+    ApiPath(path): ApiPath<AttachmentGuidPath>,
 ) -> Result<Json<AttachmentDetailDto>, ApiError> {
     let guid = path.validated()?;
     let pool = require_messages_db(&state.messages_db)?;
@@ -124,7 +125,7 @@ pub async fn get_attachment(
 )]
 pub async fn get_attachment_content(
     State(state): State<AppState>,
-    axum::extract::Path(path): axum::extract::Path<AttachmentGuidPath>,
+    ApiPath(path): ApiPath<AttachmentGuidPath>,
     request: Request,
 ) -> Result<Response, ApiError> {
     let guid = path.validated()?;
@@ -168,7 +169,7 @@ pub async fn get_attachment_content(
 )]
 pub async fn head_attachment_content(
     State(state): State<AppState>,
-    axum::extract::Path(path): axum::extract::Path<AttachmentGuidPath>,
+    ApiPath(path): ApiPath<AttachmentGuidPath>,
     headers: HeaderMap,
 ) -> Result<Response, ApiError> {
     let guid = path.validated()?;
