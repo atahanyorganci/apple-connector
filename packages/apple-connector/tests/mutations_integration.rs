@@ -147,7 +147,7 @@ async fn event_span_all_is_rejected_with_a_typed_error() -> Result<(), Box<dyn s
     )
     .await?;
     assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
-    assert_eq!(body["error"]["code"], "unprocessable_entity");
+    assert_eq!(body["error"]["code"], "invalid_request_body");
     assert!(body["error"]["details"]["reason"].is_string());
 
     let response = app

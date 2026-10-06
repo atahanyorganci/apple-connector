@@ -19,6 +19,8 @@
           ../.cargo/config.toml
           # Snapshot compared by the OpenAPI test.
           ../docs/openapi.json
+          # Error catalog compared row for row with `ErrorCode`.
+          ../docs/errors.md
           (lib.fileset.difference ../packages ../packages/raycast-extension)
         ];
       };

@@ -4,7 +4,7 @@ use crate::{
     api::{
         contacts::{require_contacts_access, require_contacts_sources},
         contacts_convert::{
-            container_hint, create_contact_input, create_group_input, map_contacts_error,
+            contacts_error, container_hint, create_contact_input, create_group_input,
             update_contact_input, update_group_input,
         },
         dto::contacts::{
@@ -65,7 +65,7 @@ pub async fn create_contact(
             create_contact_input(request),
         )
         .await
-        .map_err(map_contacts_error)?;
+        .map_err(contacts_error(ErrorCode::ContainerNotFound))?;
 
     let response =
         crate::api::hydrate::hydrate_contact(&state.contacts_sources, &saved.identifier).await?;
@@ -105,7 +105,7 @@ pub async fn update_contact(
     let saved = store
         .update_contact(&framework_id, update_contact_input(request))
         .await
-        .map_err(map_contacts_error)?;
+        .map_err(contacts_error(ErrorCode::ContactNotFound))?;
 
     let response =
         crate::api::hydrate::hydrate_contact(&state.contacts_sources, &saved.identifier).await?;
@@ -145,7 +145,7 @@ pub async fn delete_contact(
     store
         .delete_contact(&framework_id)
         .await
-        .map_err(map_contacts_error)?;
+        .map_err(contacts_error(ErrorCode::ContactNotFound))?;
 
     Ok(StatusCode::NO_CONTENT)
 }
@@ -196,7 +196,7 @@ pub async fn create_group(
             create_group_input(request),
         )
         .await
-        .map_err(map_contacts_error)?;
+        .map_err(contacts_error(ErrorCode::ContainerNotFound))?;
 
     let response =
         crate::api::hydrate::hydrate_group(&state.contacts_sources, &saved.identifier).await?;
@@ -236,7 +236,7 @@ pub async fn update_group(
     let saved = store
         .update_group(&framework_id, update_group_input(request))
         .await
-        .map_err(map_contacts_error)?;
+        .map_err(contacts_error(ErrorCode::GroupNotFound))?;
 
     let response =
         crate::api::hydrate::hydrate_group(&state.contacts_sources, &saved.identifier).await?;
@@ -276,7 +276,7 @@ pub async fn delete_group(
     store
         .delete_group(&framework_id)
         .await
-        .map_err(map_contacts_error)?;
+        .map_err(contacts_error(ErrorCode::GroupNotFound))?;
 
     Ok(StatusCode::NO_CONTENT)
 }
@@ -317,7 +317,7 @@ pub async fn add_contact_to_group(
     store
         .add_contact_to_group(&contact_framework_id, &group_framework_id)
         .await
-        .map_err(map_contacts_error)?;
+        .map_err(contacts_error(ErrorCode::GroupNotFound))?;
 
     Ok(StatusCode::NO_CONTENT)
 }
@@ -358,7 +358,7 @@ pub async fn remove_contact_from_group(
     store
         .remove_contact_from_group(&contact_framework_id, &group_framework_id)
         .await
-        .map_err(map_contacts_error)?;
+        .map_err(contacts_error(ErrorCode::GroupNotFound))?;
 
     Ok(StatusCode::NO_CONTENT)
 }

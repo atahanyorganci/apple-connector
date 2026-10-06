@@ -5,7 +5,7 @@ use apple_eventkit::{AuthStatus, EventKitStore};
 use crate::api::{
     dto::common::EventKitAuthStatusDto,
     error::{ApiError, ErrorCode},
-    eventkit_convert::map_eventkit_error,
+    eventkit_convert::eventkit_error,
     router::AppState,
 };
 
@@ -29,7 +29,7 @@ pub(crate) async fn require_eventkit_reminders(
             store
                 .ensure_reminders_access()
                 .await
-                .map_err(map_eventkit_error)?;
+                .map_err(eventkit_error(ErrorCode::InternalError))?;
             match store.auth_status().await.reminders {
                 AuthStatus::Authorized | AuthStatus::WriteOnly => Ok(store),
                 AuthStatus::Denied | AuthStatus::Restricted => Err(ApiError::with_message(
@@ -58,7 +58,7 @@ pub(crate) async fn require_eventkit_events(
             store
                 .ensure_events_access()
                 .await
-                .map_err(map_eventkit_error)?;
+                .map_err(eventkit_error(ErrorCode::InternalError))?;
             match store.auth_status().await.events {
                 AuthStatus::Authorized | AuthStatus::WriteOnly => Ok(store),
                 AuthStatus::Denied | AuthStatus::Restricted => Err(ApiError::with_message(

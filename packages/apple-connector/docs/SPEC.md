@@ -67,7 +67,8 @@ Application.
   too ([CONN-0021](decisions/CONN-0021-error-codes.md)). Enforced by:
   `scripts/check-api-error-leakage.sh` (flake check; it also bans axum's raw extractors in
   handlers), `src/api/error.rs` tests, the OpenAPI contract tests,
-  `tests/spec.rs::malformed_query_and_path_parameters_are_typed_errors`.
+  `tests/spec.rs::malformed_query_and_path_parameters_are_typed_errors`;
+  `src/api/error_codes.rs::errors_md_lists_every_code` keeps `docs/errors.md` in step with the enum.
 - **Writes** reject what the framework cannot store
   ([REC-0012](../../../docs/decisions/REC-0012-reject-not-coerce.md)) and answer 201/200 with the
   detail or 202 `sync_pending` ([CONN-0022](decisions/CONN-0022-async-mutations.md)). Enforced by:
@@ -101,11 +102,6 @@ Application.
 
 ### Known bugs
 
-- **Coarse error codes.** Framework outcomes still answer `resource_not_found`,
-  `unprocessable_entity`, and `gateway_timeout`, and body rejections `validation_error`, which
-  #130 removed. Proven by: `framework_errors_map_to_granular_codes` in
-  `src/api/eventkit_convert.rs` and `src/api/contacts_convert.rs` (ignored, fail today).
-  Tracked in #159.
 - **Framework text in responses.** EventKit and Contacts `ValidationFailed` carry
   `NSError.localizedDescription`, which becomes the 422 `message`. Proven by:
   `framework_validation_text_is_not_returned_to_clients` in both files (ignored, fail today).

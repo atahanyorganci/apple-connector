@@ -21,21 +21,28 @@ use crate::{
 pub const VCARD_CONTENT_TYPE: &str = "text/vcard; charset=utf-8";
 pub const CARDDAV_CONTENT_TYPE: &str = "application/carddav+xml; charset=utf-8";
 
-pub fn map_contacts_error(error: ContactsError) -> ApiError {
+/// Maps a Contacts framework failure to an API error. The framework's "not found" does not say what
+/// was missing, so the caller passes the code for the entity it addressed.
+pub fn map_contacts_error(error: ContactsError, not_found: ErrorCode) -> ApiError {
     match error {
-        ContactsError::NotFound => ApiError::new(ErrorCode::ResourceNotFound),
+        ContactsError::NotFound => ApiError::new(not_found),
         ContactsError::AccessDenied => ApiError::new(ErrorCode::ContactsAccessDenied),
         ContactsError::ReadOnlyContainer => ApiError::new(ErrorCode::ReadOnlyContainer),
         ContactsError::ValidationFailed(message) => {
-            ApiError::with_message(ErrorCode::UnprocessableEntity, message)
+            ApiError::with_message(ErrorCode::ContactsInvalidInput, message)
         }
         ContactsError::AmbiguousMatch(message) => {
             ApiError::with_message(ErrorCode::AmbiguousContactsMatch, message)
         }
         ContactsError::UnsupportedPlatform => ApiError::contacts_unavailable(),
         ContactsError::Framework(_message) => ApiError::new(ErrorCode::InternalError),
-        ContactsError::Timeout => ApiError::new(ErrorCode::GatewayTimeout),
+        ContactsError::Timeout => ApiError::new(ErrorCode::ContactsTimeout),
     }
+}
+
+/// `map_err` adapter for [`map_contacts_error`]: `.map_err(contacts_error(ErrorCode::ContactNotFound))`.
+pub fn contacts_error(not_found: ErrorCode) -> impl Fn(ContactsError) -> ApiError {
+    move |error| map_contacts_error(error, not_found)
 }
 
 pub fn container_hint(
@@ -226,19 +233,23 @@ mod tests {
 
     #[test]
     fn map_contacts_read_only_to_forbidden() {
-        let error = map_contacts_error(ContactsError::ReadOnlyContainer);
+        let error =
+            map_contacts_error(ContactsError::ReadOnlyContainer, ErrorCode::ContactNotFound);
         assert_eq!(error.status(), StatusCode::FORBIDDEN);
     }
 
     #[test]
     fn map_contacts_not_found() {
-        let error = map_contacts_error(ContactsError::NotFound);
+        let error = map_contacts_error(ContactsError::NotFound, ErrorCode::ContactNotFound);
         assert_eq!(error.status(), StatusCode::NOT_FOUND);
     }
 
     #[test]
     fn map_contacts_validation_failed() {
-        let error = map_contacts_error(ContactsError::ValidationFailed("invalid".into()));
+        let error = map_contacts_error(
+            ContactsError::ValidationFailed("invalid".into()),
+            ErrorCode::ContactNotFound,
+        );
         assert_eq!(error.status(), StatusCode::UNPROCESSABLE_ENTITY);
     }
 
@@ -247,9 +258,13 @@ mod tests {
     /// 422 on the Contacts side and a 409 on the EventKit side.
     #[test]
     fn ambiguity_answers_the_same_way_as_eventkit() {
-        let contacts = map_contacts_error(ContactsError::AmbiguousMatch("two matches".into()));
+        let contacts = map_contacts_error(
+            ContactsError::AmbiguousMatch("two matches".into()),
+            ErrorCode::ContainerNotFound,
+        );
         let eventkit = crate::api::eventkit_convert::map_eventkit_error(
             apple_eventkit::EventKitError::AmbiguousMatch("two matches".into()),
+            ErrorCode::CalendarNotFound,
         );
 
         assert_eq!(contacts.status(), StatusCode::CONFLICT);
@@ -264,30 +279,37 @@ mod tests {
     #[ignore = "bug: framework validation text reaches the 422 message (SPEC.md, Known bugs)"]
     fn framework_validation_text_is_not_returned_to_clients() {
         let framework_text = "The operation couldn’t be completed. (CNErrorDomain error 300.)";
-        let error = map_contacts_error(ContactsError::ValidationFailed(framework_text.into()));
+        let error = map_contacts_error(
+            ContactsError::ValidationFailed(framework_text.into()),
+            ErrorCode::ContactNotFound,
+        );
         assert_ne!(error.body().message, framework_text);
     }
 
-    /// #130 removed the coarse, HTTP-aligned codes; a framework miss should answer with a
-    /// granular code, not `resource_not_found`.
+    /// #130 removed the coarse, HTTP-aligned codes; a framework outcome answers with a specific one,
+    /// and a miss names the entity the caller addressed (#159).
     #[test]
-    #[ignore = "bug: coarse error codes are still emitted (SPEC.md, Known bugs)"]
     fn framework_errors_map_to_granular_codes() {
-        for error in [
-            ContactsError::NotFound,
-            ContactsError::ValidationFailed(String::new()),
-            ContactsError::Timeout,
-        ] {
-            let code = map_contacts_error(error).body().code;
-            assert!(
-                !matches!(
-                    code,
-                    ErrorCode::ResourceNotFound
-                        | ErrorCode::UnprocessableEntity
-                        | ErrorCode::GatewayTimeout
-                ),
-                "coarse code {code:?}"
-            );
-        }
+        assert_eq!(
+            map_contacts_error(ContactsError::NotFound, ErrorCode::ContactNotFound)
+                .body()
+                .code,
+            ErrorCode::ContactNotFound
+        );
+        assert_eq!(
+            map_contacts_error(
+                ContactsError::ValidationFailed("bad input".into()),
+                ErrorCode::ContactNotFound
+            )
+            .body()
+            .code,
+            ErrorCode::ContactsInvalidInput
+        );
+        assert_eq!(
+            map_contacts_error(ContactsError::Timeout, ErrorCode::ContactNotFound)
+                .body()
+                .code,
+            ErrorCode::ContactsTimeout
+        );
     }
 }

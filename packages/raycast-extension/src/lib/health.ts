@@ -34,7 +34,7 @@ export type HealthState = {
  * Health of the server and each domain.
  *
  * Commands call this to render an actionable empty state instead of surfacing a
- * bare `service_unavailable`, which matters because most of this API depends on
+ * bare 503, which matters because most of this API depends on
  * Full Disk Access and per-domain TCC grants.
  */
 export function useHealth(): HealthState {

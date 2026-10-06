@@ -9,7 +9,7 @@ use crate::{
         error::{ApiError, ErrorCode, ErrorResponse},
         eventkit::require_eventkit_events,
         eventkit_convert::{
-            calendar_hint, create_event_input, delete_event_input, map_eventkit_error,
+            calendar_hint, create_event_input, delete_event_input, eventkit_error,
             update_event_input, validate_create_event, validate_update_event,
         },
         extract::{ApiJson, ApiPath, ApiQuery},
@@ -61,7 +61,7 @@ pub async fn create_event(
     let saved = eventkit
         .create_event(calendar_hint(metadata), create_event_input(request)?)
         .await
-        .map_err(map_eventkit_error)?;
+        .map_err(eventkit_error(ErrorCode::CalendarNotFound))?;
 
     // The read API's event id is EventKit's `calendarItemIdentifier`, lowercased.
     let event_id = EventId::new(saved.calendar_item_id.to_ascii_lowercase());
@@ -124,7 +124,7 @@ pub async fn update_event(
             update_event_input(request, calendar_hint, span)?,
         )
         .await
-        .map_err(map_eventkit_error)?;
+        .map_err(eventkit_error(ErrorCode::EventNotFound))?;
 
     let response = crate::api::hydrate::hydrate_event(pool, event_id).await?;
     Ok((
@@ -166,7 +166,7 @@ pub async fn delete_event(
             delete_event_input(span, params.occurrence_start.map(|value| value.seconds())),
         )
         .await
-        .map_err(map_eventkit_error)?;
+        .map_err(eventkit_error(ErrorCode::EventNotFound))?;
 
     Ok(StatusCode::NO_CONTENT)
 }

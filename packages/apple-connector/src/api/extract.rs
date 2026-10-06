@@ -75,8 +75,9 @@ fn json_error(rejection: JsonRejection) -> ApiError {
     let code = match rejection {
         // Well-formed JSON that does not match the schema: the request is understood but cannot
         // be processed.
-        JsonRejection::JsonDataError(_) => ErrorCode::UnprocessableEntity,
-        _ => ErrorCode::ValidationError,
+        JsonRejection::JsonDataError(_) => ErrorCode::InvalidRequestBody,
+        JsonRejection::MissingJsonContentType(_) => ErrorCode::UnsupportedMediaType,
+        _ => ErrorCode::MalformedRequestBody,
     };
     ApiError::with_details(
         code,
@@ -170,7 +171,7 @@ mod tests {
         )
         .await?;
         assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
-        assert_eq!(body["error"]["code"], "unprocessable_entity");
+        assert_eq!(body["error"]["code"], "invalid_request_body");
         assert!(body["error"]["details"]["reason"].is_string());
         Ok(())
     }
@@ -187,7 +188,23 @@ mod tests {
         )
         .await?;
         assert_eq!(status, StatusCode::BAD_REQUEST);
-        assert_eq!(body["error"]["code"], "validation_error");
+        assert_eq!(body["error"]["code"], "malformed_request_body");
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn a_body_without_a_json_content_type_is_unsupported()
+    -> Result<(), Box<dyn std::error::Error>> {
+        let (status, body) = send(
+            app(),
+            Request::builder()
+                .method("POST")
+                .uri("/body")
+                .body(Body::from(r#"{"span":"this"}"#))?,
+        )
+        .await?;
+        assert_eq!(status, StatusCode::UNSUPPORTED_MEDIA_TYPE);
+        assert_eq!(body["error"]["code"], "unsupported_media_type");
         Ok(())
     }
 

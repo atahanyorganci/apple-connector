@@ -43,9 +43,15 @@ fails CI on `ApiError::internal(...to_string())` and on the old coarse helpers.
 - Every handler extracts through `ApiJson`, `ApiQuery`, and `ApiPath`, so a malformed body, query
   string, or path segment is a typed error. Read handlers used axum's `Query` until #160; the
   leakage script now bans the raw extractors.
+- A framework "not found" answers with the code of the entity the request addressed
+  (`reminder_not_found`, `container_not_found`, …): EventKit and Contacts do not say what was
+  missing, so the mappers take it from the call site. Framework validation is
+  `eventkit_invalid_input`/`contacts_invalid_input`, framework timeouts
+  `eventkit_timeout`/`contacts_timeout`, and body rejections `malformed_request_body` (400),
+  `invalid_request_body` (422), or `unsupported_media_type` (415). The last coarse codes went in
+  #159.
+- `docs/errors.md` is checked against the enum by a test.
 - Known bugs, each with a failing ignored test:
-  - The framework mappers still emit coarse codes for some outcomes: `resource_not_found`,
-    `unprocessable_entity`, `gateway_timeout`, and `validation_error` (body rejections).
   - EventKit and Contacts `ValidationFailed` carry `NSError.localizedDescription`, and the mappers
     copy it into `message`, so framework text reaches clients. The leakage script does not catch
     this pattern.
@@ -54,7 +60,8 @@ fails CI on `ApiError::internal(...to_string())` and on the old coarse helpers.
 
 - `packages/apple-connector/src/api/error.rs`, `error_codes.rs`, `eventkit_convert.rs`
   `map_eventkit_error`, `contacts_convert.rs` `map_contacts_error`, `extract.rs`.
-- Tests (ignored, fail today): `framework_validation_text_is_not_returned_to_clients` and
-  `framework_errors_map_to_granular_codes` in both `eventkit_convert.rs` and
-  `contacts_convert.rs`.
+- Tests: `framework_errors_map_to_granular_codes` in `eventkit_convert.rs` and
+  `contacts_convert.rs`; `errors_md_lists_every_code` in `error_codes.rs`; body rejection tests in
+  `extract.rs`. Ignored, failing today: `framework_validation_text_is_not_returned_to_clients` in
+  both convert files.
 - `packages/apple-connector/tests/spec.rs`: `malformed_query_and_path_parameters_are_typed_errors`.
