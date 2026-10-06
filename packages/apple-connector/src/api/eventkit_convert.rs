@@ -31,6 +31,14 @@ pub fn map_eventkit_error(error: EventKitError, not_found: ErrorCode) -> ApiErro
         EventKitError::ValidationFailed(message) => {
             ApiError::with_message(ErrorCode::EventkitInvalidInput, message)
         }
+        EventKitError::Rejected { code, description } => {
+            tracing::warn!(code, %description, "EventKit rejected the input");
+            ApiError::with_details(
+                ErrorCode::EventkitInvalidInput,
+                ErrorCode::EventkitInvalidInput.default_message(),
+                serde_json::json!({ "framework_code": code }),
+            )
+        }
         EventKitError::EndBeforeStart => ApiError::new(ErrorCode::EventEndBeforeStart),
         EventKitError::AmbiguousMatch(message) => {
             ApiError::with_message(ErrorCode::AmbiguousEventKitMatch, message)
@@ -663,18 +671,24 @@ mod tests {
         Ok(())
     }
 
-    /// `apple-eventkit` puts `NSError.localizedDescription` into `ValidationFailed` (see
-    /// `validation_codes_carry_the_framework_description` there). The mapper must not hand that
-    /// framework text to clients.
+    /// Framework refusals carry Apple's `localizedDescription` for the logs; the response gets
+    /// this project's message and the numeric code instead (#158).
     #[test]
-    #[ignore = "bug: framework validation text reaches the 422 message (SPEC.md, Known bugs)"]
-    fn framework_validation_text_is_not_returned_to_clients() {
+    fn framework_validation_text_is_not_returned_to_clients()
+    -> Result<(), Box<dyn std::error::Error>> {
         let framework_text = "The start date must be before the end date.";
         let error = map_eventkit_error(
-            EventKitError::ValidationFailed(framework_text.into()),
+            EventKitError::Rejected {
+                code: 300,
+                description: framework_text.into(),
+            },
             ErrorCode::EventNotFound,
         );
         assert_ne!(error.body().message, framework_text);
+        assert_eq!(error.body().code, ErrorCode::EventkitInvalidInput);
+        let details = error.body().details.as_ref().ok_or("no details")?;
+        assert_eq!(details["framework_code"], 300);
+        Ok(())
     }
 
     /// #130 removed the coarse, HTTP-aligned codes; a framework outcome answers with a specific one,

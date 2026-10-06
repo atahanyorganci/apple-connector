@@ -63,7 +63,7 @@ Application.
   `warm_entity_id_caches` tests; `tests/spec.rs::a_legacy_calendar_schema_fails_the_startup_gate`;
   `src/api/handlers/health.rs` tests.
 - **Errors** are `{ "error": { code, message, details } }` with a documented `ErrorCode`; database
-  errors never carry driver text, and malformed path, query, and body parameters are typed errors
+  errors never carry driver text, framework refusals never carry Apple's text, and malformed path, query, and body parameters are typed errors
   too ([CONN-0021](decisions/CONN-0021-error-codes.md)). Enforced by:
   `scripts/check-api-error-leakage.sh` (flake check; it also bans axum's raw extractors in
   handlers), `src/api/error.rs` tests, the OpenAPI contract tests,
@@ -102,10 +102,6 @@ Application.
 
 ### Known bugs
 
-- **Framework text in responses.** EventKit and Contacts `ValidationFailed` carry
-  `NSError.localizedDescription`, which becomes the 422 `message`. Proven by:
-  `framework_validation_text_is_not_returned_to_clients` in both files (ignored, fail today).
-  Tracked in #158.
 - **Calendar writes resolve the calendar by title**, not by the `calendar_id` given, so two
   calendars with the same title answer `409 ambiguous_event_kit_match` (`apple-eventkit` known
   bug). Proven by: `apple-eventkit/tests/identifier_probe.rs` (live). Tracked in #156.

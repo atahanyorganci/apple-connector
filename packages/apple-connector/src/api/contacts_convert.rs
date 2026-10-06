@@ -31,6 +31,14 @@ pub fn map_contacts_error(error: ContactsError, not_found: ErrorCode) -> ApiErro
         ContactsError::ValidationFailed(message) => {
             ApiError::with_message(ErrorCode::ContactsInvalidInput, message)
         }
+        ContactsError::Rejected { code, description } => {
+            tracing::warn!(code, %description, "Contacts rejected the input");
+            ApiError::with_details(
+                ErrorCode::ContactsInvalidInput,
+                ErrorCode::ContactsInvalidInput.default_message(),
+                serde_json::json!({ "framework_code": code }),
+            )
+        }
         ContactsError::AmbiguousMatch(message) => {
             ApiError::with_message(ErrorCode::AmbiguousContactsMatch, message)
         }
@@ -273,17 +281,24 @@ mod tests {
         assert_eq!(contacts.body().message, "two matches");
     }
 
-    /// `apple-contacts` puts `NSError.localizedDescription` into `ValidationFailed`; the mapper
-    /// must not hand that framework text to clients.
+    /// Framework refusals carry Apple's `localizedDescription` for the logs; the response gets
+    /// this project's message and the numeric code instead (#158).
     #[test]
-    #[ignore = "bug: framework validation text reaches the 422 message (SPEC.md, Known bugs)"]
-    fn framework_validation_text_is_not_returned_to_clients() {
+    fn framework_validation_text_is_not_returned_to_clients()
+    -> Result<(), Box<dyn std::error::Error>> {
         let framework_text = "The operation couldn’t be completed. (CNErrorDomain error 300.)";
         let error = map_contacts_error(
-            ContactsError::ValidationFailed(framework_text.into()),
+            ContactsError::Rejected {
+                code: 300,
+                description: framework_text.into(),
+            },
             ErrorCode::ContactNotFound,
         );
         assert_ne!(error.body().message, framework_text);
+        assert_eq!(error.body().code, ErrorCode::ContactsInvalidInput);
+        let details = error.body().details.as_ref().ok_or("no details")?;
+        assert_eq!(details["framework_code"], 300);
+        Ok(())
     }
 
     /// #130 removed the coarse, HTTP-aligned codes; a framework outcome answers with a specific one,

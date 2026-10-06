@@ -25,7 +25,8 @@ Framework.
   `CreateGroupInput`, `UpdateGroupInput`; `ContainerResolveHint { api_id, external_id, name }`,
   `ContainerResolveMetadata`, `ContainerStoreType`.
 - `AuthStatus`, `AuthOutcome`.
-- `ContactsError`: `NotFound`, `AccessDenied`, `ReadOnlyContainer`, `ValidationFailed(String)`,
+- `ContactsError`: `NotFound`, `AccessDenied`, `ReadOnlyContainer`, `ValidationFailed(String)` (this
+  crate's own message), `Rejected { code, description }` (the framework's refusal),
   `AmbiguousMatch(String)`, `UnsupportedPlatform`, `Framework(String)`, `Timeout`.
 
 ## Guarantees
@@ -47,8 +48,8 @@ Framework.
 - A new contact must have a non-blank given name, family name, or organization. Enforced by:
   `validate_create_contact_input` in `src/contact.rs`.
 - `CNErrorDomain` errors are classified: `RecordDoesNotExist` → `NotFound`,
-  `AuthorizationDenied` → `AccessDenied`, validation codes → `ValidationFailed` with the
-  framework's `localizedDescription`, everything else → `Framework`. Enforced by: `src/error.rs`
+  `AuthorizationDenied` → `AccessDenied`, validation codes → `Rejected { code, description }`,
+  so Apple's text is never a `ValidationFailed` message (#158), everything else → `Framework`. Enforced by: `src/error.rs`
   tests.
 - `Limited` authorization counts as granted. Enforced by: `src/auth.rs`.
 - The crate does not build off macOS. Enforced by: `compile_error!` in `src/lib.rs`.
@@ -61,8 +62,7 @@ Framework.
 
 ### Known bugs
 
-None known in this crate. The HTTP layer forwards `ValidationFailed` text to clients (see the
-apple-connector spec).
+None known.
 
 ## Limits and non-goals
 

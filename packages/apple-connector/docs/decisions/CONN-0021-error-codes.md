@@ -51,10 +51,10 @@ fails CI on `ApiError::internal(...to_string())` and on the old coarse helpers.
   `invalid_request_body` (422), or `unsupported_media_type` (415). The last coarse codes went in
   #159.
 - `docs/errors.md` is checked against the enum by a test.
-- Known bugs, each with a failing ignored test:
-  - EventKit and Contacts `ValidationFailed` carry `NSError.localizedDescription`, and the mappers
-    copy it into `message`, so framework text reaches clients. The leakage script does not catch
-    this pattern.
+- A framework refusal arrives as `Rejected { code, description }`. The response carries this
+  project's message and `details.framework_code`; Apple's `localizedDescription` goes to the log
+  at `warn`. `ValidationFailed` is reserved for messages the framework crates write themselves.
+  Until #158, Apple's text was copied into the 422 `message`.
 
 ## Evidence
 
@@ -62,6 +62,7 @@ fails CI on `ApiError::internal(...to_string())` and on the old coarse helpers.
   `map_eventkit_error`, `contacts_convert.rs` `map_contacts_error`, `extract.rs`.
 - Tests: `framework_errors_map_to_granular_codes` in `eventkit_convert.rs` and
   `contacts_convert.rs`; `errors_md_lists_every_code` in `error_codes.rs`; body rejection tests in
-  `extract.rs`. Ignored, failing today: `framework_validation_text_is_not_returned_to_clients` in
-  both convert files.
+  `extract.rs`. `framework_validation_text_is_not_returned_to_clients` in both convert files;
+  `validation_codes_are_rejections_not_crate_messages` in `apple-eventkit/src/error.rs` and
+  `apple-contacts/src/error.rs`.
 - `packages/apple-connector/tests/spec.rs`: `malformed_query_and_path_parameters_are_typed_errors`.

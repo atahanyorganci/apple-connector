@@ -28,8 +28,8 @@ Framework.
 - `AuthStatus` (`NotDetermined`, `Restricted`, `Denied`, `Authorized`, `WriteOnly`, `Unavailable`),
   `EntityAuthStatus`, `AuthOutcome` (`AlreadyGranted`, `Granted`, `Denied`, `Restricted`,
   `TimedOut`, `Unavailable`, `Failed`).
-- `EventKitError`: `NotFound`, `AccessDenied`, `ReadOnlyCalendar`, `ValidationFailed(String)`,
-  `EndBeforeStart`, `AmbiguousMatch(String)`, `UnsupportedPlatform`, `Framework(String)`,
+- `EventKitError`: `NotFound`, `AccessDenied`, `ReadOnlyCalendar`, `ValidationFailed(String)` (this
+  crate's own message), `Rejected { code, description }` (EventKit's refusal), `EndBeforeStart`, `AmbiguousMatch(String)`, `UnsupportedPlatform`, `Framework(String)`,
   `Timeout`.
 
 ## Guarantees
@@ -56,8 +56,9 @@ Framework.
 - Reminder priority must be 0–9. Enforced by: `validate_priority` in `src/reminder.rs`.
 - `EKErrorDomain` errors are classified: read-only and immutable-target codes →
   `ReadOnlyCalendar`; `EventStoreNotAuthorized` → `AccessDenied`; `NoCalendar` /
-  `CalendarHasNoSource` → `NotFound`; invalid-input codes → `ValidationFailed` with the framework's
-  `localizedDescription`; everything else → `Framework`. Enforced by: `src/error.rs` tests.
+  `CalendarHasNoSource` → `NotFound`; `DatesInverted` → `EndBeforeStart`; other invalid-input codes →
+  `Rejected { code, description }`, so Apple's text is never a `ValidationFailed` message (#158);
+  everything else → `Framework`. Enforced by: `src/error.rs` tests.
 - An access request reports what happened to each entity, keeping granted, denied, restricted,
   timed out, unavailable, and failed apart. Enforced by: `src/auth.rs` tests
   (`a_prompt_result_keeps_denial_and_timeout_apart`, …).

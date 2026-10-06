@@ -10,8 +10,13 @@ pub enum EventKitError {
     AccessDenied,
     #[error("calendar is read-only")]
     ReadOnlyCalendar,
+    /// Input this crate refused, with a message this crate wrote. Never carries `NSError` text.
     #[error("validation failed: {0}")]
     ValidationFailed(String),
+    /// Input EventKit refused. `code` is the `EKErrorCode`; `description` is Apple's
+    /// `localizedDescription`, for server-side logs only — it is not safe to return to clients.
+    #[error("EventKit rejected the input (EKErrorCode {code}): {description}")]
+    Rejected { code: isize, description: String },
     #[error("end must be greater than or equal to start")]
     EndBeforeStart,
     #[error("ambiguous match: {0}")]
@@ -66,10 +71,12 @@ pub(crate) fn map_ek_error(error: Retained<NSError>) -> EventKitError {
         ) {
             return EventKitError::NotFound;
         }
+        if code == EKErrorCode::DatesInverted {
+            return EventKitError::EndBeforeStart;
+        }
         if matches!(
             code,
-            EKErrorCode::DatesInverted
-                | EKErrorCode::NoStartDate
+            EKErrorCode::NoStartDate
                 | EKErrorCode::NoEndDate
                 | EKErrorCode::DurationGreaterThanRecurrence
                 | EKErrorCode::AlarmGreaterThanRecurrence
@@ -88,7 +95,10 @@ pub(crate) fn map_ek_error(error: Retained<NSError>) -> EventKitError {
                 | EKErrorCode::PriorityIsInvalid
                 | EKErrorCode::SourceMismatch
         ) {
-            return EventKitError::ValidationFailed(description);
+            return EventKitError::Rejected {
+                code: code.0,
+                description,
+            };
         }
     }
 
@@ -145,10 +155,23 @@ mod tests {
         );
     }
 
+    /// A framework refusal keeps its code and is never a `ValidationFailed`, whose message is
+    /// returned to clients (#158).
     #[test]
-    fn validation_codes_carry_the_framework_description() {
-        let mapped = map_ek_error(ek_error(EKErrorCode::DatesInverted));
-        assert!(matches!(mapped, EventKitError::ValidationFailed(_)));
+    fn validation_codes_are_rejections_not_crate_messages() {
+        let mapped = map_ek_error(ek_error(EKErrorCode::PriorityIsInvalid));
+        assert!(
+            matches!(mapped, EventKitError::Rejected { code, .. } if code == EKErrorCode::PriorityIsInvalid.0),
+            "{mapped:?}"
+        );
+    }
+
+    #[test]
+    fn inverted_dates_are_end_before_start() {
+        assert_eq!(
+            map_ek_error(ek_error(EKErrorCode::DatesInverted)),
+            EventKitError::EndBeforeStart
+        );
     }
 
     #[test]
