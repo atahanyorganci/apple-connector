@@ -86,7 +86,18 @@ fn event_to_ics(event: &CalendarEvent) -> Result<String> {
     let finished = ics_event.done();
     let mut calendar = Calendar::new();
     calendar.push(finished);
-    Ok(calendar.to_string())
+    let mut ics = calendar.to_string();
+
+    // Every TZID needs a matching VTIMEZONE (RFC 5545 §3.2.19). The `icalendar` crate cannot build
+    // one, so the component is written here and placed before the event.
+    let zones = crate::vtimezone::vtimezones(event)?;
+    if !zones.is_empty() {
+        let at = ics
+            .find("BEGIN:VEVENT")
+            .ok_or_else(|| Error::Serialize("serialized calendar has no VEVENT".to_owned()))?;
+        ics.insert_str(at, &zones);
+    }
+    Ok(ics)
 }
 
 fn cal_address(email: &str) -> String {
