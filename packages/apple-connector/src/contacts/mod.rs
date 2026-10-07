@@ -26,5 +26,5 @@ pub use schema::{
     ContactsSchema, ParentGroupsJoin, ParentGroupsSchemaError, discover_parent_groups_join,
     load_contacts_schema,
 };
-pub use search::ContactFilters;
+pub use search::{ContactFilters, ContactFiltersSnapshot};
 pub use sources::ContactsSources;

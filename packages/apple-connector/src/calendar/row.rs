@@ -2,8 +2,8 @@ pub use crate::apple_types::{core_data_secs_from_timestamp, parse_core_data_time
 
 #[derive(Debug, sqlx::FromRow, Clone)]
 pub struct CalendarResolveRow {
-    pub api_id: String,
-    pub external_id: Option<String>,
+    /// `Calendar.UUID` in its stored case: EventKit's `calendarIdentifier`.
+    pub identifier: String,
     pub title: Option<String>,
     pub store_type: Option<i64>,
 }

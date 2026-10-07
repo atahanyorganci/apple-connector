@@ -44,8 +44,8 @@ pub struct EventKitIdentifiers {
 
 #[derive(Debug, Clone)]
 pub struct CalendarResolveMetadata {
-    pub api_id: String,
-    pub external_id: Option<String>,
+    /// `Calendar.UUID` in its stored case: EventKit's `calendarIdentifier`.
+    pub identifier: String,
     pub title: Option<String>,
     pub store_type: i64,
 }
@@ -126,8 +126,7 @@ impl<'a> CalendarRepository<'a> {
         let row = fetch_calendar_resolve_metadata(self.pool, calendar_id).await?;
 
         Ok(row.map(|row| CalendarResolveMetadata {
-            api_id: row.api_id,
-            external_id: row.external_id,
+            identifier: row.identifier,
             title: row.title,
             store_type: row.store_type.unwrap_or(0),
         }))
@@ -371,8 +370,23 @@ mod tests {
         api::cursor::decode,
         apple_types::EventId,
         connect_pool,
-        fixtures::{CalendarFixtureDb, SEED_EVENT_ID},
+        fixtures::{CalendarFixtureDb, SEED_CALENDAR_ID, SEED_EVENT_ID},
     };
+
+    /// EventKit's `calendarWithIdentifier:` is case-sensitive, so the write path needs
+    /// `Calendar.UUID` as stored, not the lowercased API id (#156).
+    #[tokio::test]
+    async fn resolve_metadata_carries_the_stored_identifier()
+    -> Result<(), Box<dyn std::error::Error>> {
+        let fixture = CalendarFixtureDb::seeded().await?;
+        let pool = connect_pool(fixture.path()).await?;
+        let metadata = CalendarRepository::new(&pool)
+            .get_calendar_resolve_metadata(SEED_CALENDAR_ID)
+            .await?
+            .ok_or("seeded calendar not found")?;
+        assert_eq!(metadata.identifier, SEED_CALENDAR_ID.to_uppercase());
+        Ok(())
+    }
 
     #[tokio::test]
     async fn lists_seeded_events() -> Result<(), Box<dyn std::error::Error>> {

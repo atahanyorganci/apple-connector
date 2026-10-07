@@ -21,21 +21,23 @@ directory name.
 ## Rows
 
 - Order within a source: `Z_PK DESC`. Sources are read one after another in ascending `SourceId`;
-  the cursor records the source and its row ([CONN-0005](../decisions/CONN-0005-keyset-pagination.md)).
+  the cursor records the source, its row, and the filters ([CONN-0005](../decisions/CONN-0005-keyset-pagination.md)).
 - A contact's container is `COALESCE(ZCONTAINER, <the source's only CNCDContainer>)`; with several
   containers and no stored one, `container_id` is `null` and the contact is still listed
   ([CONN-0024](../decisions/CONN-0024-contact-container.md),
   [CONN-L-0002](../lessons/CONN-L-0002-implied-container.md)).
 - `q` is a `LIKE` match on first name, last name, organization, and name; `%` and `_` are wildcards.
-- Birthdays are Core Data seconds; dates before 2001-01-01 are read as `null` (known bug).
+- Birthdays are Core Data seconds. A birthday entered without a year is stored in year 1604,
+  Apple's convention, and returned as such
+  ([CONN-L-0006](../lessons/CONN-L-0006-apple-date-sentinels.md)).
 - Containers carry no writability flag ([CN-0002](../../../apple-contacts/docs/decisions/CN-0002-container-writability.md)).
 
 ## Formats
 
 JSON on the base routes; vCard on `…/vcard` and CardDAV XML on `…/carddav`, through `serde-vcard`
 and `serde-carddav`. `GET /v1/contacts/{id}/photo` returns the primary `ZABCDLIKENESS` image, or
-the record's `ZIMAGEDATA` when there is none. It matches the record with
-`LIKE '<id>:' || '%'`, so `%` and `_` in the id are wildcards (known bug).
+the record's `ZIMAGEDATA` when there is none, matching the id exactly
+(`tests/spec.rs::a_photo_is_only_served_for_the_exact_contact_id`).
 
 ## Writes
 

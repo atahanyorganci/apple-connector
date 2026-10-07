@@ -262,7 +262,12 @@ fn apply_line(
         "ORG" => card.organization = Some(unescape_value(&line.value)),
         "TITLE" => card.title = Some(unescape_value(&line.value)),
         "NOTE" => card.note = Some(unescape_value(&line.value)),
-        "BDAY" => card.birthday = parse_date(&line.value),
+        // A BDAY the model cannot represent (for example RFC 6350's year-less `--MMDD`) is kept as
+        // written rather than dropped.
+        "BDAY" => match parse_date(&line.value) {
+            Some(date) => card.birthday = Some(date),
+            None => card.unknown.push(raw_property(line)),
+        },
         "TEL" => card.phones.push(Telephone {
             number: unescape_value(&line.value),
             label,
@@ -294,14 +299,18 @@ fn apply_line(
             bag.properties
                 .insert(name.to_owned(), unescape_value(&line.value));
         }
-        _ => card.unknown.push(RawProperty {
-            group: line.group.clone(),
-            name: line.name.clone(),
-            parameters: line.params.segments(),
-            value: line.value.clone(),
-        }),
+        _ => card.unknown.push(raw_property(line)),
     }
     Ok(())
+}
+
+fn raw_property(line: &Line) -> RawProperty {
+    RawProperty {
+        group: line.group.clone(),
+        name: line.name.clone(),
+        parameters: line.params.segments(),
+        value: line.value.clone(),
+    }
 }
 
 fn parse_structured_name(value: &str) -> StructuredName {

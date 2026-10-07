@@ -2007,7 +2007,18 @@
         ],
         "responses": {
           "200": {
-            "description": "Contact photo bytes"
+            "description": "Contact photo bytes",
+            "headers": {
+              "Content-Type": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "image/jpeg, image/png, image/gif, image/heic, or application/octet-stream when the stored type is unknown"
+              }
+            },
+            "content": {
+              "application/octet-stream": {}
+            }
           },
           "404": {
             "description": "Contact or photo not found",
@@ -8032,6 +8043,17 @@
               "null"
             ]
           },
+          "table": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/NoteTableDto",
+                "description": "Cells of a `com.apple.notes.table` attachment."
+              }
+            ]
+          },
           "type_uti": {
             "type": [
               "string",
@@ -8067,9 +8089,11 @@
           "invalid_timestamp",
           "invalid_parameter",
           "unsupported_query_parameter",
+          "malformed_request_body",
+          "invalid_request_body",
+          "unsupported_media_type",
           "request_timeout",
           "query_timeout",
-          "gateway_timeout",
           "internal_error",
           "byte_range_not_satisfiable",
           "messages_database_unavailable",
@@ -8091,6 +8115,7 @@
           "reminder_attachment_unavailable",
           "smart_list_read_only",
           "unsupported_reminder_field",
+          "invalid_reminder_priority",
           "calendar_not_found",
           "calendar_account_not_found",
           "event_not_found",
@@ -8111,13 +8136,11 @@
           "eventkit_unavailable",
           "contacts_unavailable",
           "calendar_read_only",
-          "sqlite_sync_pending",
-          "validation_error",
-          "resource_not_found",
-          "service_unavailable",
-          "forbidden",
-          "conflict",
-          "unprocessable_entity"
+          "eventkit_invalid_input",
+          "contacts_invalid_input",
+          "eventkit_timeout",
+          "contacts_timeout",
+          "sqlite_sync_pending"
         ]
       },
       "ErrorResponse": {
@@ -10164,6 +10187,13 @@
           "length"
         ],
         "properties": {
+          "attachment_identifier": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The embedded object this run's U+FFFC placeholder stands for (see `embedded`)."
+          },
           "font_hints": {
             "type": [
               "integer",
@@ -10289,6 +10319,36 @@
           },
           "title": {
             "type": "string"
+          }
+        }
+      },
+      "NoteTableDto": {
+        "type": "object",
+        "description": "A table embedded in a note.",
+        "required": [
+          "rows",
+          "right_to_left"
+        ],
+        "properties": {
+          "decode_error": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Why the table could not be decoded; `rows` is empty when set."
+          },
+          "right_to_left": {
+            "type": "boolean"
+          },
+          "rows": {
+            "type": "array",
+            "items": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "description": "Cell text, row by row. Columns are in visual order, left to right, so a right-to-left\ntable's first column comes last."
           }
         }
       },

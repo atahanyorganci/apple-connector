@@ -1,7 +1,4 @@
-use axum::{
-    Json,
-    extract::{Query, State},
-};
+use axum::{Json, extract::State};
 
 use super::{chats::message_page_to_dto, health::require_messages_db};
 use crate::{
@@ -9,6 +6,7 @@ use crate::{
         cursor::{decode_global_or_reject_for_filters, decode_search_cursor},
         dto::{MessageDetailDto, MessagePageDto, convert::message_detail_to_dto},
         error::{ApiError, ErrorCode, ErrorResponse},
+        extract::{ApiPath, ApiQuery},
         params::{MessageGuidPath, MessageListParams},
         router::AppState,
     },
@@ -34,7 +32,7 @@ use crate::{
 )]
 pub async fn list_messages(
     State(state): State<AppState>,
-    Query(params): Query<MessageListParams>,
+    ApiQuery(params): ApiQuery<MessageListParams>,
 ) -> Result<Json<MessagePageDto>, ApiError> {
     let pool = require_messages_db(&state.messages_db)?;
     let limit = params.validated_limit()?;
@@ -81,7 +79,7 @@ pub async fn list_messages(
 )]
 pub async fn get_message(
     State(state): State<AppState>,
-    axum::extract::Path(path): axum::extract::Path<MessageGuidPath>,
+    ApiPath(path): ApiPath<MessageGuidPath>,
 ) -> Result<Json<MessageDetailDto>, ApiError> {
     let guid = path.validated()?;
     let pool = require_messages_db(&state.messages_db)?;

@@ -59,7 +59,7 @@ _Tick when run and passing on the current HEAD; strike through those that don't 
 - [ ] Ignored live tests (`eventkit_integration`, `contacts_integration`, `integration`); TCC grants present: _Full Disk Access / Reminders / Calendars / Contacts_
 - [ ] `bash scripts/sqlx-prepare-all.sh` and `packages/apple-connector/sqlx/` committed (if queries changed)
 - [ ] `cargo run -p apple-connector --bin export-openapi docs/openapi.json` (if handlers or schemas changed)
-- [ ] `pnpm --filter apple-connector generate:check` for the Raycast client (if the API changed)
+- [ ] `pnpm check` (Raycast format, lint, typecheck, and generated-client staleness; root formatting)
 
 ## Next up
 

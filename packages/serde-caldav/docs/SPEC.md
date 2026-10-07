@@ -30,7 +30,10 @@ Codec.
   `tests/multistatus.rs::default_namespaced_icloud_responses_parse`,
   `d_and_c_prefixed_responses_parse`.
 - Every response is kept, each with its own href, etag, and status; a propstat status stands in
-  when the response has none. Enforced by:
+  when the response has none.
+  A response's href is its own direct `DAV:href`; hrefs nested in property values such as
+  `current-user-principal` are ignored
+  (`tests/spec.rs::a_nested_href_does_not_replace_the_response_href`). Enforced by:
   `tests/multistatus.rs::every_response_is_retained_with_its_own_href`,
   `a_mixed_status_multistatus_keeps_the_not_found_response`.
 - The writer emits one XML declaration and one `d:multistatus` root, with `d:` and `c:` bound on the
@@ -46,11 +49,7 @@ Codec.
 
 ### Known bugs
 
-- A `DAV:href` nested inside a property value (for example
-  `current-user-principal`) replaces the response's own href. Proven by:
-  `tests/spec.rs::a_nested_href_does_not_replace_the_response_href` (ignored, fails today). Tracked in #167.
-- The `Cargo.toml` description still says "Serde Serializer and Deserializer"
-  ([REC-0013](../../../docs/decisions/REC-0013-typed-format-apis.md)). Tracked in #171.
+None known.
 
 ## Limits and non-goals
 

@@ -8,8 +8,13 @@ pub enum ContactsError {
     AccessDenied,
     #[error("container is read-only")]
     ReadOnlyContainer,
+    /// Input this crate refused, with a message this crate wrote. Never carries `NSError` text.
     #[error("validation failed: {0}")]
     ValidationFailed(String),
+    /// Input the Contacts framework refused. `code` is the `CNErrorCode`; `description` is Apple's
+    /// `localizedDescription`, for server-side logs only — it is not safe to return to clients.
+    #[error("Contacts rejected the input (CNErrorCode {code}): {description}")]
+    Rejected { code: isize, description: String },
     #[error("ambiguous match: {0}")]
     AmbiguousMatch(String),
     #[error("Contacts is unavailable on this platform")]
@@ -49,7 +54,10 @@ pub(crate) fn map_cn_error(err: objc2::rc::Retained<objc2_foundation::NSError>) 
             || code == CNErrorCode::ValidationTypeMismatch
             || code == CNErrorCode::ValidationConfigurationError
         {
-            return ContactsError::ValidationFailed(err.localizedDescription().to_string());
+            return ContactsError::Rejected {
+                code: code.0,
+                description: err.localizedDescription().to_string(),
+            };
         }
     }
 
@@ -103,6 +111,17 @@ mod tests {
         assert_eq!(
             ContactsError::UnsupportedPlatform.to_string(),
             "Contacts is unavailable on this platform"
+        );
+    }
+
+    /// A framework refusal keeps its code and is never a `ValidationFailed`, whose message is
+    /// returned to clients (#158).
+    #[test]
+    fn validation_codes_are_rejections_not_crate_messages() {
+        let mapped = map_cn_error(cn_error(CNErrorCode::ValidationTypeMismatch));
+        assert!(
+            matches!(mapped, ContactsError::Rejected { code, .. } if code == CNErrorCode::ValidationTypeMismatch.0),
+            "{mapped:?}"
         );
     }
 

@@ -109,15 +109,21 @@ pub fn body_to_markdown(body: &NoteBody) -> String {
     let mut at_line_start = true;
 
     for run in &body.runs {
-        let raw: String = text
-            .chars()
-            .skip(run.start)
-            .take(run.length as usize)
-            .collect();
+        let raw = run_text(text, run.start, run.length as usize);
 
         let mut segment = String::new();
         for ch in raw.chars() {
             if ch == OBJECT_REPLACEMENT {
+                // A table renders where its placeholder stands; other objects are dropped.
+                if let Some(table) = table_for_run(body, run) {
+                    emit_segment(&mut out, &mut at_line_start, &mut numbered, run, &segment);
+                    segment.clear();
+                    if !at_line_start {
+                        out.push('\n');
+                    }
+                    out.push_str(&table_to_markdown(table));
+                    at_line_start = true;
+                }
                 continue;
             }
             if ch == '\n' {
@@ -214,6 +220,67 @@ fn format_inline(segment: &str, run: &super::model::NoteRun) -> String {
     }
 }
 
+/// The text a run covers. Run offsets and lengths are UTF-16 code units (NOTES-L-0001, #174); a
+/// boundary inside a surrogate pair moves to the end of that character.
+fn run_text(text: &str, start: usize, length: usize) -> &str {
+    let end = start.saturating_add(length);
+    let (mut from, mut to) = (None, text.len());
+    let mut units = 0_usize;
+    for (index, ch) in text.char_indices() {
+        if from.is_none() && units >= start {
+            from = Some(index);
+        }
+        if units >= end {
+            to = index;
+            break;
+        }
+        units += ch.len_utf16();
+    }
+    let from = from.unwrap_or(text.len());
+    text.get(from..to.max(from)).unwrap_or_default()
+}
+
+fn table_for_run<'a>(body: &'a NoteBody, run: &super::model::NoteRun) -> Option<&'a [Vec<String>]> {
+    let identifier = run.attachment_identifier.as_deref()?;
+    body.embedded
+        .iter()
+        .find(|object| object.attachment_identifier.as_deref() == Some(identifier))
+        .and_then(|object| object.table.as_ref())
+        .map(|table| table.rows.as_slice())
+        .filter(|rows| !rows.is_empty())
+}
+
+/// A GitHub-flavoured Markdown table. Apple tables have no header row, but Markdown requires one,
+/// so the first row is used.
+fn table_to_markdown(rows: &[Vec<String>]) -> String {
+    let columns = rows.iter().map(Vec::len).max().unwrap_or(0).max(1);
+    let line = |row: &[String]| {
+        let cells: Vec<String> = (0..columns)
+            .map(|column| {
+                row.get(column)
+                    .map(|cell| table_cell(cell))
+                    .unwrap_or_default()
+            })
+            .collect();
+        format!("| {} |\n", cells.join(" | "))
+    };
+    let mut out = String::new();
+    for (index, row) in rows.iter().enumerate() {
+        out.push_str(&line(row));
+        if index == 0 {
+            out.push_str(&format!("|{}\n", " --- |".repeat(columns)));
+        }
+    }
+    out
+}
+
+fn table_cell(cell: &str) -> String {
+    cell.trim()
+        .replace('\\', "\\\\")
+        .replace('|', "\\|")
+        .replace('\n', "<br>")
+}
+
 fn strip_object_replacement(text: &str) -> String {
     text.chars()
         .filter(|&ch| ch != OBJECT_REPLACEMENT)
@@ -235,6 +302,75 @@ mod tests {
         crate::notes::decode::decode_notedata(Some(&data), false)
     }
 
+    /// Run offsets and lengths are UTF-16 code units (NOTES-L-0001). An emoji is two units and one
+    /// `char`, so slicing by `char` shifts every run after it.
+    #[test]
+    fn runs_after_an_emoji_keep_their_text() {
+        let text = "\u{1F600} bold\nHeading";
+        let first = "\u{1F600} bold\n".encode_utf16().count();
+        let body = NoteBody {
+            text: Some(text.to_owned()),
+            runs: vec![
+                NoteRun {
+                    start: 0,
+                    length: u32::try_from(first).unwrap_or_default(),
+                    paragraph_style: None,
+                    font_hints: None,
+                    link: None,
+                    attachment_identifier: None,
+                },
+                NoteRun {
+                    start: first,
+                    length: 7,
+                    paragraph_style: Some(ParagraphStyle {
+                        style: ParagraphStyleKind::Heading,
+                        todo_uuid: None,
+                        done: None,
+                    }),
+                    font_hints: None,
+                    link: None,
+                    attachment_identifier: None,
+                },
+            ],
+            ..Default::default()
+        };
+        assert_eq!(body_to_markdown(&body), "\u{1F600} bold\n## Heading\n");
+    }
+
+    /// A table renders where its placeholder stands, first row as the header, with `|` escaped and
+    /// line breaks kept inside the cell (#168).
+    #[test]
+    fn tables_render_in_place() {
+        let run = |start, length, attachment: Option<&str>| NoteRun {
+            start,
+            length,
+            paragraph_style: None,
+            font_hints: None,
+            link: None,
+            attachment_identifier: attachment.map(str::to_owned),
+        };
+        let body = NoteBody {
+            text: Some("Intro \u{FFFC} outro".to_owned()),
+            runs: vec![run(0, 6, None), run(6, 1, Some("T")), run(7, 6, None)],
+            embedded: vec![crate::notes::model::EmbeddedObject {
+                attachment_identifier: Some("T".to_owned()),
+                type_uti: Some(crate::notes::model::TABLE_UTI.to_owned()),
+                table: Some(crate::notes::model::EmbeddedTable {
+                    rows: vec![
+                        vec!["a|b".to_owned(), "c".to_owned()],
+                        vec!["two\nlines".to_owned(), String::new()],
+                    ],
+                    ..Default::default()
+                }),
+            }],
+            ..Default::default()
+        };
+        assert_eq!(
+            body_to_markdown(&body),
+            "Intro \n| a\\|b | c |\n| --- | --- |\n| two<br>lines |  |\n outro\n"
+        );
+    }
+
     #[test]
     fn strips_object_replacement_characters() {
         let body = NoteBody {
@@ -245,6 +381,7 @@ mod tests {
                 paragraph_style: None,
                 font_hints: None,
                 link: None,
+                attachment_identifier: None,
             }],
             ..Default::default()
         };
@@ -268,6 +405,7 @@ mod tests {
                     }),
                     font_hints: None,
                     link: None,
+                    attachment_identifier: None,
                 },
                 NoteRun {
                     start: 9,
@@ -279,6 +417,7 @@ mod tests {
                     }),
                     font_hints: None,
                     link: None,
+                    attachment_identifier: None,
                 },
             ],
             ..Default::default()
@@ -344,6 +483,7 @@ mod tests {
                 }),
                 font_hints: None,
                 link: None,
+                attachment_identifier: None,
             }],
             ..Default::default()
         };

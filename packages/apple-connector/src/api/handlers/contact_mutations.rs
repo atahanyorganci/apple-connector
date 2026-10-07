@@ -1,21 +1,17 @@
-use axum::{
-    Json,
-    extract::{Path, State},
-    http::StatusCode,
-};
+use axum::{Json, extract::State, http::StatusCode};
 
 use crate::{
     api::{
         contacts::{require_contacts_access, require_contacts_sources},
         contacts_convert::{
-            container_hint, create_contact_input, create_group_input, map_contacts_error,
+            contacts_error, container_hint, create_contact_input, create_group_input,
             update_contact_input, update_group_input,
         },
         dto::contacts::{
             CreateContactRequest, CreateGroupRequest, UpdateContactRequest, UpdateGroupRequest,
         },
         error::{ApiError, ErrorCode, ErrorResponse},
-        extract::ApiJson,
+        extract::{ApiJson, ApiPath},
         hydrate::{SyncPendingContactDetailDto, SyncPendingGroupDetailDto, mutation_status},
         params::{ContactGroupPath, ContactIdPath, ContainerIdPath, GroupIdPath},
         router::AppState,
@@ -41,7 +37,7 @@ use crate::{
 )]
 pub async fn create_contact(
     State(state): State<AppState>,
-    Path(path): Path<ContainerIdPath>,
+    ApiPath(path): ApiPath<ContainerIdPath>,
     ApiJson(request): ApiJson<CreateContactRequest>,
 ) -> Result<(StatusCode, Json<SyncPendingContactDetailDto>), ApiError> {
     let sources = require_contacts_sources(&state.contacts_sources)?;
@@ -69,7 +65,7 @@ pub async fn create_contact(
             create_contact_input(request),
         )
         .await
-        .map_err(map_contacts_error)?;
+        .map_err(contacts_error(ErrorCode::ContainerNotFound))?;
 
     let response =
         crate::api::hydrate::hydrate_contact(&state.contacts_sources, &saved.identifier).await?;
@@ -93,7 +89,7 @@ pub async fn create_contact(
 )]
 pub async fn update_contact(
     State(state): State<AppState>,
-    Path(path): Path<ContactIdPath>,
+    ApiPath(path): ApiPath<ContactIdPath>,
     ApiJson(request): ApiJson<UpdateContactRequest>,
 ) -> Result<(StatusCode, Json<SyncPendingContactDetailDto>), ApiError> {
     let sources = require_contacts_sources(&state.contacts_sources)?;
@@ -109,7 +105,7 @@ pub async fn update_contact(
     let saved = store
         .update_contact(&framework_id, update_contact_input(request))
         .await
-        .map_err(map_contacts_error)?;
+        .map_err(contacts_error(ErrorCode::ContactNotFound))?;
 
     let response =
         crate::api::hydrate::hydrate_contact(&state.contacts_sources, &saved.identifier).await?;
@@ -134,7 +130,7 @@ pub async fn update_contact(
 )]
 pub async fn delete_contact(
     State(state): State<AppState>,
-    Path(path): Path<ContactIdPath>,
+    ApiPath(path): ApiPath<ContactIdPath>,
 ) -> Result<StatusCode, ApiError> {
     let sources = require_contacts_sources(&state.contacts_sources)?;
     let store = require_contacts_access(&state).await?;
@@ -149,7 +145,7 @@ pub async fn delete_contact(
     store
         .delete_contact(&framework_id)
         .await
-        .map_err(map_contacts_error)?;
+        .map_err(contacts_error(ErrorCode::ContactNotFound))?;
 
     Ok(StatusCode::NO_CONTENT)
 }
@@ -172,7 +168,7 @@ pub async fn delete_contact(
 )]
 pub async fn create_group(
     State(state): State<AppState>,
-    Path(path): Path<ContainerIdPath>,
+    ApiPath(path): ApiPath<ContainerIdPath>,
     ApiJson(request): ApiJson<CreateGroupRequest>,
 ) -> Result<(StatusCode, Json<SyncPendingGroupDetailDto>), ApiError> {
     let sources = require_contacts_sources(&state.contacts_sources)?;
@@ -200,7 +196,7 @@ pub async fn create_group(
             create_group_input(request),
         )
         .await
-        .map_err(map_contacts_error)?;
+        .map_err(contacts_error(ErrorCode::ContainerNotFound))?;
 
     let response =
         crate::api::hydrate::hydrate_group(&state.contacts_sources, &saved.identifier).await?;
@@ -224,7 +220,7 @@ pub async fn create_group(
 )]
 pub async fn update_group(
     State(state): State<AppState>,
-    Path(path): Path<GroupIdPath>,
+    ApiPath(path): ApiPath<GroupIdPath>,
     ApiJson(request): ApiJson<UpdateGroupRequest>,
 ) -> Result<(StatusCode, Json<SyncPendingGroupDetailDto>), ApiError> {
     let sources = require_contacts_sources(&state.contacts_sources)?;
@@ -240,7 +236,7 @@ pub async fn update_group(
     let saved = store
         .update_group(&framework_id, update_group_input(request))
         .await
-        .map_err(map_contacts_error)?;
+        .map_err(contacts_error(ErrorCode::GroupNotFound))?;
 
     let response =
         crate::api::hydrate::hydrate_group(&state.contacts_sources, &saved.identifier).await?;
@@ -265,7 +261,7 @@ pub async fn update_group(
 )]
 pub async fn delete_group(
     State(state): State<AppState>,
-    Path(path): Path<GroupIdPath>,
+    ApiPath(path): ApiPath<GroupIdPath>,
 ) -> Result<StatusCode, ApiError> {
     let sources = require_contacts_sources(&state.contacts_sources)?;
     let store = require_contacts_access(&state).await?;
@@ -280,7 +276,7 @@ pub async fn delete_group(
     store
         .delete_group(&framework_id)
         .await
-        .map_err(map_contacts_error)?;
+        .map_err(contacts_error(ErrorCode::GroupNotFound))?;
 
     Ok(StatusCode::NO_CONTENT)
 }
@@ -300,7 +296,7 @@ pub async fn delete_group(
 )]
 pub async fn add_contact_to_group(
     State(state): State<AppState>,
-    Path(path): Path<ContactGroupPath>,
+    ApiPath(path): ApiPath<ContactGroupPath>,
 ) -> Result<StatusCode, ApiError> {
     let (group_id, contact_id) = path.validated()?;
     let sources = require_contacts_sources(&state.contacts_sources)?;
@@ -321,7 +317,7 @@ pub async fn add_contact_to_group(
     store
         .add_contact_to_group(&contact_framework_id, &group_framework_id)
         .await
-        .map_err(map_contacts_error)?;
+        .map_err(contacts_error(ErrorCode::GroupNotFound))?;
 
     Ok(StatusCode::NO_CONTENT)
 }
@@ -341,7 +337,7 @@ pub async fn add_contact_to_group(
 )]
 pub async fn remove_contact_from_group(
     State(state): State<AppState>,
-    Path(path): Path<ContactGroupPath>,
+    ApiPath(path): ApiPath<ContactGroupPath>,
 ) -> Result<StatusCode, ApiError> {
     let (group_id, contact_id) = path.validated()?;
     let sources = require_contacts_sources(&state.contacts_sources)?;
@@ -362,7 +358,7 @@ pub async fn remove_contact_from_group(
     store
         .remove_contact_from_group(&contact_framework_id, &group_framework_id)
         .await
-        .map_err(map_contacts_error)?;
+        .map_err(contacts_error(ErrorCode::GroupNotFound))?;
 
     Ok(StatusCode::NO_CONTENT)
 }

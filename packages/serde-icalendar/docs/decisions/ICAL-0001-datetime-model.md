@@ -42,12 +42,13 @@ comma-separated list, and reports malformed values as errors.
 ## Consequences
 
 - Callers that need an instant from `Date` or `Floating` must supply a zone themselves.
-- Zoned times are written without a `VTIMEZONE` component (known bug: RFC 5545 §3.2.19 requires
-  one per `TZID`).
+- RFC 5545 §3.2.19 requires a `VTIMEZONE` for each `TZID` written. The writer builds one from
+  `chrono-tz` for each zone a `Zoned` value uses (#166); the reader ignores `VTIMEZONE` and
+  resolves zone names through `chrono-tz`.
 
 ## Evidence
 
 - `packages/serde-icalendar/src/model.rs` `EventDateTime`; `de.rs` `resolve_zoned`, `parse_exdate`.
 - `packages/serde-icalendar/tests/datetime.rs`, `tests/exdate.rs`.
-- `packages/serde-icalendar/tests/spec.rs`: `zoned_times_are_written_with_their_vtimezone`
-  (ignored, fails today).
+- `packages/serde-icalendar/tests/spec.rs`: `zoned_times_are_written_with_their_vtimezone`,
+  `vtimezone_observances_follow_the_zone_rules`.

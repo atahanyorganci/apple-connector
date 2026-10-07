@@ -43,6 +43,11 @@ Codec.
 - `X-` properties round-trip through `extensions`. Enforced by:
   `tests/spec.rs::only_x_properties_survive_outside_the_model`.
 - Output lines end in CRLF. Enforced by: `tests/spec.rs::lines_end_with_crlf`.
+- Every `TZID` the event uses gets one `VTIMEZONE`, placed before the `VEVENT`, with an
+  observance for each offset change in the years its zoned date-times fall in; a UTC-only event
+  gets none (RFC 5545 §3.2.19, §3.6.5). Enforced by: `tests/spec.rs`
+  (`zoned_times_are_written_with_their_vtimezone`, `vtimezone_observances_follow_the_zone_rules`,
+  `one_vtimezone_per_zone_and_none_without_zones`, `documents_with_a_vtimezone_parse_back`).
 - `TRIGGER` durations are validated with checked arithmetic when writing, and the original spelling
   is written back. Enforced by: `tests/participants.rs::an_absurd_trigger_duration_is_rejected_not_a_panic`,
   `malformed_trigger_durations_are_rejected`
@@ -53,13 +58,7 @@ Codec.
 
 ### Known bugs
 
-- A zoned time is written with `TZID=` but without a matching `VTIMEZONE`; RFC 5545 §3.2.19
-  requires one for each `TZID` used. Proven by:
-  `tests/spec.rs::zoned_times_are_written_with_their_vtimezone` (ignored, fails today). Tracked in #166.
-- The `Cargo.toml` description still says "Serde Serializer and Deserializer"; the crate has none
-  since #94 ([REC-0013](../../../docs/decisions/REC-0013-typed-format-apis.md)). Tracked in #171.
-- `tests/docs/openapi.json` is a stale copy of the `apple-connector` contract committed by accident
-  in `b47e5ae`; nothing reads it. Tracked in #171.
+None known.
 
 ## Limits and non-goals
 
@@ -68,6 +67,10 @@ Codec.
 - Properties outside the model and not prefixed `X-` (`CATEGORIES`, `CLASS`, `TRANSP`, …) are
   dropped. `X-` properties keep their value but lose their parameters.
 - `RRULE` is kept as a raw string; recurrence is not expanded or validated.
+- `VTIMEZONE` observances are explicit, without `RRULE`. For a recurring event they reach ten years
+  past its last listed date-time, so occurrences later than that use the last observance's
+  offset. Covering more than 1000 years is a `LimitExceeded` error. A `VTIMEZONE` in the input is
+  ignored; zones resolve through `chrono-tz`.
 - `TRIGGER` durations are validated only when writing, so a document can parse and then fail to
   serialize (`tests/spec.rs::trigger_durations_are_validated_on_write_only`).
 - An absolute `TRIGGER` is read as UTC whether or not it ends in `Z`.

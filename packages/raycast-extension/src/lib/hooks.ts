@@ -18,7 +18,7 @@ type ItemOf<K extends ListOperationId> = Operations[K]["response"] extends { ite
  * `page.has_more` is true. Cursors are bound to the active filter set, so the
  * URL carries the filters and a changed URL restarts paging from the first
  * page — reusing a cursor across a filter change is rejected with
- * `validation_error`.
+ * `invalid_cursor`.
  */
 export function useApiList<K extends ListOperationId>(
 	id: K,

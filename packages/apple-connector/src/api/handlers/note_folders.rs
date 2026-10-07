@@ -1,9 +1,6 @@
 use std::sync::Arc;
 
-use axum::{
-    Json,
-    extract::{Query, State},
-};
+use axum::{Json, extract::State};
 
 use super::health::{require_notes_db, validate_page};
 use crate::{
@@ -14,6 +11,7 @@ use crate::{
             note_convert::{note_folder_detail_to_dto, note_folder_page_to_dto, note_page_to_dto},
         },
         error::{ApiError, ErrorCode, ErrorResponse},
+        extract::{ApiPath, ApiQuery},
         params::{NoteFolderIdPath, NoteFolderKey, NoteListParams, PageParams},
         router::AppState,
     },
@@ -36,7 +34,7 @@ use crate::{
 )]
 pub async fn list_note_folders(
     State(state): State<AppState>,
-    Query(page): Query<PageParams>,
+    ApiQuery(page): ApiQuery<PageParams>,
 ) -> Result<Json<NoteFolderPageDto>, ApiError> {
     let pool = require_notes_db(&state.notes_db)?;
 
@@ -81,7 +79,7 @@ pub async fn list_note_folders(
 )]
 pub async fn get_note_folder(
     State(state): State<AppState>,
-    axum::extract::Path(path): axum::extract::Path<NoteFolderIdPath>,
+    ApiPath(path): ApiPath<NoteFolderIdPath>,
 ) -> Result<Json<NoteFolderDetailDto>, ApiError> {
     let pool = require_notes_db(&state.notes_db)?;
 
@@ -133,8 +131,8 @@ pub async fn get_note_folder(
 )]
 pub async fn list_folder_notes(
     State(state): State<AppState>,
-    axum::extract::Path(path): axum::extract::Path<NoteFolderIdPath>,
-    Query(params): Query<NoteListParams>,
+    ApiPath(path): ApiPath<NoteFolderIdPath>,
+    ApiQuery(params): ApiQuery<NoteListParams>,
 ) -> Result<Json<NotePageDto>, ApiError> {
     let pool = require_notes_db(&state.notes_db)?;
 

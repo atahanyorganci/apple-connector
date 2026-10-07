@@ -11,8 +11,9 @@ use super::{
     model::{NoteAttachment, NoteDetail, NoteFolder, NoteSummary},
     queries::{
         fetch_filtered_note_details, fetch_filtered_notes, fetch_note_row_ids_with_attachments,
-        fetch_tags_for_note, get_attachment_by_identifier, get_folder_by_identifier,
-        get_folder_by_row_id, get_note_by_identifier, list_attachments_for_note, list_folders,
+        fetch_table_data_for_note, fetch_tags_for_note, get_attachment_by_identifier,
+        get_folder_by_identifier, get_folder_by_row_id, get_note_by_identifier,
+        list_attachments_for_note, list_folders,
     },
     row::{NoteDetailRow, NoteRow},
     search::{FolderIdFilter, NoteFilters},
@@ -276,7 +277,61 @@ impl<'a> NoteRepository<'a> {
             .copied()
             .unwrap_or(false);
 
-        Ok(Some(note_detail_from_row(row, has_attachments)))
+        let note_row_id = row.row_id;
+        let mut detail = note_detail_from_row(row, has_attachments);
+        self.attach_tables(&mut detail.body, note_row_id, &entity_ids)
+            .await?;
+        Ok(Some(detail))
+    }
+
+    /// Fills in the cells of the body's embedded tables from their attachments' mergeable data
+    /// (#168). A table that cannot be decoded keeps a `decode_error` instead of failing the note.
+    async fn attach_tables(
+        &self,
+        body: &mut super::model::NoteBody,
+        note_row_id: i64,
+        entity_ids: &EntityIds,
+    ) -> Result<(), sqlx::Error> {
+        let has_tables = body
+            .embedded
+            .iter()
+            .any(|object| object.type_uti.as_deref() == Some(super::model::TABLE_UTI));
+        if !has_tables {
+            return Ok(());
+        }
+        let rows = fetch_table_data_for_note(self.pool, entity_ids.attachment, note_row_id).await?;
+        for object in &mut body.embedded {
+            if object.type_uti.as_deref() != Some(super::model::TABLE_UTI) {
+                continue;
+            }
+            let Some(identifier) = object.attachment_identifier.as_deref() else {
+                continue;
+            };
+            let Some(row) = rows
+                .iter()
+                .find(|row| row.identifier.eq_ignore_ascii_case(identifier))
+            else {
+                continue;
+            };
+            object.table = Some(
+                match row.data.as_deref().map(apple_notes_protobuf::decode_table) {
+                    Some(Ok(table)) => super::model::EmbeddedTable {
+                        rows: table.rows,
+                        right_to_left: table.right_to_left,
+                        decode_error: None,
+                    },
+                    Some(Err(error)) => super::model::EmbeddedTable {
+                        decode_error: Some(error.to_string()),
+                        ..Default::default()
+                    },
+                    None => super::model::EmbeddedTable {
+                        decode_error: Some("table attachment has no mergeable data".to_owned()),
+                        ..Default::default()
+                    },
+                },
+            );
+        }
+        Ok(())
     }
 
     pub async fn search_notes(

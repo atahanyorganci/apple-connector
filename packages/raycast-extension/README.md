@@ -28,7 +28,7 @@ permission is missing, so you should not have to guess which step was skipped.
 | Search Notes        | view     | Search titles, snippets and decoded body; Markdown preview       |
 | Search Contacts     | view     | Search with container and group scoping, photo and vCard         |
 | Search Reminders    | view     | Search with open, completed, flagged and overdue scopes          |
-| Create Reminder     | view     | Section, flag, URL, tags, priority, due date and recurrence      |
+| Create Reminder     | view     | List, notes, URL, priority, due date and recurrence              |
 | Reminders Due Today | menu-bar | Overdue and due-today counts; complete in one click              |
 
 The menu bar command ships disabled — enable it in the extension preferences.
@@ -51,6 +51,9 @@ writing.
   hand off to Messages.app rather than sending.
 - **Locked notes never expose body text.** The server returns neither decoded
   text nor ciphertext for them.
+- **Reminders cannot be flagged, tagged, or put in a section on create.**
+  EventKit cannot store those fields, so the server rejects them
+  (`unsupported_reminder_field`). Search still shows them.
 - **Calendar has no dedicated commands.** Raycast's built-in Calendar covers
   that ground; the API is used only by the AI tools.
 

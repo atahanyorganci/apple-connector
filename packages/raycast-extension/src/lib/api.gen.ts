@@ -412,6 +412,7 @@ export type DueInputDto = {
 
 export type EmbeddedObjectDto = {
 	attachment_identifier?: string | null;
+	table?: null | NoteTableDto;
 	type_uti?: string | null;
 };
 
@@ -422,8 +423,8 @@ export type ErrorBody = {
 };
 
 /** Stable, unique snake_case error identifiers returned in `error.code`. */
-export type ErrorCode = "route_not_found" | "method_not_allowed" | "invalid_cursor" | "invalid_limit" | "invalid_timestamp" | "invalid_parameter" | "unsupported_query_parameter" | "request_timeout" | "query_timeout" | "gateway_timeout" | "internal_error" | "byte_range_not_satisfiable" | "messages_database_unavailable" | "reminders_database_unavailable" | "notes_database_unavailable" | "calendar_database_unavailable" | "contacts_database_unavailable" | "message_not_found" | "chat_not_found" | "message_attachment_not_found" | "message_attachment_unavailable" | "note_not_found" | "note_folder_not_found" | "note_attachment_not_found" | "note_attachment_unavailable" | "reminder_not_found" | "reminder_list_not_found" | "reminder_attachment_not_found" | "reminder_attachment_unavailable" | "smart_list_read_only" | "unsupported_reminder_field" | "calendar_not_found" | "calendar_account_not_found" | "event_not_found" | "event_attachment_not_found" | "event_attachment_unavailable" | "event_end_before_start" | "immutable_event_field" | "unsupported_alarm_kind" | "ambiguous_event_kit_match" | "contact_not_found" | "group_not_found" | "container_not_found" | "contact_photo_not_found" | "read_only_container" | "ambiguous_contacts_match" | "eventkit_access_denied" | "contacts_access_denied" | "eventkit_unavailable" | "contacts_unavailable" | "calendar_read_only" | "sqlite_sync_pending" | "validation_error" | "resource_not_found" | "service_unavailable" | "forbidden" | "conflict" | "unprocessable_entity";
-export const ErrorCodeValues = ["route_not_found", "method_not_allowed", "invalid_cursor", "invalid_limit", "invalid_timestamp", "invalid_parameter", "unsupported_query_parameter", "request_timeout", "query_timeout", "gateway_timeout", "internal_error", "byte_range_not_satisfiable", "messages_database_unavailable", "reminders_database_unavailable", "notes_database_unavailable", "calendar_database_unavailable", "contacts_database_unavailable", "message_not_found", "chat_not_found", "message_attachment_not_found", "message_attachment_unavailable", "note_not_found", "note_folder_not_found", "note_attachment_not_found", "note_attachment_unavailable", "reminder_not_found", "reminder_list_not_found", "reminder_attachment_not_found", "reminder_attachment_unavailable", "smart_list_read_only", "unsupported_reminder_field", "calendar_not_found", "calendar_account_not_found", "event_not_found", "event_attachment_not_found", "event_attachment_unavailable", "event_end_before_start", "immutable_event_field", "unsupported_alarm_kind", "ambiguous_event_kit_match", "contact_not_found", "group_not_found", "container_not_found", "contact_photo_not_found", "read_only_container", "ambiguous_contacts_match", "eventkit_access_denied", "contacts_access_denied", "eventkit_unavailable", "contacts_unavailable", "calendar_read_only", "sqlite_sync_pending", "validation_error", "resource_not_found", "service_unavailable", "forbidden", "conflict", "unprocessable_entity"] as const satisfies readonly ErrorCode[];
+export type ErrorCode = "route_not_found" | "method_not_allowed" | "invalid_cursor" | "invalid_limit" | "invalid_timestamp" | "invalid_parameter" | "unsupported_query_parameter" | "malformed_request_body" | "invalid_request_body" | "unsupported_media_type" | "request_timeout" | "query_timeout" | "internal_error" | "byte_range_not_satisfiable" | "messages_database_unavailable" | "reminders_database_unavailable" | "notes_database_unavailable" | "calendar_database_unavailable" | "contacts_database_unavailable" | "message_not_found" | "chat_not_found" | "message_attachment_not_found" | "message_attachment_unavailable" | "note_not_found" | "note_folder_not_found" | "note_attachment_not_found" | "note_attachment_unavailable" | "reminder_not_found" | "reminder_list_not_found" | "reminder_attachment_not_found" | "reminder_attachment_unavailable" | "smart_list_read_only" | "unsupported_reminder_field" | "invalid_reminder_priority" | "calendar_not_found" | "calendar_account_not_found" | "event_not_found" | "event_attachment_not_found" | "event_attachment_unavailable" | "event_end_before_start" | "immutable_event_field" | "unsupported_alarm_kind" | "ambiguous_event_kit_match" | "contact_not_found" | "group_not_found" | "container_not_found" | "contact_photo_not_found" | "read_only_container" | "ambiguous_contacts_match" | "eventkit_access_denied" | "contacts_access_denied" | "eventkit_unavailable" | "contacts_unavailable" | "calendar_read_only" | "eventkit_invalid_input" | "contacts_invalid_input" | "eventkit_timeout" | "contacts_timeout" | "sqlite_sync_pending";
+export const ErrorCodeValues = ["route_not_found", "method_not_allowed", "invalid_cursor", "invalid_limit", "invalid_timestamp", "invalid_parameter", "unsupported_query_parameter", "malformed_request_body", "invalid_request_body", "unsupported_media_type", "request_timeout", "query_timeout", "internal_error", "byte_range_not_satisfiable", "messages_database_unavailable", "reminders_database_unavailable", "notes_database_unavailable", "calendar_database_unavailable", "contacts_database_unavailable", "message_not_found", "chat_not_found", "message_attachment_not_found", "message_attachment_unavailable", "note_not_found", "note_folder_not_found", "note_attachment_not_found", "note_attachment_unavailable", "reminder_not_found", "reminder_list_not_found", "reminder_attachment_not_found", "reminder_attachment_unavailable", "smart_list_read_only", "unsupported_reminder_field", "invalid_reminder_priority", "calendar_not_found", "calendar_account_not_found", "event_not_found", "event_attachment_not_found", "event_attachment_unavailable", "event_end_before_start", "immutable_event_field", "unsupported_alarm_kind", "ambiguous_event_kit_match", "contact_not_found", "group_not_found", "container_not_found", "contact_photo_not_found", "read_only_container", "ambiguous_contacts_match", "eventkit_access_denied", "contacts_access_denied", "eventkit_unavailable", "contacts_unavailable", "calendar_read_only", "eventkit_invalid_input", "contacts_invalid_input", "eventkit_timeout", "contacts_timeout", "sqlite_sync_pending"] as const satisfies readonly ErrorCode[];
 
 export type ErrorResponse = {
 	error: ErrorBody;
@@ -865,6 +866,8 @@ export type NotePageDto = {
 };
 
 export type NoteRunDto = {
+	/** The embedded object this run's U+FFFC placeholder stands for (see `embedded`). */
+	attachment_identifier?: string | null;
 	font_hints?: number | null;
 	length: number;
 	link?: string | null;
@@ -888,6 +891,18 @@ export type NoteSummaryDto = {
 	row_id: number;
 	snippet?: string | null;
 	title: string;
+};
+
+/** A table embedded in a note. */
+export type NoteTableDto = {
+	/** Why the table could not be decoded; `rows` is empty when set. */
+	decode_error?: string | null;
+	right_to_left: boolean;
+	/**
+	 * Cell text, row by row. Columns are in visual order, left to right, so a right-to-left
+	 * table's first column comes last.
+	 */
+	rows: string[][];
 };
 
 export type OpaquePayloadDto = {
@@ -1520,7 +1535,7 @@ export interface Operations {
 		headers: never;
 		body: never;
 		status: 200;
-		response: void;
+		response: ArrayBuffer;
 	};
 	/** Get a contact as vCard */
 	getContactVcard: {
@@ -2465,7 +2480,7 @@ export const routes = {
 	getChat: { method: "GET", path: "/v1/chats/{chat_id}", kind: "json" },
 	getContact: { method: "GET", path: "/v1/contacts/{contact_id}", kind: "json" },
 	getContactCarddav: { method: "GET", path: "/v1/contacts/{contact_id}/carddav", kind: "text" },
-	getContactPhoto: { method: "GET", path: "/v1/contacts/{contact_id}/photo", kind: "void" },
+	getContactPhoto: { method: "GET", path: "/v1/contacts/{contact_id}/photo", kind: "binary" },
 	getContactVcard: { method: "GET", path: "/v1/contacts/{contact_id}/vcard", kind: "text" },
 	getContainer: { method: "GET", path: "/v1/containers/{container_id}", kind: "json" },
 	getEvent: { method: "GET", path: "/v1/events/{event_id}", kind: "json" },

@@ -41,11 +41,10 @@ Create hydrates and answers with `lower(calendarItemIdentifier)`. Update and del
 
 ## Consequences
 
-- **Known bug, same class**: calendars are not translated. `resolve_event_calendar` tries
-  `calendarWithIdentifier:` with `Calendar.external_id` and then the lowercased API
-  `CalendarId`; the probe shows neither ever resolves on macOS 27, so every create or move falls
-  back to matching the calendar's title, and two calendars with the same title answer
-  `409 ambiguous_event_kit_match`.
+- Calendars follow the same rule. Event writes read `Calendar.UUID` in its stored case and pass it
+  to `calendarWithIdentifier:`. Until #156 they passed `Calendar.external_id` and the lowercased
+  `CalendarId`, neither of which ever resolved, so every create or move fell back to matching the
+  calendar's title.
 - Reminders do not need translation: reminder and reminder-list lookups are case-insensitive, and
   a reminder's external identifier is its API id (probe, macOS 27).
 
@@ -62,9 +61,11 @@ Create hydrates and answers with `lower(calendarItemIdentifier)`. Update and del
   | `calendarWithIdentifier:` with `Calendar.UUID` | 9/18 |
   | … with `lower(UUID)` | 0/18 |
   | … with `Calendar.external_id` | 0/14 |
+  | Event calendars EventKit offers that have a `Calendar` row with their identifier | 9/9 |
   | `calendarItemWithIdentifier:` with a reminder's `lower(ZIDENTIFIER)` | 59/59 |
 
 - `packages/apple-connector/tests/eventkit_integration.rs` (ignored, live):
   `http_created_event_id_resolves_through_get`, `http_listed_event_id_works_for_patch_and_delete`.
 - `packages/apple-eventkit/src/calendar_resolve.rs` `resolve_event_calendar`, `lookup_calendar`;
-  `packages/apple-connector/src/calendar/queries.rs` (`lower(c.UUID) AS api_id`, `c.external_id`).
+  `packages/apple-connector/src/calendar/queries.rs` `fetch_calendar_resolve_metadata`
+  (`c.UUID AS identifier`); `calendar/repository.rs::resolve_metadata_carries_the_stored_identifier`.

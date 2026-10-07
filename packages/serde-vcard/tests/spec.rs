@@ -51,7 +51,6 @@ fn impp_is_written_back_as_x_socialprofile() -> TestResult {
 
 /// RFC 6350 §3.2: lines are delimited by CRLF.
 #[test]
-#[ignore = "bug: the writer ends lines with LF, not CRLF (SPEC.md, Known bugs)"]
 fn lines_end_with_crlf() -> TestResult {
     let written = to_string(&VCard {
         formatted_name: Some("Jane Doe".to_owned()),
@@ -66,7 +65,6 @@ fn lines_end_with_crlf() -> TestResult {
 /// A `BDAY` the date parser cannot read — here RFC 6350's year-less `--MMDD` — must survive
 /// somewhere: either as a birthday or in `unknown`. Today it is dropped silently.
 #[test]
-#[ignore = "bug: an unparseable BDAY is dropped (SPEC.md, Known bugs)"]
 fn an_unparseable_birthday_is_not_dropped() -> TestResult {
     let parsed = from_str(&card("BDAY:--0415\r\n"))?;
     let kept = parsed.birthday.is_some()
@@ -75,6 +73,8 @@ fn an_unparseable_birthday_is_not_dropped() -> TestResult {
             .iter()
             .any(|property| property.name.eq_ignore_ascii_case("BDAY"));
     assert!(kept, "{parsed:?}");
+    // ...and it is written back as it was read.
+    assert!(to_string(&parsed)?.contains("BDAY:--0415"));
     Ok(())
 }
 

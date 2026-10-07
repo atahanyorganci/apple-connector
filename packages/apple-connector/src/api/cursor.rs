@@ -6,8 +6,9 @@ use super::{
     params::CURSOR_VERSION,
 };
 use crate::{
-    calendar::EventFiltersSnapshot, messages::search::MessageFiltersSnapshot,
-    notes::search::NoteFiltersSnapshot, reminders::ReminderFiltersSnapshot,
+    calendar::EventFiltersSnapshot, contacts::ContactFiltersSnapshot,
+    messages::search::MessageFiltersSnapshot, notes::search::NoteFiltersSnapshot,
+    reminders::ReminderFiltersSnapshot,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -248,6 +249,15 @@ pub struct ContactListCursor {
     pub row_id: i64,
 }
 
+/// The cursor Contacts listings hand out: the repository's [`ContactListCursor`] plus the filters
+/// that produced it, so a cursor cannot continue a different query (#161).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ContactPageCursor {
+    pub source_id: String,
+    pub row_id: i64,
+    pub filters: ContactFiltersSnapshot,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct GroupContactCursor {
     pub row_id: i64,
@@ -272,6 +282,18 @@ impl_row_id_cursor!(CalendarListCursor);
 impl_row_id_cursor!(GroupContactCursor);
 
 impl ValidatedCursor for ContactListCursor {
+    fn validate(&self) -> Result<(), ApiError> {
+        if self.source_id.is_empty() {
+            return Err(invalid_cursor_key("source_id"));
+        }
+        if self.row_id <= 0 {
+            return Err(invalid_cursor_key("row_id"));
+        }
+        Ok(())
+    }
+}
+
+impl ValidatedCursor for ContactPageCursor {
     fn validate(&self) -> Result<(), ApiError> {
         if self.source_id.is_empty() {
             return Err(invalid_cursor_key("source_id"));
@@ -440,6 +462,39 @@ impl ValidatedCursor for EventSearchCursor {
         }
         Ok(())
     }
+}
+
+/// Decodes a Contacts listing cursor, rejecting it unless it was produced under `expected_filters`,
+/// and returns the repository's cursor.
+pub fn decode_contact_page_cursor(
+    cursor: &str,
+    expected_filters: &ContactFiltersSnapshot,
+) -> Result<ContactListCursor, ApiError> {
+    let decoded = decode::<ContactPageCursor>(cursor)?;
+    if decoded.filters != *expected_filters {
+        return Err(invalid_cursor(
+            "cursor does not match the active filters",
+            serde_json::json!({ "field": "cursor" }),
+        ));
+    }
+    Ok(ContactListCursor {
+        source_id: decoded.source_id,
+        row_id: decoded.row_id,
+    })
+}
+
+/// Rewrites the repository's [`ContactListCursor`] as the [`ContactPageCursor`] a listing hands
+/// out, bound to `filters`.
+pub fn reencode_contact_page_cursor(
+    cursor: &str,
+    filters: &ContactFiltersSnapshot,
+) -> Result<String, ApiError> {
+    let inner = decode::<ContactListCursor>(cursor)?;
+    encode(&ContactPageCursor {
+        source_id: inner.source_id,
+        row_id: inner.row_id,
+        filters: filters.clone(),
+    })
 }
 
 /// Rewrites the repository's [`GlobalEventCursor`] as the [`EventSearchCursor`] a filtered

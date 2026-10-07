@@ -13,6 +13,7 @@ use crate::{
     api::{
         dto::{ReminderAttachmentDetailDto, reminder_convert::reminder_attachment_detail_to_dto},
         error::{ApiError, ErrorCode, ErrorResponse},
+        extract::ApiPath,
         media::{ServeMedia, copy_conditional_headers, serve_media_bytes},
         params::{ConditionalRequestHeaders, RangeRequestHeader, ReminderAttachmentIdPath},
         router::AppState,
@@ -41,7 +42,7 @@ use crate::{
 )]
 pub async fn get_reminder_attachment(
     State(state): State<AppState>,
-    axum::extract::Path(path): axum::extract::Path<ReminderAttachmentIdPath>,
+    ApiPath(path): ApiPath<ReminderAttachmentIdPath>,
 ) -> Result<Json<ReminderAttachmentDetailDto>, ApiError> {
     let id = path.validated()?;
     let (attachment, reminder_id) = resolve_attachment(&state, id.as_str()).await?;
@@ -96,7 +97,7 @@ pub async fn get_reminder_attachment(
 )]
 pub async fn get_reminder_attachment_content(
     State(state): State<AppState>,
-    axum::extract::Path(path): axum::extract::Path<ReminderAttachmentIdPath>,
+    ApiPath(path): ApiPath<ReminderAttachmentIdPath>,
     request: Request,
 ) -> Result<Response, ApiError> {
     let id = path.validated()?;
@@ -135,7 +136,7 @@ pub async fn get_reminder_attachment_content(
 )]
 pub async fn head_reminder_attachment_content(
     State(state): State<AppState>,
-    axum::extract::Path(path): axum::extract::Path<ReminderAttachmentIdPath>,
+    ApiPath(path): ApiPath<ReminderAttachmentIdPath>,
     headers: HeaderMap,
 ) -> Result<Response, ApiError> {
     let id = path.validated()?;

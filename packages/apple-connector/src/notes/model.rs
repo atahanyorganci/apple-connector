@@ -37,6 +37,8 @@ pub struct NoteRun {
     pub paragraph_style: Option<ParagraphStyle>,
     pub font_hints: Option<u32>,
     pub link: Option<String>,
+    /// The attachment this run's U+FFFC placeholder stands for, when it has one.
+    pub attachment_identifier: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -69,6 +71,21 @@ pub struct ChecklistItem {
 pub struct EmbeddedObject {
     pub attachment_identifier: Option<String>,
     pub type_uti: Option<String>,
+    /// Cells of a `com.apple.notes.table` attachment, read from its mergeable data.
+    pub table: Option<EmbeddedTable>,
+}
+
+/// UTI of a table attachment.
+pub const TABLE_UTI: &str = "com.apple.notes.table";
+
+/// A table embedded in a note. A table whose data cannot be decoded keeps `decode_error` and has
+/// no rows, so one bad table never fails the note.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct EmbeddedTable {
+    /// Cell text, row by row, columns in visual order (left to right).
+    pub rows: Vec<Vec<String>>,
+    pub right_to_left: bool,
+    pub decode_error: Option<String>,
 }
 
 #[derive(Debug, Clone)]

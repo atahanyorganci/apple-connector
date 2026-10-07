@@ -38,10 +38,11 @@ pub(crate) async fn require_contacts_access(
             ))
         }
         apple_contacts::AuthStatus::NotDetermined => {
-            store
-                .ensure_contacts_access()
-                .await
-                .map_err(crate::api::contacts_convert::map_contacts_error)?;
+            store.ensure_contacts_access().await.map_err(
+                crate::api::contacts_convert::contacts_error(
+                    crate::api::error::ErrorCode::InternalError,
+                ),
+            )?;
             match store.auth_status().await {
                 apple_contacts::AuthStatus::Authorized | apple_contacts::AuthStatus::Limited => {
                     Ok(store)

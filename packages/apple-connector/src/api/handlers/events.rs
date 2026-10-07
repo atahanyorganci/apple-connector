@@ -1,6 +1,6 @@
 use axum::{
     Json,
-    extract::{Query, State},
+    extract::State,
     http::StatusCode,
     response::{IntoResponse, Response},
 };
@@ -14,6 +14,7 @@ use crate::{
     api::{
         dto::{EventDetailDto, EventPageDto, calendar_convert::event_detail_to_dto},
         error::{ApiError, ErrorCode, ErrorResponse},
+        extract::{ApiPath, ApiQuery},
         params::{EventIdPath, EventListParams},
         router::AppState,
     },
@@ -41,7 +42,7 @@ const CALDAV_CONTENT_TYPE: &str = "application/caldav+xml; charset=utf-8";
 )]
 pub async fn list_events(
     State(state): State<AppState>,
-    Query(params): Query<EventListParams>,
+    ApiQuery(params): ApiQuery<EventListParams>,
 ) -> Result<Json<EventPageDto>, ApiError> {
     let pool = require_calendar_db(&state.calendar_db)?;
     let page = fetch_event_page(pool, &params).await?;
@@ -68,7 +69,7 @@ pub async fn list_events(
 )]
 pub async fn list_events_ical(
     State(state): State<AppState>,
-    Query(params): Query<EventListParams>,
+    ApiQuery(params): ApiQuery<EventListParams>,
 ) -> Result<Response, ApiError> {
     let pool = require_calendar_db(&state.calendar_db)?;
     let page = fetch_event_page(pool, &params).await?;
@@ -90,7 +91,7 @@ pub async fn list_events_ical(
 )]
 pub async fn list_events_caldav(
     State(state): State<AppState>,
-    Query(params): Query<EventListParams>,
+    ApiQuery(params): ApiQuery<EventListParams>,
 ) -> Result<Response, ApiError> {
     let pool = require_calendar_db(&state.calendar_db)?;
     let page = fetch_event_page(pool, &params).await?;
@@ -113,7 +114,7 @@ pub async fn list_events_caldav(
 )]
 pub async fn get_event(
     State(state): State<AppState>,
-    axum::extract::Path(path): axum::extract::Path<EventIdPath>,
+    ApiPath(path): ApiPath<EventIdPath>,
 ) -> Result<Json<EventDetailDto>, ApiError> {
     let pool = require_calendar_db(&state.calendar_db)?;
     let event_id = path.validated()?;
@@ -136,7 +137,7 @@ pub async fn get_event(
 )]
 pub async fn get_event_ical(
     State(state): State<AppState>,
-    axum::extract::Path(path): axum::extract::Path<EventIdPath>,
+    ApiPath(path): ApiPath<EventIdPath>,
 ) -> Result<Response, ApiError> {
     let pool = require_calendar_db(&state.calendar_db)?;
     let event_id = path.validated()?;
@@ -159,7 +160,7 @@ pub async fn get_event_ical(
 )]
 pub async fn get_event_caldav(
     State(state): State<AppState>,
-    axum::extract::Path(path): axum::extract::Path<EventIdPath>,
+    ApiPath(path): ApiPath<EventIdPath>,
 ) -> Result<Response, ApiError> {
     let pool = require_calendar_db(&state.calendar_db)?;
     let event_id = path.validated()?;

@@ -2,7 +2,7 @@ use std::io::{Cursor, Write};
 
 use apple_notes_protobuf::{
     DecodeError, Limits, decode_note_body, decode_note_body_with_limits,
-    decode_plain_text_with_limits,
+    decode_plain_text_with_limits, decode_table_with_limits,
 };
 use flate2::{Compression, write::GzEncoder};
 
@@ -231,4 +231,27 @@ fn real_fixtures_decode_under_default_limits() -> TestResult {
         assert_eq!(body.decode_error, None, "fixture {name} failed to decode");
     }
     Ok(())
+}
+
+#[test]
+fn rejects_tables_with_too_many_cells() -> TestResult {
+    let data = std::fs::read(
+        std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../apple-connector/fixtures/notes/bodies/acnp/table_gzipped.bin"),
+    )?;
+    let limits = Limits {
+        max_table_cells: 3,
+        ..Limits::default()
+    };
+    let error = decode_table_with_limits(&data, &limits)
+        .err()
+        .ok_or("a 2x2 table decoded under a 3-cell limit")?;
+    assert_eq!(limit_name(&error), Some("table cell count"));
+    Ok(())
+}
+
+#[test]
+fn a_note_body_is_not_a_table() {
+    assert!(decode_table_with_limits(&[], &Limits::default()).is_err());
+    assert!(decode_table_with_limits(b"not gzip", &Limits::default()).is_err());
 }

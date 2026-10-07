@@ -141,7 +141,12 @@ impl AppState {
 }
 
 impl AppState {
+    /// Startup gate: loads every store's schema metadata and fails on a store this server cannot
+    /// read, so a schema mismatch stops startup instead of failing each request.
     pub async fn warm_entity_id_caches(&self) -> Result<(), sqlx::Error> {
+        if let Some(pool) = &self.calendar_db {
+            crate::calendar::detect_schema_variant(pool).await?;
+        }
         if self.reminders_db.is_some() {
             self.cached_reminders_entity_ids().await?;
         }

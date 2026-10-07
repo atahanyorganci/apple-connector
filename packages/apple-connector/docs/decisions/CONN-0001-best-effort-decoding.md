@@ -39,6 +39,7 @@ Report per record. The page succeeds; the affected record carries a decode marke
 | Reminders | alarm and recurrence `ZDATECOMPONENTSDATA` | `decode_error: string` on the alarm / recurrence |
 | Reminders | smart-list `ZFILTERDATA` | `decoded: false` on the filter |
 | Notes | `ZICNOTEDATA.ZDATA` | `decode_error: string` on the body |
+| Notes | table attachment `ZMERGEABLEDATA1` | `decode_error: string` on the embedded table |
 
 ## Consequences
 

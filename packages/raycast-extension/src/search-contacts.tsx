@@ -1,8 +1,8 @@
 import { Action, ActionPanel, Clipboard, Color, Detail, Icon, List } from "@raycast/api";
 import { showFailureToast, useCachedPromise } from "@raycast/utils";
 import { useState } from "react";
-import { fetchToFile } from "./lib/attachments";
-import { request, urlFor } from "./lib/client";
+import { saveToFile } from "./lib/attachments";
+import { request } from "./lib/client";
 import { contactInitials, contactName } from "./lib/contacts";
 import { ApiError } from "./lib/errors";
 import { ErrorState } from "./lib/ErrorState";
@@ -28,11 +28,8 @@ function useContactPhoto(contact: ContactSummaryDto, hasPhoto: boolean) {
 	const { data } = useCachedPromise(
 		async (contactId: string) => {
 			try {
-				return await fetchToFile(
-					urlFor("getContactPhoto", { path: { contact_id: contactId } }),
-					`contact-photo:${contactId}`,
-					"jpg",
-				);
+				const bytes = await request("getContactPhoto", { path: { contact_id: contactId } });
+				return await saveToFile(bytes, `contact-photo:${contactId}`, "jpg");
 			} catch (error) {
 				// A contact without a photo is an expected outcome, not a failure.
 				if (error instanceof ApiError && error.code === "contact_photo_not_found") {

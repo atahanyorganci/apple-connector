@@ -35,15 +35,20 @@ fn f64_fraction_to_subsec_nanos(fraction: f64) -> u32 {
     }
 }
 
-/// Parse a Core Data timestamp (seconds since 2001-01-01 UTC). Zero means unset.
+/// Parse a Core Data timestamp (seconds since 2001-01-01 UTC).
+///
+/// `NULL` and exactly zero mean unset. Instants before the Core Data epoch are negative and are
+/// kept: a birthday in 1990 is about -347 million seconds. The whole part is rounded down, so a
+/// negative fraction lands on the right second.
 #[must_use]
 pub fn parse_core_data_timestamp(secs: Option<f64>) -> Option<DateTime<Utc>> {
     let secs = secs?;
-    if secs <= 0.0 {
+    if secs == 0.0 || !secs.is_finite() {
         return None;
     }
-    let whole_secs = f64_to_i64_secs(secs) + CORE_DATA_EPOCH_UNIX_SECS;
-    let nanos = f64_fraction_to_subsec_nanos(secs.fract());
+    let whole = secs.floor();
+    let whole_secs = f64_to_i64_secs(whole).checked_add(CORE_DATA_EPOCH_UNIX_SECS)?;
+    let nanos = f64_fraction_to_subsec_nanos(secs - whole);
     DateTime::from_timestamp(whole_secs, nanos)
 }
 
@@ -110,6 +115,42 @@ mod tests {
         let value = UnixTimestamp::from_seconds(42);
         let decoded: UnixTimestamp = serde_json::from_str(&serde_json::to_string(&value)?)?;
         assert_eq!(decoded, value);
+        Ok(())
+    }
+
+    #[test]
+    fn zero_and_null_core_data_timestamps_are_unset() {
+        assert_eq!(super::parse_core_data_timestamp(None), None);
+        assert_eq!(super::parse_core_data_timestamp(Some(0.0)), None);
+        assert_eq!(super::parse_core_data_timestamp(Some(f64::NAN)), None);
+    }
+
+    #[test]
+    fn core_data_timestamps_before_2001_are_kept() -> Result<(), Box<dyn std::error::Error>> {
+        let day_before = super::parse_core_data_timestamp(Some(-86_400.0))
+            .ok_or("a day before the Core Data epoch was read as unset")?;
+        assert_eq!(
+            day_before.timestamp(),
+            super::CORE_DATA_EPOCH_UNIX_SECS - 86_400
+        );
+
+        // Half a second before the epoch is 2000-12-31T23:59:59.5Z, not 2001-01-01T00:00:00.5Z.
+        let half_second_before = super::parse_core_data_timestamp(Some(-0.5))
+            .ok_or("half a second before the epoch was read as unset")?;
+        assert_eq!(
+            half_second_before.timestamp(),
+            super::CORE_DATA_EPOCH_UNIX_SECS - 1
+        );
+        assert_eq!(half_second_before.timestamp_subsec_millis(), 500);
+        Ok(())
+    }
+
+    #[test]
+    fn core_data_timestamps_round_trip() -> Result<(), Box<dyn std::error::Error>> {
+        for secs in [-347_155_200.25, -1.0, 1.0, 726_969_600.75] {
+            let parsed = super::parse_core_data_timestamp(Some(secs)).ok_or("unset")?;
+            assert_eq!(super::core_data_secs_from_timestamp(parsed), secs);
+        }
         Ok(())
     }
 

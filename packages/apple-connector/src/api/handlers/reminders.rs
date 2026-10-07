@@ -1,9 +1,6 @@
 use std::sync::Arc;
 
-use axum::{
-    Json,
-    extract::{Query, State},
-};
+use axum::{Json, extract::State};
 
 use super::health::require_reminders_db;
 use crate::{
@@ -14,6 +11,7 @@ use crate::{
             reminder_convert::{reminder_detail_to_dto, reminder_page_to_dto},
         },
         error::{ApiError, ErrorCode, ErrorResponse},
+        extract::{ApiPath, ApiQuery},
         params::{ReminderIdPath, ReminderListParams},
         router::AppState,
     },
@@ -36,7 +34,7 @@ use crate::{
 )]
 pub async fn list_reminders(
     State(state): State<AppState>,
-    Query(params): Query<ReminderListParams>,
+    ApiQuery(params): ApiQuery<ReminderListParams>,
 ) -> Result<Json<ReminderPageDto>, ApiError> {
     let pool = require_reminders_db(&state.reminders_db)?;
 
@@ -115,7 +113,7 @@ pub async fn list_reminders(
 )]
 pub async fn get_reminder(
     State(state): State<AppState>,
-    axum::extract::Path(path): axum::extract::Path<ReminderIdPath>,
+    ApiPath(path): ApiPath<ReminderIdPath>,
 ) -> Result<Json<ReminderDetailDto>, ApiError> {
     let reminder_id = path.validated()?;
     let pool = require_reminders_db(&state.reminders_db)?;

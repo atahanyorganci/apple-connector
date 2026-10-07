@@ -60,9 +60,3 @@ export function reminderIcon(reminder: ReminderSummaryDto) {
 }
 
 /** Comma-separated tag input, normalized to the array the contract expects. */
-export function parseTags(input: string): string[] {
-	return input
-		.split(",")
-		.map(tag => tag.trim())
-		.filter(tag => tag !== "");
-}

@@ -16,6 +16,7 @@ MAX_LEN="${FUZZ_MAX_LEN:-65536}"
 TARGETS=(
   typedstream_parse
   notes_body_decode
+  notes_table_decode
   vcard_parse
   icalendar_parse
   caldav_multistatus

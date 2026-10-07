@@ -4,6 +4,7 @@ mod de;
 mod error;
 mod model;
 mod ser;
+mod vtimezone;
 
 use std::io::{Read, Write};
 

@@ -45,8 +45,9 @@ Budgets and fuzzing:
 
 ## Evidence
 
-- Fuzz targets: `typedstream_parse`, `notes_body_decode`, `vcard_parse`, `icalendar_parse`,
-  `caldav_multistatus`, `carddav_multistatus`.
+- Fuzz targets: `typedstream_parse`, `notes_body_decode`, `notes_table_decode` (added with the
+  table decoder in #168), `vcard_parse`, `icalendar_parse`, `caldav_multistatus`,
+  `carddav_multistatus`.
 - PR #140: about 17.6 million executions across the six targets were clean after the fixes;
   fuzzing found the `iso8601` duration panic
   ([ICAL-L-0001](../../packages/serde-icalendar/docs/lessons/ICAL-L-0001-iso8601-duration-panic.md)).

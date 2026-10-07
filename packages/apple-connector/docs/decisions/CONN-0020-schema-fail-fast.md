@@ -33,21 +33,19 @@ Discover at startup and abort on mismatch. Reminders and Notes entity IDs come f
 `Z_PRIMARYKEY` by name; Contacts entity IDs and relationship tables are discovered per source.
 All are loaded by `AppState::warm_entity_id_caches` before the listener binds, and an error there
 ends startup. Zero-ID fallbacks were removed. Legacy `ZCALENDARITEM` Calendar databases are
-unsupported.
+unsupported: the same gate runs `detect_schema_variant` on the Calendar pool.
 
 ## Consequences
 
 - A macOS update that renames an entity stops the server with a schema error rather than serving
   empty lists.
-- **Known bug**: Calendar is not part of `warm_entity_id_caches`. Its schema check,
-  `detect_schema_variant`, runs only in the inventory function, so a legacy database passes
-  startup and `/healthz` and then fails each query.
+- Calendar joined the gate only in #162; until then a legacy database passed startup and
+  `/healthz` and failed each query.
 
 ## Evidence
 
 - `packages/apple-connector/src/api/router.rs` `warm_entity_id_caches` (Reminders, Notes,
   Contacts); `src/lib.rs` aborts on its error.
-- `packages/apple-connector/src/calendar/schema.rs` `detect_schema_variant`; only caller
-  `calendar/inventory.rs`.
-- `packages/apple-connector/tests/spec.rs`: `a_legacy_calendar_schema_fails_the_startup_gate`
-  (ignored, fails today).
+- `packages/apple-connector/src/calendar/schema.rs` `detect_schema_variant`, called from
+  `warm_entity_id_caches` and `calendar/inventory.rs`.
+- `packages/apple-connector/tests/spec.rs`: `a_legacy_calendar_schema_fails_the_startup_gate`.

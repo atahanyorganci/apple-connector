@@ -2,7 +2,8 @@
 
 Reads from SQLite; writes through EventKit (`apple-eventkit`). Source:
 `~/Library/Group Containers/group.com.apple.calendar/Calendar.sqlitedb` (`--calendar-database`,
-`APPLE_CONNECTOR_CALENDAR_DATABASE`). Only the modern `CalendarItem` schema is supported.
+`APPLE_CONNECTOR_CALENDAR_DATABASE`). Only the modern `CalendarItem` schema is supported; a
+database without it stops startup.
 
 ## Tables
 
@@ -24,7 +25,10 @@ Reads from SQLite; writes through EventKit (`apple-eventkit`). Source:
 
 ## Rows
 
-- Timestamps are Core Data seconds since 2001-01-01 UTC.
+- Timestamps are Core Data seconds since 2001-01-01 UTC; `NULL` and `0` are unset.
+- Birthday events generated from Contacts carry a `last_modified` of 1976-04-01, and a start in
+  1604 when the birthday has no year. Both are Apple's values and are returned as stored
+  ([CONN-L-0006](../lessons/CONN-L-0006-apple-date-sentinels.md)).
 - Without `start`/`end`: `CalendarItem` rows ordered `last_modified DESC, ROWID DESC`.
 - With `start` and/or `end`: occurrences from `OccurrenceCache`, start
   `COALESCE(occurrence_start_date, occurrence_date)`, grouped to one row per occurrence, ordered
@@ -43,7 +47,8 @@ JSON on the base routes; iCalendar on `…/iCal` and CalDAV XML on `…/caldav`
 ## Writes
 
 `POST /v1/calendars/{calendar_id}/events`, `PATCH`/`DELETE /v1/events/{id}` with `span`
-(`this` default, `future`) and `occurrence_start` for recurring events. `status` is
+(`this` default, `future`) and `occurrence_start` for recurring events. The target calendar is
+found in EventKit by `Calendar.UUID` as stored. `status` is
 `422 immutable_event_field`; `end < start`, including after merging a partial update, is
 `422 event_end_before_start`. Birthday and subscription calendars are `403 calendar_read_only`.
 

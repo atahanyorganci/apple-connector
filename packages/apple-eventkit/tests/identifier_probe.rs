@@ -307,6 +307,28 @@ fn identifier_spaces() -> TestResult {
         "Calendar.external_id resolved through calendarWithIdentifier:",
     )?;
 
+    // Every calendar EventKit offers for events has a `Calendar` row whose stored UUID is its
+    // `calendarIdentifier`, so the write path can address each one by id (#156). The `Calendar`
+    // rows EventKit does not resolve are calendars it does not offer for events.
+    let stored: std::collections::HashSet<String> =
+        sqlite_rows(&calendar_db, "SELECT UUID FROM Calendar")?
+            .into_iter()
+            .filter_map(|row| row.into_iter().next())
+            .collect();
+    let event_calendars = unsafe { store.calendarsForEntityType(EKEntityType::Event) };
+    let offered = event_calendars.len();
+    let addressable = event_calendars
+        .iter()
+        .filter(|calendar| stored.contains(&unsafe { calendar.calendarIdentifier() }.to_string()))
+        .count();
+    println!(
+        "event calendars offered by EventKit: {offered}, addressable by stored UUID: {addressable}"
+    );
+    ensure(
+        offered > 0 && addressable == offered,
+        "an event calendar EventKit offers has no Calendar row with its identifier",
+    )?;
+
     // Events: same case-sensitivity for `calendarItemWithIdentifier:`; the iCalendar UID in
     // `CalendarItem.unique_identifier` is what `calendarItemsWithExternalIdentifier:` matches.
     ensure(

@@ -15,14 +15,10 @@ type Input = {
 	dueAt?: number;
 	/** Treat `dueAt` as a whole calendar day rather than an exact instant. */
 	allDay?: boolean;
-	/** Flag the reminder. */
-	flagged?: boolean;
 	/** Reminders priority: 0 none, 1 high, 5 medium, 9 low. */
 	priority?: number;
 	/** Optional URL to attach. */
 	url?: string;
-	/** Tags to apply, without a leading hash. */
-	tags?: string[];
 };
 
 async function resolveListId(listId: string | undefined): Promise<string> {
@@ -40,8 +36,9 @@ async function resolveListId(listId: string | undefined): Promise<string> {
 /**
  * Create a reminder in the user's Reminders app.
  *
- * Supports fields the built-in Raycast extension cannot set, including flags,
- * URLs and tags.
+ * Sets the title, notes, due date, priority and URL. Reminders cannot be
+ * flagged, tagged, put in a section or nested under another reminder through
+ * this tool: the server rejects those fields because EventKit cannot store them.
  */
 export default async function createReminder(input: Input) {
 	const listId = await resolveListId(input.listId);
@@ -50,10 +47,8 @@ export default async function createReminder(input: Input) {
 		body: {
 			title: input.title,
 			notes: input.notes ?? null,
-			flagged: input.flagged ?? null,
 			priority: input.priority ?? null,
 			url: input.url ?? null,
-			tags: input.tags ?? [],
 			due: input.dueAt === undefined ? null : { at: input.dueAt, all_day: input.allDay ?? false },
 		},
 	});
@@ -75,6 +70,5 @@ export const confirmation: Tool.Confirmation<Input> = async input => ({
 	info: [
 		{ name: "Title", value: input.title },
 		...(input.dueAt === undefined ? [] : [{ name: "Due", value: new Date(input.dueAt * 1000).toLocaleString() }]),
-		...(input.tags?.length ? [{ name: "Tags", value: input.tags.join(", ") }] : []),
 	],
 });

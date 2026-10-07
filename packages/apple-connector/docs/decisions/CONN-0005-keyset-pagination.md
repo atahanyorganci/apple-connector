@@ -38,13 +38,13 @@ Keyset only, no offsets:
   malformed or wrong-version cursors are `400 invalid_cursor`.
 - A cursor produced under a set of filters is valid only for those filters; reusing it with
   different filters is `400 invalid_cursor` ("cursor does not match the active filters").
-- Contacts span several AddressBook sources; its cursor records the source and that source's row,
-  and sources are consumed in ascending `source_id` order.
+- Contacts span several AddressBook sources; its cursor records the source, that source's row,
+  and the filters, and sources are consumed in ascending `source_id` order.
 
 ## Consequences
 
-- Filter binding is enforced for Messages, Reminders, Notes, and Events. **Contacts cursors are
-  not bound to their filters** — recorded as a known bug in the spec.
+- Filter binding is enforced for Messages, Reminders, Notes, Events, and Contacts. Contacts joined
+  in #161; until then a Contacts cursor silently continued a different query.
 - Filtered event listings broke this once: the handler decoded a filter-bound cursor while the
   repository encoded a filter-free one, so page 2 was always `invalid_cursor` (fixed in PR #154).
 - `/v1/containers` and `/v1/calendar-accounts` are not paginated.
@@ -53,6 +53,5 @@ Keyset only, no offsets:
 
 - `docs/openapi.json`: all 24 `limit` parameters are `default: 50`, `maximum: 200`.
 - `packages/apple-connector/src/api/cursor.rs`: `encode`, `decode`, `decode_*_search_cursor`,
-  `ContactListCursor` (no filter snapshot).
-- `packages/apple-connector/tests/spec.rs`: `contact_cursors_are_bound_to_their_filters`
-  (ignored, fails today).
+  `decode_contact_page_cursor`.
+- `packages/apple-connector/tests/spec.rs`: `contact_cursors_are_bound_to_their_filters`.

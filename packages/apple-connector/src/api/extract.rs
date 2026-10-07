@@ -6,8 +6,8 @@
 
 use axum::{
     extract::{
-        FromRequest, FromRequestParts, Json, Query, Request,
-        rejection::{JsonRejection, QueryRejection},
+        FromRequest, FromRequestParts, Json, Path, Query, Request,
+        rejection::{JsonRejection, PathRejection, QueryRejection},
     },
     http::request::Parts,
 };
@@ -50,18 +50,46 @@ where
     }
 }
 
+/// `Path`, with rejections mapped into the typed error catalog. A path segment that does not parse
+/// as its parameter type (`/v1/chats/abc`) is an `invalid_parameter`, not a plain-text 400.
+pub struct ApiPath<T>(pub T);
+
+impl<S, T> FromRequestParts<S> for ApiPath<T>
+where
+    Path<T>: FromRequestParts<S, Rejection = PathRejection>,
+    S: Send + Sync,
+{
+    type Rejection = ApiError;
+
+    async fn from_request_parts(parts: &mut Parts, state: &S) -> Result<Self, Self::Rejection> {
+        let Path(value) = Path::<T>::from_request_parts(parts, state)
+            .await
+            .map_err(path_error)?;
+        Ok(Self(value))
+    }
+}
+
 /// The rejection text describes the caller's own payload — which field, which value — so it is
 /// safe to return and is the only thing that makes the error actionable.
 fn json_error(rejection: JsonRejection) -> ApiError {
     let code = match rejection {
         // Well-formed JSON that does not match the schema: the request is understood but cannot
         // be processed.
-        JsonRejection::JsonDataError(_) => ErrorCode::UnprocessableEntity,
-        _ => ErrorCode::ValidationError,
+        JsonRejection::JsonDataError(_) => ErrorCode::InvalidRequestBody,
+        JsonRejection::MissingJsonContentType(_) => ErrorCode::UnsupportedMediaType,
+        _ => ErrorCode::MalformedRequestBody,
     };
     ApiError::with_details(
         code,
         "request body could not be read",
+        serde_json::json!({ "reason": rejection.body_text() }),
+    )
+}
+
+fn path_error(rejection: PathRejection) -> ApiError {
+    ApiError::with_details(
+        ErrorCode::InvalidParameter,
+        "path parameters could not be read",
         serde_json::json!({ "reason": rejection.body_text() }),
     )
 }
@@ -143,7 +171,7 @@ mod tests {
         )
         .await?;
         assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
-        assert_eq!(body["error"]["code"], "unprocessable_entity");
+        assert_eq!(body["error"]["code"], "invalid_request_body");
         assert!(body["error"]["details"]["reason"].is_string());
         Ok(())
     }
@@ -160,7 +188,23 @@ mod tests {
         )
         .await?;
         assert_eq!(status, StatusCode::BAD_REQUEST);
-        assert_eq!(body["error"]["code"], "validation_error");
+        assert_eq!(body["error"]["code"], "malformed_request_body");
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn a_body_without_a_json_content_type_is_unsupported()
+    -> Result<(), Box<dyn std::error::Error>> {
+        let (status, body) = send(
+            app(),
+            Request::builder()
+                .method("POST")
+                .uri("/body")
+                .body(Body::from(r#"{"span":"this"}"#))?,
+        )
+        .await?;
+        assert_eq!(status, StatusCode::UNSUPPORTED_MEDIA_TYPE);
+        assert_eq!(body["error"]["code"], "unsupported_media_type");
         Ok(())
     }
 

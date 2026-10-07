@@ -1,6 +1,6 @@
 use axum::{
     Json,
-    extract::{Query, State},
+    extract::State,
     http::{HeaderMap, StatusCode, header},
     response::{IntoResponse, Response},
 };
@@ -16,6 +16,7 @@ use crate::{
             contacts_convert::{contact_detail_to_dto, contact_page_to_dto},
         },
         error::{ApiError, ErrorCode, ErrorResponse},
+        extract::{ApiPath, ApiQuery},
         params::{ContactIdPath, ContactListParams},
         router::AppState,
     },
@@ -39,7 +40,7 @@ use crate::{
 )]
 pub async fn list_contacts(
     State(state): State<AppState>,
-    Query(params): Query<ContactListParams>,
+    ApiQuery(params): ApiQuery<ContactListParams>,
 ) -> Result<Json<ContactPageDto>, ApiError> {
     let sources = require_contacts_sources(&state.contacts_sources)?;
     let page = fetch_contact_page(sources, &params).await?;
@@ -61,7 +62,7 @@ pub async fn list_contacts(
 )]
 pub async fn list_contacts_vcard(
     State(state): State<AppState>,
-    Query(params): Query<ContactListParams>,
+    ApiQuery(params): ApiQuery<ContactListParams>,
 ) -> Result<Response, ApiError> {
     let sources = require_contacts_sources(&state.contacts_sources)?;
     let page = fetch_contact_page(sources, &params).await?;
@@ -87,7 +88,7 @@ pub async fn list_contacts_vcard(
 )]
 pub async fn list_contacts_carddav(
     State(state): State<AppState>,
-    Query(params): Query<ContactListParams>,
+    ApiQuery(params): ApiQuery<ContactListParams>,
 ) -> Result<Response, ApiError> {
     let sources = require_contacts_sources(&state.contacts_sources)?;
     let page = fetch_contact_page(sources, &params).await?;
@@ -113,7 +114,7 @@ pub async fn list_contacts_carddav(
 )]
 pub async fn search_contacts(
     State(state): State<AppState>,
-    Query(params): Query<ContactListParams>,
+    ApiQuery(params): ApiQuery<ContactListParams>,
 ) -> Result<Json<ContactPageDto>, ApiError> {
     let sources = require_contacts_sources(&state.contacts_sources)?;
     let limit = params.validated_limit()?;
@@ -147,7 +148,7 @@ pub async fn search_contacts(
 )]
 pub async fn get_contact(
     State(state): State<AppState>,
-    axum::extract::Path(path): axum::extract::Path<ContactIdPath>,
+    ApiPath(path): ApiPath<ContactIdPath>,
 ) -> Result<Json<ContactDetailDto>, ApiError> {
     let sources = require_contacts_sources(&state.contacts_sources)?;
     let contact_id = path.validated()?;
@@ -170,7 +171,7 @@ pub async fn get_contact(
 )]
 pub async fn get_contact_vcard(
     State(state): State<AppState>,
-    axum::extract::Path(path): axum::extract::Path<ContactIdPath>,
+    ApiPath(path): ApiPath<ContactIdPath>,
 ) -> Result<Response, ApiError> {
     let sources = require_contacts_sources(&state.contacts_sources)?;
     let contact_id = path.validated()?;
@@ -193,7 +194,7 @@ pub async fn get_contact_vcard(
 )]
 pub async fn get_contact_carddav(
     State(state): State<AppState>,
-    axum::extract::Path(path): axum::extract::Path<ContactIdPath>,
+    ApiPath(path): ApiPath<ContactIdPath>,
 ) -> Result<Response, ApiError> {
     let sources = require_contacts_sources(&state.contacts_sources)?;
     let contact_id = path.validated()?;
@@ -209,14 +210,18 @@ pub async fn get_contact_carddav(
     tag = "contacts",
     params(ContactIdPath),
     responses(
-        (status = 200, description = "Contact photo bytes"),
+        (status = 200, description = "Contact photo bytes", content_type = "application/octet-stream",
+            headers(
+                ("Content-Type" = String, description = "image/jpeg, image/png, image/gif, image/heic, or application/octet-stream when the stored type is unknown")
+            )
+        ),
         (status = 404, description = "Contact or photo not found", body = ErrorResponse),
         (status = 503, description = "Contacts databases are unavailable", body = ErrorResponse),
     )
 )]
 pub async fn get_contact_photo(
     State(state): State<AppState>,
-    axum::extract::Path(path): axum::extract::Path<ContactIdPath>,
+    ApiPath(path): ApiPath<ContactIdPath>,
 ) -> Result<Response, ApiError> {
     let sources = require_contacts_sources(&state.contacts_sources)?;
     let contact_id = path.validated()?;
@@ -246,14 +251,23 @@ async fn fetch_contact_page(
     let limit = params.validated_limit()?;
     params.validated_cursor()?;
     let filters = params.validated_filters()?;
+    // The API cursor is bound to the filters; the repository only knows `ContactListCursor`.
+    let snapshot = filters.snapshot();
     let cursor = params
         .cursor
         .as_deref()
-        .map(crate::api::cursor::decode::<crate::api::cursor::ContactListCursor>)
+        .map(|value| crate::api::cursor::decode_contact_page_cursor(value, &snapshot))
         .transpose()?;
-    run_timed_query(|| async { sources.list_contacts(limit, cursor, &filters).await })
-        .await
-        .map_err(ApiError::from_sqlx)
+    let mut page =
+        run_timed_query(|| async { sources.list_contacts(limit, cursor, &filters).await })
+            .await
+            .map_err(ApiError::from_sqlx)?;
+    page.next_cursor = page
+        .next_cursor
+        .as_deref()
+        .map(|value| crate::api::cursor::reencode_contact_page_cursor(value, &snapshot))
+        .transpose()?;
+    Ok(page)
 }
 
 async fn fetch_contact_detail(

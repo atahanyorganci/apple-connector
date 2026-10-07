@@ -39,12 +39,15 @@ Application.
   matches the code ([CONN-0004](decisions/CONN-0004-openapi-contract.md)). Enforced by:
   `src/api/doc.rs::exported_openapi_matches_committed_contract`.
 - **Timestamps** are integer Unix seconds everywhere
-  ([REC-0010](../../../docs/decisions/REC-0010-unix-seconds.md)). Enforced by: the `UnixTimestamp`
-  schema; no `date-time` format in `docs/openapi.json`.
+  ([REC-0010](../../../docs/decisions/REC-0010-unix-seconds.md)). A Core Data timestamp that is
+  `NULL` or exactly `0` is `null`; earlier instants are returned, as negative seconds before 1970.
+  Enforced by: the `UnixTimestamp` schema; no `date-time` format in `docs/openapi.json`;
+  `src/apple_types/timestamp.rs` tests; `tests/spec.rs::a_birthday_before_2001_is_returned`.
 - **Pagination.** Keyset only; `limit` 1–200, default 50; cursors versioned and filter-bound
   ([CONN-0005](decisions/CONN-0005-keyset-pagination.md)). Enforced by: `src/api/params.rs`
   `default_limit_is_50_and_max_is_200`; `tests/calendar_integration.rs`
-  `integration_calendar_filtered_listings_page_each_event_once`.
+  `integration_calendar_filtered_listings_page_each_event_once`;
+  `tests/spec.rs::contact_cursors_are_bound_to_their_filters`.
 - **Search** over decoded content is a bounded, resumable scan
   ([CONN-0006](decisions/CONN-0006-bounded-search.md)). Enforced by: the scan-budget constants and
   the search tests in `src/messages`, `src/notes`, `src/reminders`.
@@ -53,22 +56,26 @@ Application.
   endpoints never drop rows ([CONN-0019](decisions/CONN-0019-no-synthetic-data.md)). Enforced by:
   `tests/contacts_integration.rs::integration_contacts_with_null_container_are_listed`.
 - **Startup.** Messages is required (`tests/spec.rs::a_missing_messages_database_aborts_startup`);
-  other stores degrade to `503 <domain>_database_unavailable`; Reminders, Notes, and Contacts
-  schema metadata must load or startup stops
+  other stores degrade to `503 <domain>_database_unavailable`; Calendar must have the modern
+  schema and Reminders, Notes, and Contacts schema metadata must load, or startup stops
   ([CONN-0010](decisions/CONN-0010-store-discovery.md),
   [CONN-0020](decisions/CONN-0020-schema-fail-fast.md)). Enforced by: `src/api/router.rs`
-  `warm_entity_id_caches` tests; `src/api/handlers/health.rs` tests.
+  `warm_entity_id_caches` tests; `tests/spec.rs::a_legacy_calendar_schema_fails_the_startup_gate`;
+  `src/api/handlers/health.rs` tests.
 - **Errors** are `{ "error": { code, message, details } }` with a documented `ErrorCode`; database
-  errors never carry driver text ([CONN-0021](decisions/CONN-0021-error-codes.md)). Enforced by:
-  `scripts/check-api-error-leakage.sh` (flake check), `src/api/error.rs` tests, the OpenAPI
-  contract tests.
+  errors never carry driver text, framework refusals never carry Apple's text, and malformed path, query, and body parameters are typed errors
+  too ([CONN-0021](decisions/CONN-0021-error-codes.md)). Enforced by:
+  `scripts/check-api-error-leakage.sh` (flake check; it also bans axum's raw extractors in
+  handlers), `src/api/error.rs` tests, the OpenAPI contract tests,
+  `tests/spec.rs::malformed_query_and_path_parameters_are_typed_errors`;
+  `src/api/error_codes.rs::errors_md_lists_every_code` keeps `docs/errors.md` in step with the enum.
 - **Writes** reject what the framework cannot store
   ([REC-0012](../../../docs/decisions/REC-0012-reject-not-coerce.md)) and answer 201/200 with the
   detail or 202 `sync_pending` ([CONN-0022](decisions/CONN-0022-async-mutations.md)). Enforced by:
   `tests/mutations_integration.rs`, `tests/spec.rs::flagged_false_is_still_an_unsupported_reminder_field`,
   `src/api/hydrate.rs::mutation_status_returns_accepted_when_sync_pending`.
-- **Event identifiers.** `EventId` is `lower(CalendarItem.UUID)`; writes translate it to EventKit's
-  identifiers ([CONN-0023](decisions/CONN-0023-event-identifiers.md)). Enforced by (live, ignored):
+- **Event identifiers.** `EventId` is `lower(CalendarItem.UUID)` and `CalendarId` is
+  `lower(Calendar.UUID)`; writes translate both to EventKit's identifiers ([CONN-0023](decisions/CONN-0023-event-identifiers.md)). Enforced by (live, ignored):
   `tests/eventkit_integration.rs::http_created_event_id_resolves_through_get`,
   `http_listed_event_id_works_for_patch_and_delete`.
 - **Occurrences.** Range listings read `OccurrenceCache`, one row per occurrence
@@ -95,32 +102,7 @@ Application.
 
 ### Known bugs
 
-- **Coarse error codes.** Framework outcomes still answer `resource_not_found`,
-  `unprocessable_entity`, and `gateway_timeout`, and body rejections `validation_error`, which
-  #130 removed. Proven by: `framework_errors_map_to_granular_codes` in
-  `src/api/eventkit_convert.rs` and `src/api/contacts_convert.rs` (ignored, fail today). Tracked in #159.
-- **Framework text in responses.** EventKit and Contacts `ValidationFailed` carry
-  `NSError.localizedDescription`, which becomes the 422 `message`. Proven by:
-  `framework_validation_text_is_not_returned_to_clients` in both files (ignored, fail today). Tracked in #158.
-- **Read endpoints answer malformed query strings outside the envelope** (axum's plain-text 400)
-  ([CONN-L-0005](lessons/CONN-L-0005-extractor-rejections.md)). Proven by:
-  `tests/spec.rs::an_rfc3339_query_bound_is_a_typed_error` (ignored, fails today). Tracked in #160.
-- **Contacts cursors are not bound to their filters.** Proven by:
-  `tests/spec.rs::contact_cursors_are_bound_to_their_filters` (ignored, fails today). Tracked in #161.
-- **Legacy Calendar schemas pass startup** and `/healthz`, then fail each query; #99 required a
-  startup failure. Proven by: `tests/spec.rs::a_legacy_calendar_schema_fails_the_startup_gate`
-  (ignored, fails today). Tracked in #162.
-- **Dates before 2001-01-01 are read as `null`** for every Core Data timestamp — contact
-  birthdays, calendar events, reminders, notes — because a value `<= 0` is treated as unset.
-  Proven by: `tests/spec.rs::core_data_dates_before_2001_are_kept` (ignored, fails today). Tracked in #157.
-- **Calendar writes resolve the calendar by title**, not by the `calendar_id` given, so two
-  calendars with the same title answer `409 ambiguous_event_kit_match` (`apple-eventkit` known
-  bug). Proven by: `apple-eventkit/tests/identifier_probe.rs` (live). Tracked in #156.
-- **The contact photo route treats `%` and `_` in the id as wildcards**, so
-  `GET /v1/contacts/%25/photo` returns some contact's photo. Proven by:
-  `tests/spec.rs::a_photo_is_only_served_for_the_exact_contact_id` (ignored, fails today). Tracked in #163.
-- **`GET /v1/contacts/{id}/photo` documents no response content type** in OpenAPI, so generated
-  clients type it as `void`. Proven by: `docs/openapi.json`. Tracked in #169.
+None known.
 
 ## Limits and non-goals
 

@@ -8,6 +8,7 @@ use crate::{
             contacts_convert::{container_detail_to_dto, container_page_to_dto},
         },
         error::{ApiError, ErrorCode, ErrorResponse},
+        extract::ApiPath,
         params::ContainerIdPath,
         router::AppState,
     },
@@ -50,7 +51,7 @@ pub async fn list_containers(
 )]
 pub async fn get_container(
     State(state): State<AppState>,
-    axum::extract::Path(path): axum::extract::Path<ContainerIdPath>,
+    ApiPath(path): ApiPath<ContainerIdPath>,
 ) -> Result<Json<ContainerDetailDto>, ApiError> {
     let sources = require_contacts_sources(&state.contacts_sources)?;
     let container_id = path.validated()?;

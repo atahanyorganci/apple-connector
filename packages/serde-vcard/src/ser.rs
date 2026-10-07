@@ -195,12 +195,13 @@ fn escape_param(value: &str) -> String {
     value.replace('\\', "\\\\").replace('"', "\\\"")
 }
 
+/// RFC 6350 §3.2: lines end in CRLF, and a folded continuation is CRLF followed by one space.
 fn fold_lines(lines: &[String]) -> String {
     let mut output = String::new();
     for line in lines {
         if line.len() <= LINE_LIMIT {
             output.push_str(line);
-            output.push('\n');
+            output.push_str("\r\n");
             continue;
         }
         let mut remaining = line.as_str();
@@ -226,13 +227,12 @@ fn fold_lines(lines: &[String]) -> String {
                 output.push_str(chunk);
                 first = false;
             } else {
-                output.push('\n');
-                output.push(' ');
+                output.push_str("\r\n ");
                 output.push_str(chunk);
             }
             remaining = rest;
         }
-        output.push('\n');
+        output.push_str("\r\n");
     }
     output
 }

@@ -21,13 +21,23 @@ use crate::{
     reminders::ReminderListResolveMetadata,
 };
 
-pub fn map_eventkit_error(error: EventKitError) -> ApiError {
+/// Maps an EventKit failure to an API error. EventKit's "not found" does not say what was missing,
+/// so the caller passes the code for the entity it addressed.
+pub fn map_eventkit_error(error: EventKitError, not_found: ErrorCode) -> ApiError {
     match error {
-        EventKitError::NotFound => ApiError::new(ErrorCode::ResourceNotFound),
+        EventKitError::NotFound => ApiError::new(not_found),
         EventKitError::AccessDenied => ApiError::new(ErrorCode::EventkitAccessDenied),
         EventKitError::ReadOnlyCalendar => ApiError::new(ErrorCode::CalendarReadOnly),
         EventKitError::ValidationFailed(message) => {
-            ApiError::with_message(ErrorCode::UnprocessableEntity, message)
+            ApiError::with_message(ErrorCode::EventkitInvalidInput, message)
+        }
+        EventKitError::Rejected { code, description } => {
+            tracing::warn!(code, %description, "EventKit rejected the input");
+            ApiError::with_details(
+                ErrorCode::EventkitInvalidInput,
+                ErrorCode::EventkitInvalidInput.default_message(),
+                serde_json::json!({ "framework_code": code }),
+            )
         }
         EventKitError::EndBeforeStart => ApiError::new(ErrorCode::EventEndBeforeStart),
         EventKitError::AmbiguousMatch(message) => {
@@ -35,8 +45,13 @@ pub fn map_eventkit_error(error: EventKitError) -> ApiError {
         }
         EventKitError::UnsupportedPlatform => ApiError::eventkit_unavailable(),
         EventKitError::Framework(_message) => ApiError::new(ErrorCode::InternalError),
-        EventKitError::Timeout => ApiError::new(ErrorCode::GatewayTimeout),
+        EventKitError::Timeout => ApiError::new(ErrorCode::EventkitTimeout),
     }
+}
+
+/// `map_err` adapter for [`map_eventkit_error`]: `.map_err(eventkit_error(ErrorCode::EventNotFound))`.
+pub fn eventkit_error(not_found: ErrorCode) -> impl Fn(EventKitError) -> ApiError {
+    move |error| map_eventkit_error(error, not_found)
 }
 
 /// Request-level checks for event creation, run before any store is consulted.
@@ -83,7 +98,11 @@ pub fn validate_update_reminder(request: &UpdateReminderRequest) -> Result<(), A
 fn validate_reminder_priority(priority: Option<i64>) -> Result<(), ApiError> {
     if let Some(value) = priority {
         ReminderPriority::try_new(value).map_err(|error| {
-            ApiError::with_message(ErrorCode::UnprocessableEntity, error.to_string())
+            ApiError::with_details(
+                ErrorCode::InvalidReminderPriority,
+                error.to_string(),
+                serde_json::json!({ "field": "priority" }),
+            )
         })?;
     }
     Ok(())
@@ -170,8 +189,7 @@ pub fn reminder_list_hint(metadata: ReminderListResolveMetadata) -> ReminderList
 
 pub fn calendar_hint(metadata: CalendarResolveMetadata) -> CalendarResolveHint {
     CalendarResolveHint {
-        api_id: metadata.api_id,
-        external_id: metadata.external_id,
+        identifier: metadata.identifier,
         title: metadata.title,
         store_type: match metadata.store_type {
             1 => CalendarStoreType::CalDav,
@@ -593,7 +611,7 @@ mod tests {
 
     #[test]
     fn map_eventkit_read_only_to_forbidden() {
-        let error = map_eventkit_error(EventKitError::ReadOnlyCalendar);
+        let error = map_eventkit_error(EventKitError::ReadOnlyCalendar, ErrorCode::EventNotFound);
         assert_eq!(error.status(), axum::http::StatusCode::FORBIDDEN);
     }
 
@@ -601,14 +619,14 @@ mod tests {
     /// so a client sees one error for one mistake.
     #[test]
     fn map_eventkit_end_before_start_matches_the_create_path() {
-        let error = map_eventkit_error(EventKitError::EndBeforeStart);
+        let error = map_eventkit_error(EventKitError::EndBeforeStart, ErrorCode::EventNotFound);
         assert_eq!(error.status(), axum::http::StatusCode::UNPROCESSABLE_ENTITY);
         assert_eq!(error.body().code, ErrorCode::EventEndBeforeStart);
     }
 
     #[test]
     fn map_eventkit_not_found() {
-        let error = map_eventkit_error(EventKitError::NotFound);
+        let error = map_eventkit_error(EventKitError::NotFound, ErrorCode::EventNotFound);
         assert_eq!(error.status(), axum::http::StatusCode::NOT_FOUND);
     }
 
@@ -652,37 +670,61 @@ mod tests {
         Ok(())
     }
 
-    /// `apple-eventkit` puts `NSError.localizedDescription` into `ValidationFailed` (see
-    /// `validation_codes_carry_the_framework_description` there). The mapper must not hand that
-    /// framework text to clients.
+    /// Framework refusals carry Apple's `localizedDescription` for the logs; the response gets
+    /// this project's message and the numeric code instead (#158).
     #[test]
-    #[ignore = "bug: framework validation text reaches the 422 message (SPEC.md, Known bugs)"]
-    fn framework_validation_text_is_not_returned_to_clients() {
+    fn framework_validation_text_is_not_returned_to_clients()
+    -> Result<(), Box<dyn std::error::Error>> {
         let framework_text = "The start date must be before the end date.";
-        let error = map_eventkit_error(EventKitError::ValidationFailed(framework_text.into()));
+        let error = map_eventkit_error(
+            EventKitError::Rejected {
+                code: 300,
+                description: framework_text.into(),
+            },
+            ErrorCode::EventNotFound,
+        );
         assert_ne!(error.body().message, framework_text);
+        assert_eq!(error.body().code, ErrorCode::EventkitInvalidInput);
+        let details = error.body().details.as_ref().ok_or("no details")?;
+        assert_eq!(details["framework_code"], 300);
+        Ok(())
     }
 
-    /// #130 removed the coarse, HTTP-aligned codes; a framework miss should answer with a
-    /// granular code, not `resource_not_found`.
+    /// The hint passes EventKit the calendar identifier in its stored case (#156).
     #[test]
-    #[ignore = "bug: coarse error codes are still emitted (SPEC.md, Known bugs)"]
+    fn calendar_hints_carry_the_stored_identifier() {
+        let hint = calendar_hint(CalendarResolveMetadata {
+            identifier: "AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAAAA".into(),
+            title: Some("Home".into()),
+            store_type: 0,
+        });
+        assert_eq!(hint.identifier, "AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAAAA");
+    }
+
+    /// #130 removed the coarse, HTTP-aligned codes; a framework outcome answers with a specific one,
+    /// and a miss names the entity the caller addressed (#159).
+    #[test]
     fn framework_errors_map_to_granular_codes() {
-        for error in [
-            EventKitError::NotFound,
-            EventKitError::ValidationFailed(String::new()),
-            EventKitError::Timeout,
-        ] {
-            let code = map_eventkit_error(error).body().code;
-            assert!(
-                !matches!(
-                    code,
-                    ErrorCode::ResourceNotFound
-                        | ErrorCode::UnprocessableEntity
-                        | ErrorCode::GatewayTimeout
-                ),
-                "coarse code {code:?}"
-            );
-        }
+        assert_eq!(
+            map_eventkit_error(EventKitError::NotFound, ErrorCode::EventNotFound)
+                .body()
+                .code,
+            ErrorCode::EventNotFound
+        );
+        assert_eq!(
+            map_eventkit_error(
+                EventKitError::ValidationFailed("bad input".into()),
+                ErrorCode::EventNotFound
+            )
+            .body()
+            .code,
+            ErrorCode::EventkitInvalidInput
+        );
+        assert_eq!(
+            map_eventkit_error(EventKitError::Timeout, ErrorCode::EventNotFound)
+                .body()
+                .code,
+            ErrorCode::EventkitTimeout
+        );
     }
 }

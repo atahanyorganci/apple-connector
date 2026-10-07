@@ -1,6 +1,6 @@
 {
   "db_name": "SQLite",
-  "query": "\n        SELECT\n            COALESCE(l.ZDATA, r.ZIMAGEDATA) AS \"photo_data: Vec<u8>\",\n            r.ZIMAGETYPE AS image_type\n        FROM ZABCDRECORD r\n        LEFT JOIN ZABCDLIKENESS l ON l.ZOWNER = r.Z_PK AND l.ZISPRIMARY = 1\n        WHERE r.Z_ENT = ?1\n          AND lower(r.ZUNIQUEID) LIKE lower(?2) || '%'\n        LIMIT 1\n        ",
+  "query": "\n        SELECT\n            COALESCE(l.ZDATA, r.ZIMAGEDATA) AS \"photo_data: Vec<u8>\",\n            r.ZIMAGETYPE AS image_type\n        FROM ZABCDRECORD r\n        LEFT JOIN ZABCDLIKENESS l ON l.ZOWNER = r.Z_PK AND l.ZISPRIMARY = 1\n        WHERE r.Z_ENT = ?1\n          AND lower(substr(r.ZUNIQUEID, 1, instr(r.ZUNIQUEID, ':') - 1)) = lower(?2)\n        LIMIT 1\n        ",
   "describe": {
     "columns": [
       {
@@ -29,5 +29,5 @@
       true
     ]
   },
-  "hash": "ba5db621f129ff3a5fd60159442c99ef5c27db988acc754edce1e651a1cce035"
+  "hash": "33541703143bcb62c7882648c752e7cb145a0a0884e5cf7b52140103b492132f"
 }

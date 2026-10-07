@@ -41,8 +41,10 @@ Build what Raycast lacks:
 
 - The Reminders value proposition in #145 — sections, flags, and tags that Raycast's extension
   cannot set — conflicts with the API, which rejects all three
-  ([REC-0012](../../../../docs/decisions/REC-0012-reject-not-coerce.md)). The Create Reminder form
-  sends them anyway (known bug in the raycast-extension spec).
+  ([REC-0012](../../../../docs/decisions/REC-0012-reject-not-coerce.md)). The form sent them
+  anyway, so every submission failed (#155); Create Reminder and the create-reminder tool now
+  offer only fields EventKit can store, and `ai.instructions` tells the model so. What remains
+  over Raycast's own extension is the URL field and the search scopes.
 - AI tools need Raycast Pro.
 
 ## Evidence

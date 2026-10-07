@@ -16,9 +16,11 @@ pub enum ErrorCode {
     InvalidTimestamp,
     InvalidParameter,
     UnsupportedQueryParameter,
+    MalformedRequestBody,
+    InvalidRequestBody,
+    UnsupportedMediaType,
     RequestTimeout,
     QueryTimeout,
-    GatewayTimeout,
     InternalError,
     ByteRangeNotSatisfiable,
 
@@ -48,6 +50,7 @@ pub enum ErrorCode {
     ReminderAttachmentUnavailable,
     SmartListReadOnly,
     UnsupportedReminderField,
+    InvalidReminderPriority,
 
     // Calendar / events
     CalendarNotFound,
@@ -74,17 +77,13 @@ pub enum ErrorCode {
     EventkitUnavailable,
     ContactsUnavailable,
     CalendarReadOnly,
+    EventkitInvalidInput,
+    ContactsInvalidInput,
+    EventkitTimeout,
+    ContactsTimeout,
 
     // Sync
     SqliteSyncPending,
-
-    // Transitional catch-alls used until domain migrations finish (#131–#136)
-    ValidationError,
-    ResourceNotFound,
-    ServiceUnavailable,
-    Forbidden,
-    Conflict,
-    UnprocessableEntity,
 }
 
 impl ErrorCode {
@@ -107,23 +106,27 @@ impl ErrorCode {
             | Self::ContactNotFound
             | Self::GroupNotFound
             | Self::ContainerNotFound
-            | Self::ContactPhotoNotFound
-            | Self::ResourceNotFound => StatusCode::NOT_FOUND,
+            | Self::ContactPhotoNotFound => StatusCode::NOT_FOUND,
 
             Self::MethodNotAllowed => StatusCode::METHOD_NOT_ALLOWED,
+
+            Self::UnsupportedMediaType => StatusCode::UNSUPPORTED_MEDIA_TYPE,
 
             Self::InvalidCursor
             | Self::InvalidLimit
             | Self::InvalidTimestamp
             | Self::InvalidParameter
             | Self::UnsupportedQueryParameter
-            | Self::ValidationError => StatusCode::BAD_REQUEST,
+            | Self::MalformedRequestBody => StatusCode::BAD_REQUEST,
 
             Self::UnsupportedReminderField
             | Self::EventEndBeforeStart
             | Self::ImmutableEventField
             | Self::UnsupportedAlarmKind
-            | Self::UnprocessableEntity => StatusCode::UNPROCESSABLE_ENTITY,
+            | Self::InvalidRequestBody
+            | Self::InvalidReminderPriority
+            | Self::EventkitInvalidInput
+            | Self::ContactsInvalidInput => StatusCode::UNPROCESSABLE_ENTITY,
 
             Self::ByteRangeNotSatisfiable => StatusCode::RANGE_NOT_SATISFIABLE,
 
@@ -136,12 +139,9 @@ impl ErrorCode {
             | Self::ReadOnlyContainer
             | Self::CalendarReadOnly
             | Self::EventkitAccessDenied
-            | Self::ContactsAccessDenied
-            | Self::Forbidden => StatusCode::FORBIDDEN,
+            | Self::ContactsAccessDenied => StatusCode::FORBIDDEN,
 
-            Self::AmbiguousEventKitMatch | Self::AmbiguousContactsMatch | Self::Conflict => {
-                StatusCode::CONFLICT
-            }
+            Self::AmbiguousEventKitMatch | Self::AmbiguousContactsMatch => StatusCode::CONFLICT,
 
             Self::MessagesDatabaseUnavailable
             | Self::RemindersDatabaseUnavailable
@@ -150,12 +150,12 @@ impl ErrorCode {
             | Self::ContactsDatabaseUnavailable
             | Self::EventkitUnavailable
             | Self::ContactsUnavailable
-            | Self::SqliteSyncPending
-            | Self::ServiceUnavailable => StatusCode::SERVICE_UNAVAILABLE,
+            | Self::SqliteSyncPending => StatusCode::SERVICE_UNAVAILABLE,
 
-            Self::RequestTimeout | Self::QueryTimeout | Self::GatewayTimeout => {
-                StatusCode::GATEWAY_TIMEOUT
-            }
+            Self::RequestTimeout
+            | Self::QueryTimeout
+            | Self::EventkitTimeout
+            | Self::ContactsTimeout => StatusCode::GATEWAY_TIMEOUT,
 
             Self::InternalError => StatusCode::INTERNAL_SERVER_ERROR,
         }
@@ -172,7 +172,6 @@ impl ErrorCode {
             Self::UnsupportedQueryParameter => "unsupported query parameter",
             Self::RequestTimeout => "request timed out",
             Self::QueryTimeout => "database query timed out",
-            Self::GatewayTimeout => "upstream operation timed out",
             Self::InternalError => "internal server error",
             Self::ByteRangeNotSatisfiable => "requested byte range is not satisfiable",
             Self::MessagesDatabaseUnavailable => "Messages database is unavailable",
@@ -219,12 +218,14 @@ impl ErrorCode {
             }
             Self::CalendarReadOnly => "target calendar or list is read-only",
             Self::SqliteSyncPending => "write succeeded but SQLite read path has not caught up yet",
-            Self::ValidationError => "validation error",
-            Self::ResourceNotFound => "resource not found",
-            Self::ServiceUnavailable => "service unavailable",
-            Self::Forbidden => "forbidden",
-            Self::Conflict => "conflict",
-            Self::UnprocessableEntity => "unprocessable entity",
+            Self::MalformedRequestBody => "request body is not valid JSON",
+            Self::InvalidRequestBody => "request body does not match the schema",
+            Self::UnsupportedMediaType => "request body must be application/json",
+            Self::InvalidReminderPriority => "reminder priority must be between 0 and 9",
+            Self::EventkitInvalidInput => "EventKit rejected the input",
+            Self::ContactsInvalidInput => "Contacts rejected the input",
+            Self::EventkitTimeout => "EventKit operation timed out",
+            Self::ContactsTimeout => "Contacts operation timed out",
         }
     }
 
@@ -239,7 +240,6 @@ impl ErrorCode {
             Self::UnsupportedQueryParameter => "unsupported_query_parameter",
             Self::RequestTimeout => "request_timeout",
             Self::QueryTimeout => "query_timeout",
-            Self::GatewayTimeout => "gateway_timeout",
             Self::InternalError => "internal_error",
             Self::ByteRangeNotSatisfiable => "byte_range_not_satisfiable",
             Self::MessagesDatabaseUnavailable => "messages_database_unavailable",
@@ -282,12 +282,14 @@ impl ErrorCode {
             Self::ContactsUnavailable => "contacts_unavailable",
             Self::CalendarReadOnly => "calendar_read_only",
             Self::SqliteSyncPending => "sqlite_sync_pending",
-            Self::ValidationError => "validation_error",
-            Self::ResourceNotFound => "resource_not_found",
-            Self::ServiceUnavailable => "service_unavailable",
-            Self::Forbidden => "forbidden",
-            Self::Conflict => "conflict",
-            Self::UnprocessableEntity => "unprocessable_entity",
+            Self::MalformedRequestBody => "malformed_request_body",
+            Self::InvalidRequestBody => "invalid_request_body",
+            Self::UnsupportedMediaType => "unsupported_media_type",
+            Self::InvalidReminderPriority => "invalid_reminder_priority",
+            Self::EventkitInvalidInput => "eventkit_invalid_input",
+            Self::ContactsInvalidInput => "contacts_invalid_input",
+            Self::EventkitTimeout => "eventkit_timeout",
+            Self::ContactsTimeout => "contacts_timeout",
         }
     }
 
@@ -296,7 +298,7 @@ impl ErrorCode {
         &Self::ALL
     }
 
-    const ALL: [Self; 58] = [
+    const ALL: [Self; 59] = [
         Self::RouteNotFound,
         Self::MethodNotAllowed,
         Self::InvalidCursor,
@@ -306,7 +308,6 @@ impl ErrorCode {
         Self::UnsupportedQueryParameter,
         Self::RequestTimeout,
         Self::QueryTimeout,
-        Self::GatewayTimeout,
         Self::InternalError,
         Self::ByteRangeNotSatisfiable,
         Self::MessagesDatabaseUnavailable,
@@ -349,12 +350,14 @@ impl ErrorCode {
         Self::ContactsUnavailable,
         Self::CalendarReadOnly,
         Self::SqliteSyncPending,
-        Self::ValidationError,
-        Self::ResourceNotFound,
-        Self::ServiceUnavailable,
-        Self::Forbidden,
-        Self::Conflict,
-        Self::UnprocessableEntity,
+        Self::MalformedRequestBody,
+        Self::InvalidRequestBody,
+        Self::UnsupportedMediaType,
+        Self::InvalidReminderPriority,
+        Self::EventkitInvalidInput,
+        Self::ContactsInvalidInput,
+        Self::EventkitTimeout,
+        Self::ContactsTimeout,
     ];
 }
 
@@ -384,7 +387,7 @@ mod tests {
             StatusCode::METHOD_NOT_ALLOWED
         );
         assert_eq!(
-            ErrorCode::UnprocessableEntity.http_status(),
+            ErrorCode::InvalidRequestBody.http_status(),
             StatusCode::UNPROCESSABLE_ENTITY
         );
         assert_eq!(
@@ -403,6 +406,23 @@ mod tests {
             ErrorCode::UnsupportedAlarmKind.http_status(),
             StatusCode::UNPROCESSABLE_ENTITY
         );
+    }
+
+    /// `docs/errors.md` lists every code with its default message, row for row, so the catalog
+    /// cannot drift from the enum.
+    #[test]
+    fn errors_md_lists_every_code() {
+        const ERRORS_MD: &str = include_str!("../../../../docs/errors.md");
+        let mut expected: Vec<String> = all_codes()
+            .into_iter()
+            .map(|code| format!("| `{}` | {} |", code.as_str(), code.default_message()))
+            .collect();
+        expected.sort();
+        let actual: Vec<&str> = ERRORS_MD
+            .lines()
+            .filter(|line| line.starts_with("| `"))
+            .collect();
+        assert_eq!(actual, expected);
     }
 
     #[test]

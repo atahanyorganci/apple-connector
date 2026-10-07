@@ -37,7 +37,7 @@ VALUES
     1,
     'Home',
     '#FF9500',
-    'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+    'AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAAAA',
     'local',
     0
   );

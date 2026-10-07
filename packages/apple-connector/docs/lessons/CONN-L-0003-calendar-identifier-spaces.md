@@ -8,6 +8,7 @@ provenance:
   - https://github.com/atahanyorganci/apple-connector/issues/151
   - https://github.com/atahanyorganci/apple-connector/pull/154
   - https://github.com/atahanyorganci/apple-connector/commit/555d42c
+  - https://github.com/atahanyorganci/apple-connector/issues/156
 ---
 
 # Calendar data has three identifier columns, and EventKit's lookups for events and calendars are case-sensitive while its reminder lookups are not.
@@ -48,5 +49,7 @@ semantics hold for another.
 - `packages/apple-connector/tests/eventkit_integration.rs` (ignored, live):
   `http_created_event_id_resolves_through_get`, `http_listed_event_id_works_for_patch_and_delete`.
 
-The calendar half of this lesson is not applied yet: calendar resolution still passes
-`external_id` and the lowercased id (known bug, CONN-0023).
+Both halves are applied: events since #154 and calendars since #156, which also added the
+probe's check that every calendar EventKit offers for events is addressable by its stored UUID,
+and `resolve_metadata_carries_the_stored_identifier` in
+`packages/apple-connector/src/calendar/repository.rs`.

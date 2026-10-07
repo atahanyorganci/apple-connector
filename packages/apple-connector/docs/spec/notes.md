@@ -16,7 +16,7 @@ and `ICHashtag` are read from `Z_PRIMARYKEY` at startup; a missing one stops sta
 
 ## Rows
 
-- Timestamps are Core Data seconds since 2001-01-01 UTC.
+- Timestamps are Core Data seconds since 2001-01-01 UTC; `NULL` and `0` are unset.
 - Order: `ZMODIFICATIONDATE1 DESC, Z_PK DESC`.
 - A note is deleted when `ZMARKEDFORDELETION = 1` or its folder has `ZFOLDERTYPE = 1` (Recently
   Deleted). Deleted notes are hidden unless `include_deleted=true`; the Recently Deleted folder is
@@ -31,9 +31,12 @@ and `ICHashtag` are read from `Z_PRIMARYKEY` at startup; a missing one stops sta
 - Locked notes (`is_locked`) are never decoded; neither plaintext nor ciphertext is returned
   ([CONN-0003](../decisions/CONN-0003-privacy-boundary.md)).
 - `GET /v1/notes/{id}/contents` renders Markdown with YAML front matter; locked notes and decode
-  failures have an empty body.
+  failures have an empty body. Runs are sliced in UTF-16 code units, like the decoder
+  (`runs_after_an_emoji_keep_their_text`, #174).
 - `q` matches title, snippet, and decoded body text, within the bounded scan.
-- Tables, drawings, and scans are not decoded (`apple-notes-protobuf` known bug).
+- Tables are decoded from their attachment's `ZMERGEABLEDATA1` into `body.embedded[].table`
+  (`rows`, `right_to_left`, or `decode_error`), and `/contents` renders each as a Markdown table
+  where its placeholder stands, first row as the header. Drawings and scans are not decoded.
 
 ## Attachments
 

@@ -1,10 +1,6 @@
 use std::sync::Arc;
 
-use axum::{
-    Json,
-    extract::{Path, State},
-    http::StatusCode,
-};
+use axum::{Json, extract::State, http::StatusCode};
 
 use super::health::require_reminders_db;
 use crate::{
@@ -13,10 +9,10 @@ use crate::{
         error::{ApiError, ErrorCode, ErrorResponse},
         eventkit::require_eventkit_reminders,
         eventkit_convert::{
-            create_reminder_input, map_eventkit_error, reminder_list_hint, update_reminder_input,
+            create_reminder_input, eventkit_error, reminder_list_hint, update_reminder_input,
             validate_create_reminder, validate_update_reminder,
         },
-        extract::ApiJson,
+        extract::{ApiJson, ApiPath},
         hydrate::{SyncPendingReminderDetailDto, mutation_status},
         params::{ReminderIdPath, ReminderListIdPath},
         router::AppState,
@@ -44,7 +40,7 @@ use crate::{
 )]
 pub async fn create_reminder(
     State(state): State<AppState>,
-    Path(path): Path<ReminderListIdPath>,
+    ApiPath(path): ApiPath<ReminderListIdPath>,
     ApiJson(request): ApiJson<CreateReminderRequest>,
 ) -> Result<(StatusCode, Json<SyncPendingReminderDetailDto>), ApiError> {
     validate_create_reminder(&request)?;
@@ -77,7 +73,7 @@ pub async fn create_reminder(
             create_reminder_input(request)?,
         )
         .await
-        .map_err(map_eventkit_error)?;
+        .map_err(eventkit_error(ErrorCode::ReminderListNotFound))?;
 
     let response = {
         let entity_ids = state
@@ -107,7 +103,7 @@ pub async fn create_reminder(
 )]
 pub async fn update_reminder(
     State(state): State<AppState>,
-    Path(path): Path<ReminderIdPath>,
+    ApiPath(path): ApiPath<ReminderIdPath>,
     ApiJson(request): ApiJson<UpdateReminderRequest>,
 ) -> Result<(StatusCode, Json<SyncPendingReminderDetailDto>), ApiError> {
     validate_update_reminder(&request)?;
@@ -152,7 +148,7 @@ pub async fn update_reminder(
             update_reminder_input(request, list_hint)?,
         )
         .await
-        .map_err(map_eventkit_error)?;
+        .map_err(eventkit_error(ErrorCode::ReminderNotFound))?;
 
     let response = {
         let entity_ids = state
@@ -182,7 +178,7 @@ pub async fn update_reminder(
 )]
 pub async fn delete_reminder(
     State(state): State<AppState>,
-    Path(path): Path<ReminderIdPath>,
+    ApiPath(path): ApiPath<ReminderIdPath>,
 ) -> Result<StatusCode, ApiError> {
     let pool = require_reminders_db(&state.reminders_db)?;
 
@@ -203,7 +199,7 @@ pub async fn delete_reminder(
     eventkit
         .delete_reminder(reminder_id.as_str(), external_id.as_deref())
         .await
-        .map_err(map_eventkit_error)?;
+        .map_err(eventkit_error(ErrorCode::ReminderNotFound))?;
 
     Ok(StatusCode::NO_CONTENT)
 }

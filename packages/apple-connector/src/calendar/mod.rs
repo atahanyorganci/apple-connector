@@ -22,4 +22,5 @@ pub use model::{
 pub use repository::{
     CalendarRepository, CalendarResolveMetadata, EventKitIdentifiers, Page, unix_to_core_data_secs,
 };
+pub(crate) use schema::detect_schema_variant;
 pub use search::{EventFilters, EventFiltersSnapshot};
