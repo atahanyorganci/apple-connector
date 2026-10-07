@@ -257,4 +257,37 @@ mod tests {
         assert_eq!(contacts.body().code, ErrorCode::AmbiguousContactsMatch);
         assert_eq!(contacts.body().message, "two matches");
     }
+
+    /// `apple-contacts` puts `NSError.localizedDescription` into `ValidationFailed`; the mapper
+    /// must not hand that framework text to clients.
+    #[test]
+    #[ignore = "bug: framework validation text reaches the 422 message (SPEC.md, Known bugs)"]
+    fn framework_validation_text_is_not_returned_to_clients() {
+        let framework_text = "The operation couldn’t be completed. (CNErrorDomain error 300.)";
+        let error = map_contacts_error(ContactsError::ValidationFailed(framework_text.into()));
+        assert_ne!(error.body().message, framework_text);
+    }
+
+    /// #130 removed the coarse, HTTP-aligned codes; a framework miss should answer with a
+    /// granular code, not `resource_not_found`.
+    #[test]
+    #[ignore = "bug: coarse error codes are still emitted (SPEC.md, Known bugs)"]
+    fn framework_errors_map_to_granular_codes() {
+        for error in [
+            ContactsError::NotFound,
+            ContactsError::ValidationFailed(String::new()),
+            ContactsError::Timeout,
+        ] {
+            let code = map_contacts_error(error).body().code;
+            assert!(
+                !matches!(
+                    code,
+                    ErrorCode::ResourceNotFound
+                        | ErrorCode::UnprocessableEntity
+                        | ErrorCode::GatewayTimeout
+                ),
+                "coarse code {code:?}"
+            );
+        }
+    }
 }

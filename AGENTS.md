@@ -15,6 +15,7 @@ Rust monorepo exposing a **hybrid HTTP API** over Apple Messages, Reminders, Not
 | `serde-carddav`        | `packages/serde-carddav/`        | RFC 6352 CardDAV XML serializer/deserializer                       |
 | `serde-caldav`         | `packages/serde-caldav/`         | CalDAV XML serializer/deserializer                                 |
 | `serde-icalendar`      | `packages/serde-icalendar/`      | iCalendar serializer/deserializer                                  |
+| `raycast-extension`    | `packages/raycast-extension/`    | Raycast extension (TypeScript, pnpm) with a generated API client   |
 
 Domain code lives under `packages/apple-connector/src/{messages,reminders,notes,calendar,contacts,api}/`. Offline SQLx metadata: `packages/apple-connector/sqlx/`. Fixtures: `packages/apple-connector/fixtures/`.
 
@@ -61,4 +62,12 @@ Requires **Apple Silicon macOS**, **Full Disk Access** (SQLite reads), **Reminde
 
 ## Planning
 
-Primary source of truth is issues. For multiphase work, create one issue per phase; the parent issue lists child issues as subtasks.
+Decision records, lessons, and specs are the authoritative record of what the code does and why:
+
+- Decisions: `docs/decisions/` and `packages/<crate>/docs/decisions/`
+- Lessons: `docs/lessons/` and `packages/<crate>/docs/lessons/`
+- Specs: `packages/<crate>/docs/SPEC.md` and `packages/<crate>/docs/spec/`
+
+When an issue, PR, or comment disagrees with them, the records win. A PR that changes behavior updates the affected records in the same PR.
+
+GitHub issues and PRs track progress only: what is planned, in flight, and left to do. For multiphase work, create one issue per phase; the parent issue lists child issues as subtasks. Anything an issue or PR settles (a decision, a lesson, a contract change) lands in a record before merge, and the issue links to it.
