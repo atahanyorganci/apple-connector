@@ -70,4 +70,4 @@ Decision records, lessons, and specs are the authoritative record of what the co
 
 When an issue, PR, or comment disagrees with them, the records win. A PR that changes behavior updates the affected records in the same PR.
 
-GitHub issues and PRs track progress only: what is planned, in flight, and left to do. For multiphase work, create one issue per phase; the parent issue lists child issues as subtasks. Anything an issue or PR settles (a decision, a lesson, a contract change) lands in a record before merge, and the issue links to it.
+GitHub issues and PRs track progress only: what is planned, in flight, and left to do. For multiphase work, create one issue per phase; the parent issue lists child issues as subtasks. Anything an issue or PR settles (a decision, a lesson, a contract change) lands in a record before merge, and the issue links to it. Always add `Closes #ISSUE` to the PR description so that the issue is automatically closed when the PR is merged.
