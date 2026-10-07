@@ -256,10 +256,11 @@ A matching Notes schema and seeded fixture live in
 bash scripts/sqlx-prepare-all.sh
 ```
 
-The prepare script runs once per domain fixture (Messages, Reminders, Notes,
-Calendar, Contacts) and merges query metadata into `packages/apple-connector/sqlx/`.
-Apple's five SQLite schemas cannot share one database, so offline verification
-uses sequential passes with a growing cache (`SQLX_OFFLINE=true`).
+Run the prepare script inside `nix develop`. Apple's five SQLite schemas cannot
+share one database, so it rebuilds the cache from scratch with one `sqlx prepare`
+pass per domain fixture (Messages, Reminders, Notes, Calendar, Contacts), checks an
+offline build against the result, and only then replaces
+`packages/apple-connector/sqlx/`. Any failure leaves the committed cache untouched.
 
 Commit the updated `packages/apple-connector/sqlx/` directory. Nix builds use
 `SQLX_OFFLINE=true` with `SQLX_OFFLINE_DIR=packages/apple-connector/sqlx` and do
