@@ -1,6 +1,6 @@
 ---
 name: lesson
-description: Lesson is a post-mortem record of unexpected behavior, a bug, or undocumented dependency behavior (most often Apple SQLite schemas or EventKit/Contacts framework quirks): knowledge that can only be learned by experience. After solving a difficult problem, write a lesson to capture the knowledge.
+description: "Lesson is a post-mortem record of unexpected behavior, a bug, or undocumented dependency behavior (most often Apple SQLite schemas or EventKit/Contacts framework quirks): knowledge that can only be learned by experience. After solving a difficult problem, write a lesson to capture the knowledge."
 ---
 
 # /lesson

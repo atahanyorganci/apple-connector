@@ -1,6 +1,6 @@
 ---
 name: spec
-description: Spec is a living document at `packages/<crate>/docs/SPEC.md` that describes the contract between a crate (codec, framework wrapper, or application) and its users: public API, guarantees with the tests that enforce them, limits, and platform requirements.
+description: "Spec is a living document at `packages/<crate>/docs/SPEC.md` that describes the contract between a crate (codec, framework wrapper, or application) and its users: public API, guarantees with the tests that enforce them, limits, and platform requirements."
 ---
 
 # /spec
